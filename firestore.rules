@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Check if the user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: Get the user's role from their document
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Helper: Check if user has a specific role
+    function hasRole(role) {
+      return isAuth() && getUserRole() == role;
+    }
+
+    // Helper: Check if user is an administrator
+    function isAdmin() {
+      return hasRole('Administrator');
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Clinics collection
+    match /clinics/{clinicId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Patients collection
+    match /patients/{patientId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (hasRole('Doctor') || isAdmin());
+      allow update: if isAdmin() || hasRole('Radiology Department');
+      allow delete: if isAdmin();
+    }
+
+    // Cases collection
+    match /cases/{caseId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (hasRole('Doctor') || hasRole('Radiology Department') || isAdmin());
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
+    // Reports collection
+    match /reports/{reportId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (hasRole('Radiologist') || isAdmin());
+      // Reports are locked after sign-off — only admin can modify
+      allow update: if isAdmin() || (hasRole('Radiologist') && resource.data.status == 'draft');
+      allow delete: if isAdmin();
+    }
+
+    // Patient requests collection
+    match /patient_requests/{requestId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && hasRole('Doctor');
+      allow update: if isAdmin() || hasRole('Radiology Department');
+      allow delete: if isAdmin();
+    }
+
+    // Audit logs — write-once, read by admin only
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      // NEVER allow update or delete — immutable audit trail
+      allow update, delete: if false;
+    }
+
+    // Mobile PACS vans (equipment)
+    match /mobile_pacs_vans/{vanId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Radiographer schedules
+    match /radio_schedules/{scheduleId} {
+      allow read: if isAuth();
+      allow create, update: if isAdmin() || hasRole('Radiology Department');
+      allow delete: if isAdmin();
+    }
+  }
+}

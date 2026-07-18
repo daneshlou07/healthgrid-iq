@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #F7F9FC;
+    color: #1A202C;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbar — subtle, enterprise style */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #D0D7E3;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9BA5B7;
+  }
+}
+
+@layer components {
+
+  /* === BUTTONS === */
+  .btn-primary {
+    @apply bg-navy-600 hover:bg-navy-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-navy-300 focus:ring-offset-2 text-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-white hover:bg-surface-100 text-navy-600 font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 border border-surface-300 text-sm;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
+  }
+
+  .btn-success {
+    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
+  }
+
+  .btn-ghost {
+    @apply text-navy-600 hover:bg-surface-200 font-medium px-4 py-2 rounded-lg transition-colors duration-150 text-sm;
+  }
+
+  .btn-success {
+    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
+  }
+
+  .btn-ghost {
+    @apply text-navy-600 hover:bg-surface-200 font-medium px-4 py-2 rounded-lg transition-colors duration-150 text-sm;
+  }
+
+  /* === CARDS === */
+  .card {
+    @apply bg-white border border-surface-300 rounded-xl p-6 shadow-card;
+  }
+
+  .card-hover {
+    @apply card hover:shadow-card-hover hover:border-surface-400 transition-all duration-150;
+  }
+
+  /* === INPUTS === */
+  .input-field {
+    @apply w-full bg-white border border-surface-300 rounded-lg px-4 py-2.5 text-surface-900 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-400 transition-all duration-150 text-sm;
+  }
+
+  .select-field {
+    @apply w-full bg-white border border-surface-300 rounded-lg px-4 py-2.5 text-surface-900 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-400 transition-all duration-150 text-sm;
+  }
+
+  /* === BADGES === */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-50 text-amber-700 border border-amber-200;
+  }
+
+  .badge-info {
+    @apply badge bg-blue-50 text-blue-700 border border-blue-200;
+  }
+
+  .badge-error {
+    @apply badge bg-red-50 text-red-700 border border-red-200;
+  }
+
+  .badge-neutral {
+    @apply badge bg-surface-100 text-surface-600 border border-surface-300;
+  }
+
+  .badge-purple {
+    @apply badge bg-purple-50 text-purple-600 border border-purple-200;
+  }
+
+  /* === TABLE === */
+  .table-header {
+    @apply px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider bg-surface-100;
+  }
+
+  .table-cell {
+    @apply px-4 py-3.5 text-sm text-surface-800;
+  }
+
+  /* === PAGE LAYOUT === */
+  .page-title {
+    @apply text-2xl font-bold text-navy-800;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-surface-500 mt-1;
+  }
+
+  .section-title {
+    @apply text-base font-semibold text-navy-700;
+  }
+}
+
+/* === RESPONSIVE === */
+@layer utilities {
+
+  /* Touch-friendly targets on mobile */
+  @media (max-width: 768px) {
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .btn-success,
+    .btn-ghost {
+      @apply min-h-[44px];
+    }
+
+    .input-field,
+    .select-field {
+      @apply min-h-[44px] text-base;
+    }
+
+    .table-cell {
+      @apply py-3 px-3 text-xs;
+    }
+
+    .table-header {
+      @apply py-2.5 px-3 text-[10px];
+    }
+  }
+}
