@@ -12,6 +12,9 @@ import type { User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, Mob
 
 // --- LocalStorage Persistence Layer ---
 const STORAGE_KEY = 'healthgrid_data';
+// Bump this version whenever seed data changes (e.g. new demo images).
+// Any cached data from a previous version will be discarded and reloaded from mock.
+const STORAGE_VERSION = '2'; // v2: real X-ray images seeded per demo report
 
 interface PersistedData {
   users: User[];
@@ -29,16 +32,16 @@ function loadFromStorage(): PersistedData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as PersistedData;
-    // Validate basic structure
-    if (data.cases && data.patients && data.lastUpdated) return data;
+    const data = JSON.parse(raw) as PersistedData & { version?: string };
+    // Validate basic structure AND version — discard stale cache on version mismatch
+    if (data.cases && data.patients && data.lastUpdated && data.version === STORAGE_VERSION) return data;
     return null;
   } catch { return null; }
 }
 
 function saveToStorage(data: Omit<PersistedData, 'lastUpdated'>) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, lastUpdated: new Date().toISOString() }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, lastUpdated: new Date().toISOString(), version: STORAGE_VERSION }));
   } catch { /* Storage full or unavailable — fail silently */ }
 }
 

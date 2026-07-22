@@ -1,4 +1,5 @@
 import { User, Clinic, Patient, Case, Report, PatientRequest, AuditLog, MobilePacsVan, RadioScheduleProfile } from '../types';
+import { DEMO_IMG_KEYS } from './demoImageSeed';
 
 export const mockUsers: User[] = [
   {
@@ -772,7 +773,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-10T08:00:00Z', scheduledAt: '2026-06-11T09:00:00Z',
     scannedAt: '2026-06-11T09:30:00Z', reportedAt: '2026-06-11T13:00:00Z',
-    finalizedAt: '2026-06-11T14:00:00Z', images: [],
+    finalizedAt: '2026-06-11T14:00:00Z', images: [DEMO_IMG_KEYS.CT_ABDOMEN_PELVIS],
   },
   {
     id: 'demo-case-002', caseNumber: 'HG-DEMO-0002',
@@ -787,7 +788,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-12T08:00:00Z', scheduledAt: '2026-06-13T10:00:00Z',
     scannedAt: '2026-06-13T10:30:00Z', reportedAt: '2026-06-13T14:00:00Z',
-    finalizedAt: '2026-06-13T15:00:00Z', images: [],
+    finalizedAt: '2026-06-13T15:00:00Z', images: [DEMO_IMG_KEYS.CT_ABDOMEN_LIVER],
   },
   {
     id: 'demo-case-003', caseNumber: 'HG-DEMO-0003',
@@ -802,7 +803,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-14T08:00:00Z', scheduledAt: '2026-06-14T11:00:00Z',
     scannedAt: '2026-06-14T11:30:00Z', reportedAt: '2026-06-14T14:00:00Z',
-    finalizedAt: '2026-06-14T15:00:00Z', images: [],
+    finalizedAt: '2026-06-14T15:00:00Z', images: [DEMO_IMG_KEYS.CHEST_XRAY_RIB],
   },
   {
     id: 'demo-case-004', caseNumber: 'HG-DEMO-0004',
@@ -817,7 +818,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-15T08:00:00Z', scheduledAt: '2026-06-15T09:00:00Z',
     scannedAt: '2026-06-15T09:30:00Z', reportedAt: '2026-06-15T13:00:00Z',
-    finalizedAt: '2026-06-15T14:00:00Z', images: [],
+    finalizedAt: '2026-06-15T14:00:00Z', images: [DEMO_IMG_KEYS.CT_BRAIN_STROKE],
   },
   {
     id: 'demo-case-005', caseNumber: 'HG-DEMO-0005',
@@ -832,7 +833,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-16T08:00:00Z', scheduledAt: '2026-06-17T10:00:00Z',
     scannedAt: '2026-06-17T10:30:00Z', reportedAt: '2026-06-17T13:30:00Z',
-    finalizedAt: '2026-06-17T14:30:00Z', images: [],
+    finalizedAt: '2026-06-17T14:30:00Z', images: [DEMO_IMG_KEYS.CT_PARANASAL_SINUS],
   },
   {
     id: 'demo-case-006', caseNumber: 'HG-DEMO-0006',
@@ -847,7 +848,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-18T08:00:00Z', scheduledAt: '2026-06-18T11:00:00Z',
     scannedAt: '2026-06-18T11:30:00Z', reportedAt: '2026-06-18T14:00:00Z',
-    finalizedAt: '2026-06-18T15:00:00Z', images: [],
+    finalizedAt: '2026-06-18T15:00:00Z', images: [DEMO_IMG_KEYS.SPINE_XRAY_TRAUMA],
   },
   {
     id: 'demo-case-007', caseNumber: 'HG-DEMO-0007',
@@ -862,7 +863,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-19T08:00:00Z', scheduledAt: '2026-06-20T09:00:00Z',
     scannedAt: '2026-06-20T09:30:00Z', reportedAt: '2026-06-20T13:00:00Z',
-    finalizedAt: '2026-06-20T14:00:00Z', images: [],
+    finalizedAt: '2026-06-20T14:00:00Z', images: [DEMO_IMG_KEYS.MRI_CERVICAL_SPINE],
   },
   {
     id: 'demo-case-008', caseNumber: 'HG-DEMO-0008',
@@ -877,7 +878,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-21T08:00:00Z', scheduledAt: '2026-06-21T10:00:00Z',
     scannedAt: '2026-06-21T10:30:00Z', reportedAt: '2026-06-21T13:00:00Z',
-    finalizedAt: '2026-06-21T14:00:00Z', images: [],
+    finalizedAt: '2026-06-21T14:00:00Z', images: [DEMO_IMG_KEYS.SPINE_XRAY_TRAUMA_2],
   },
   {
     id: 'demo-case-009', caseNumber: 'HG-DEMO-0009',
@@ -892,7 +893,7 @@ export const mockDemoCases: Case[] = [
     status: 'FINALIZED',
     createdAt: '2026-06-22T08:00:00Z', scheduledAt: '2026-06-23T09:00:00Z',
     scannedAt: '2026-06-23T09:30:00Z', reportedAt: '2026-06-23T13:00:00Z',
-    finalizedAt: '2026-06-23T14:00:00Z', images: [],
+    finalizedAt: '2026-06-23T14:00:00Z', images: [DEMO_IMG_KEYS.MRI_SPINAL_STENOSIS],
   },
 ];
 
@@ -926,7 +927,7 @@ export const mockReports: Report[] = [
     suggestions: 'No immediate intervention required. Routine clinical surveillance and monitoring of renal function. CT urography or renal ultrasound if symptoms of obstruction, infection, or urolithiasis develop.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-11T13:00:00Z', signedAt: '2026-06-11T14:00:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.CT_ABDOMEN_PELVIS],
   },
   {
     id: 'report-demo-002',
@@ -937,7 +938,7 @@ export const mockReports: Report[] = [
     suggestions: 'No immediate intervention required (absence of acute symptoms). Surveillance imaging in 6–12 months to confirm stability. MRI abdomen with contrast for definitive characterisation if surgical intervention planned.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-13T14:00:00Z', signedAt: '2026-06-13T15:00:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.CT_ABDOMEN_LIVER],
   },
   {
     id: 'report-demo-003',
@@ -948,7 +949,7 @@ export const mockReports: Report[] = [
     suggestions: 'Monitor clinical status and chest tube drainage output. Repeat chest radiograph post-clamping or if clinical status deteriorates. Chest CT if pneumothorax fails to resolve or tube malposition suspected. Confirm chest tube securement.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-14T14:00:00Z', signedAt: '2026-06-14T15:00:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.CHEST_XRAY_RIB],
   },
   {
     id: 'report-demo-004',
@@ -959,7 +960,7 @@ export const mockReports: Report[] = [
     suggestions: 'Immediate neurology consult / stroke team activation. CT head without contrast in 24 hours or with any neurological change. CT angiogram of head and neck to evaluate vascular patency.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-15T13:00:00Z', signedAt: '2026-06-15T14:00:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.CT_BRAIN_STROKE],
   },
   {
     id: 'report-demo-005',
@@ -970,7 +971,7 @@ export const mockReports: Report[] = [
     suggestions: 'Ophthalmology consultation for formal eye examination including assessment for diplopia, EOM restriction, and globe integrity. Avoid nose blowing. Surgical orbital floor reconstruction if clinical entrapment, persistent diplopia, or enophthalmos >2 mm confirmed.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-17T13:30:00Z', signedAt: '2026-06-17T14:30:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.CT_PARANASAL_SINUS],
   },
   {
     id: 'report-demo-006',
@@ -981,7 +982,7 @@ export const mockReports: Report[] = [
     suggestions: 'No immediate action required. Clinical monitoring of tracheostomy site and airway patency. CT cervical spine if high clinical suspicion of occult trauma or ligamentous injury.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-18T14:00:00Z', signedAt: '2026-06-18T15:00:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.SPINE_XRAY_TRAUMA],
   },
   {
     id: 'report-demo-007',
@@ -992,7 +993,7 @@ export const mockReports: Report[] = [
     suggestions: 'No immediate action unless acute neurological deterioration present. Clinical correlation with upper extremity sensory and motor examination. Contrast-enhanced MRI brain, cervical, and thoracic spine to rule out neoplastic aetiology or subtle Chiari malformation.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-20T13:00:00Z', signedAt: '2026-06-20T14:00:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.MRI_CERVICAL_SPINE],
   },
   {
     id: 'report-demo-008',
@@ -1003,7 +1004,7 @@ export const mockReports: Report[] = [
     suggestions: 'Minimal degenerative changes only. No acute injury identified. If neurological symptoms persist, consider additional projections or MRI for complete evaluation.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-21T13:00:00Z', signedAt: '2026-06-21T14:00:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.SPINE_XRAY_TRAUMA_2],
   },
   {
     id: 'report-demo-009',
@@ -1014,7 +1015,7 @@ export const mockReports: Report[] = [
     suggestions: 'Urgent neurosurgical or spine surgery consultation for evaluation of decompressive surgery. Detailed neurological exam for upper motor neuron signs. CT scan for preoperative bony planning. Cervical MRI with contrast if demyelinating/neoplastic process clinically suspected.',
     status: 'Verified / Signed Off',
     createdAt: '2026-06-23T13:00:00Z', signedAt: '2026-06-23T14:00:00Z',
-    imageKeys: ['demo-img-001'],
+    imageKeys: [DEMO_IMG_KEYS.MRI_SPINAL_STENOSIS],
   },
 ];
 
