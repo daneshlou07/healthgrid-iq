@@ -13,12 +13,11 @@ import LoginPage from './pages/LoginPage';
 import DashboardRouter from './pages/DashboardRouter';
 
 // Lazy-loaded pages (code splitting per workspace)
-const PatientsList = lazy(() => import('./pages/doctor/PatientsList'));
-const PatientRegistration = lazy(() => import('./pages/doctor/PatientRegistration'));
-const DoctorCases = lazy(() => import('./pages/doctor/DoctorCases'));
-const NewCaseReferral = lazy(() => import('./pages/doctor/NewCaseReferral'));
-const DoctorReports = lazy(() => import('./pages/doctor/DoctorReports'));
-const PatientRequests = lazy(() => import('./pages/doctor/PatientRequests'));
+const PatientsList = lazy(() => import('./pages/department/PatientsList'));
+const PatientRegistration = lazy(() => import('./pages/department/PatientRegistration'));
+const NewCaseRegistration = lazy(() => import('./pages/department/NewCaseRegistration'));
+const DepartmentReports = lazy(() => import('./pages/department/DepartmentReports'));
+const PatientRequests = lazy(() => import('./pages/department/PatientRequests'));
 const ScanQueue = lazy(() => import('./pages/radiographer/ScanQueue'));
 const ScheduleView = lazy(() => import('./pages/radiographer/ScheduleView'));
 const UploadScans = lazy(() => import('./pages/radiographer/UploadScans'));
@@ -79,13 +78,13 @@ function AppRoutes() {
         <Route path="/case/:caseId" element={<CaseDetail />} />
         <Route path="/patient/:patientId" element={<PatientDetail />} />
 
-        {/* Doctor routes */}
-        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Doctor']}><PatientsList /></ProtectedRoute>} />
-        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Doctor']}><PatientRegistration /></ProtectedRoute>} />
-        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Doctor', 'Radiology Department', 'Administrator']}><DoctorCases /></ProtectedRoute>} />
-        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Doctor', 'Radiology Department']}><NewCaseReferral /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Doctor', 'Radiologist']}><DoctorReports /></ProtectedRoute>} />
-        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Doctor']}><PatientRequests /></ProtectedRoute>} />
+        {/* Radiology Department registration and case-management routes */}
+        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientsList /></ProtectedRoute>} />
+        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientRegistration /></ProtectedRoute>} />
+        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Administrator']}><AllCases /></ProtectedRoute>} />
+        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department']}><NewCaseRegistration /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Radiologist']}><DepartmentReports /></ProtectedRoute>} />
+        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientRequests /></ProtectedRoute>} />
 
         {/* Radiographer routes */}
         <Route path="/scan-queue" element={<ProtectedRoute allowedRoles={['Radiographer']}><ScanQueue /></ProtectedRoute>} />

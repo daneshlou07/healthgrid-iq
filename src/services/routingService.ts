@@ -61,6 +61,7 @@ function generateSimulatedPolyline(
 /**
  * Try to fetch route from OSRM public demo server.
  * Falls back to Haversine + simulated polyline if unavailable.
+ * Optimized: 2s timeout, race condition with fallback for instant response.
  */
 export async function getRoute(
   fromLat: number,
@@ -68,38 +69,47 @@ export async function getRoute(
   toLat: number,
   toLon: number
 ): Promise<RouteInfo> {
-  try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
-    const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-        const coords: [number, number][] = route.geometry.coordinates.map(
-          ([lon, lat]: [number, number]) => [lat, lon] as [number, number]
-        );
-        return {
-          distanceKm: Math.round((route.distance / 1000) * 10) / 10,
-          durationMinutes: Math.round(route.duration / 60),
-          polylineCoords: coords,
-        };
-      }
-    }
-  } catch {
-    // OSRM unavailable, fall through to fallback
-  }
-
-  // Fallback: Haversine distance + estimated time + simulated polyline
+  // Prepare fallback immediately (sync, instant)
   const distance = haversineDistance(fromLat, fromLon, toLat, toLon);
-  const roadFactor = 1.3; // Roads are ~30% longer than straight line
+  const roadFactor = 1.3;
   const adjustedDistance = Math.round(distance * roadFactor * 10) / 10;
-
-  return {
+  const fallback: RouteInfo = {
     distanceKm: adjustedDistance,
     durationMinutes: estimateDriveTime(adjustedDistance),
     polylineCoords: generateSimulatedPolyline(fromLat, fromLon, toLat, toLon),
   };
+
+  // Race OSRM against 2-second timeout — whichever finishes first wins
+  try {
+    const osrmPromise = (async () => {
+      const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const coords: [number, number][] = route.geometry.coordinates.map(
+            ([lon, lat]: [number, number]) => [lat, lon] as [number, number]
+          );
+          return {
+            distanceKm: Math.round((route.distance / 1000) * 10) / 10,
+            durationMinutes: Math.round(route.duration / 60),
+            polylineCoords: coords,
+          };
+        }
+      }
+      throw new Error('OSRM response invalid');
+    })();
+
+    const timeoutPromise = new Promise<RouteInfo>((resolve) =>
+      setTimeout(() => resolve(fallback), 2000)
+    );
+
+    return await Promise.race([osrmPromise, timeoutPromise]);
+  } catch {
+    return fallback;
+  }
 }
 
 /**
@@ -129,67 +139,78 @@ export function findNearestClinic(
 /**
  * Geocode a Malaysian address to approximate lat/lng.
  * Uses Nominatim (OpenStreetMap) with fallback to keyword-based estimation.
+ * Optimized: 2s timeout, races against fallback for instant response.
  */
 export async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
-  // Try Nominatim first
-  try {
-    const encoded = encodeURIComponent(address + ', Malaysia');
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=1&countrycodes=my`;
-    const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (response.ok) {
-      const data = await response.json();
-      if (data.length > 0) {
-        return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+  // Prepare keyword fallback immediately (sync, instant)
+  const getFallback = (): { lat: number; lon: number } => {
+    const lower = address.toLowerCase();
+    const locations: { keywords: string[]; lat: number; lon: number }[] = [
+      { keywords: ['tanjong karang', 'tanjung karang'], lat: 3.4242, lon: 101.1824 },
+      { keywords: ['jeram'], lat: 3.2072, lon: 101.4633 },
+      { keywords: ['batang berjuntai', 'ijok', 'bestari jaya'], lat: 3.3636, lon: 101.3843 },
+      { keywords: ['putrajaya'], lat: 2.9264, lon: 101.6964 },
+      { keywords: ['cyberjaya'], lat: 2.9213, lon: 101.6559 },
+      { keywords: ['bangi', 'bandar baru bangi'], lat: 2.9469, lon: 101.7636 },
+      { keywords: ['puchong'], lat: 3.0004, lon: 101.6168 },
+      { keywords: ['kajang'], lat: 2.9927, lon: 101.7909 },
+      { keywords: ['subang', 'subang jaya'], lat: 3.0565, lon: 101.5852 },
+      { keywords: ['petaling jaya', 'pj'], lat: 3.1073, lon: 101.6067 },
+      { keywords: ['shah alam'], lat: 3.0738, lon: 101.5183 },
+      { keywords: ['kuala lumpur', 'kl'], lat: 3.1390, lon: 101.6869 },
+      { keywords: ['ampang'], lat: 3.1500, lon: 101.7667 },
+      { keywords: ['cheras'], lat: 3.1073, lon: 101.7514 },
+      { keywords: ['klang'], lat: 3.0449, lon: 101.4455 },
+      { keywords: ['rawang'], lat: 3.3213, lon: 101.5767 },
+      { keywords: ['seremban'], lat: 2.7258, lon: 101.9424 },
+      { keywords: ['nilai'], lat: 2.8174, lon: 101.7987 },
+      { keywords: ['sepang'], lat: 2.6874, lon: 101.7412 },
+      { keywords: ['serdang'], lat: 3.0222, lon: 101.7131 },
+      { keywords: ['semenyih'], lat: 2.9513, lon: 101.8421 },
+      { keywords: ['dengkil'], lat: 2.8577, lon: 101.6819 },
+      { keywords: ['banting'], lat: 2.8134, lon: 101.5024 },
+      { keywords: ['selangor'], lat: 3.0738, lon: 101.5183 },
+      { keywords: ['johor', 'johor bahru', 'jb'], lat: 1.4927, lon: 103.7414 },
+      { keywords: ['penang', 'pulau pinang', 'georgetown'], lat: 5.4141, lon: 100.3288 },
+      { keywords: ['ipoh', 'perak'], lat: 4.5975, lon: 101.0901 },
+      { keywords: ['melaka', 'malacca'], lat: 2.1896, lon: 102.2501 },
+      { keywords: ['kota kinabalu', 'sabah'], lat: 5.9804, lon: 116.0735 },
+      { keywords: ['kuching', 'sarawak'], lat: 1.5535, lon: 110.3593 },
+    ];
+
+    for (const loc of locations) {
+      if (loc.keywords.some((kw) => lower.includes(kw))) {
+        const jitter = () => (Math.random() - 0.5) * 0.01;
+        return { lat: loc.lat + jitter(), lon: loc.lon + jitter() };
       }
     }
+
+    // Default: central Selangor
+    const jitter = () => (Math.random() - 0.5) * 0.05;
+    return { lat: 3.0 + jitter(), lon: 101.65 + jitter() };
+  };
+
+  // Race Nominatim against 2-second fallback
+  try {
+    const nominatimPromise = (async () => {
+      const encoded = encodeURIComponent(address + ', Malaysia');
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=1&countrycodes=my`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.length > 0) {
+          return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+        }
+      }
+      throw new Error('Nominatim failed');
+    })();
+
+    const fallbackPromise = new Promise<{ lat: number; lon: number }>((resolve) =>
+      setTimeout(() => resolve(getFallback()), 2000)
+    );
+
+    return await Promise.race([nominatimPromise, fallbackPromise]);
   } catch {
-    // Nominatim unavailable, fall through to keyword fallback
+    return getFallback();
   }
-
-  // Keyword-based fallback for common Malaysian locations
-  const lower = address.toLowerCase();
-  const locations: { keywords: string[]; lat: number; lon: number }[] = [
-    { keywords: ['tanjong karang', 'tanjung karang'], lat: 3.4242, lon: 101.1824 },
-    { keywords: ['jeram'], lat: 3.2072, lon: 101.4633 },
-    { keywords: ['batang berjuntai', 'ijok', 'bestari jaya'], lat: 3.3636, lon: 101.3843 },
-    { keywords: ['putrajaya'], lat: 2.9264, lon: 101.6964 },
-    { keywords: ['cyberjaya'], lat: 2.9213, lon: 101.6559 },
-    { keywords: ['bangi', 'bandar baru bangi'], lat: 2.9469, lon: 101.7636 },
-    { keywords: ['puchong'], lat: 3.0004, lon: 101.6168 },
-    { keywords: ['kajang'], lat: 2.9927, lon: 101.7909 },
-    { keywords: ['subang', 'subang jaya'], lat: 3.0565, lon: 101.5852 },
-    { keywords: ['petaling jaya', 'pj'], lat: 3.1073, lon: 101.6067 },
-    { keywords: ['shah alam'], lat: 3.0738, lon: 101.5183 },
-    { keywords: ['kuala lumpur', 'kl'], lat: 3.1390, lon: 101.6869 },
-    { keywords: ['ampang'], lat: 3.1500, lon: 101.7667 },
-    { keywords: ['cheras'], lat: 3.1073, lon: 101.7514 },
-    { keywords: ['klang'], lat: 3.0449, lon: 101.4455 },
-    { keywords: ['rawang'], lat: 3.3213, lon: 101.5767 },
-    { keywords: ['seremban'], lat: 2.7258, lon: 101.9424 },
-    { keywords: ['nilai'], lat: 2.8174, lon: 101.7987 },
-    { keywords: ['sepang'], lat: 2.6874, lon: 101.7412 },
-    { keywords: ['serdang'], lat: 3.0222, lon: 101.7131 },
-    { keywords: ['semenyih'], lat: 2.9513, lon: 101.8421 },
-    { keywords: ['dengkil'], lat: 2.8577, lon: 101.6819 },
-    { keywords: ['banting'], lat: 2.8134, lon: 101.5024 },
-    { keywords: ['selangor'], lat: 3.0738, lon: 101.5183 },
-    { keywords: ['johor', 'johor bahru', 'jb'], lat: 1.4927, lon: 103.7414 },
-    { keywords: ['penang', 'pulau pinang', 'georgetown'], lat: 5.4141, lon: 100.3288 },
-    { keywords: ['ipoh', 'perak'], lat: 4.5975, lon: 101.0901 },
-    { keywords: ['melaka', 'malacca'], lat: 2.1896, lon: 102.2501 },
-    { keywords: ['kota kinabalu', 'sabah'], lat: 5.9804, lon: 116.0735 },
-    { keywords: ['kuching', 'sarawak'], lat: 1.5535, lon: 110.3593 },
-  ];
-
-  for (const loc of locations) {
-    if (loc.keywords.some((kw) => lower.includes(kw))) {
-      // Add small random offset to avoid exact overlap
-      const jitter = () => (Math.random() - 0.5) * 0.01;
-      return { lat: loc.lat + jitter(), lon: loc.lon + jitter() };
-    }
-  }
-
-  // Last resort: default to central Selangor area with random offset
-  const jitter = () => (Math.random() - 0.5) * 0.05;
-  return { lat: 3.0 + jitter(), lon: 101.65 + jitter() };
 }

@@ -5,6 +5,7 @@ import SeverityBadge from '../../components/ui/SeverityBadge';
 import TabFilter from '../../components/ui/TabFilter';
 import { Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getCaseIndication } from '../../utils/caseDisplay';
 
 const TABS = ['All', 'Pending', 'Scheduled', 'In Progress', 'Imaging Completed', 'Report Pending', 'Report Ready'];
 const TAB_STATUS_MAP: Record<string, string | undefined> = {
@@ -21,7 +22,7 @@ export default function AllCases() {
     const statusMatch = activeTab === 'All' || c.status === TAB_STATUS_MAP[activeTab];
     const searchMatch = !search || c.caseNumber.toLowerCase().includes(search.toLowerCase()) ||
       c.patientName.toLowerCase().includes(search.toLowerCase()) ||
-      (c.disease || '').toLowerCase().includes(search.toLowerCase());
+      getCaseIndication(c).toLowerCase().includes(search.toLowerCase());
     return statusMatch && searchMatch;
   });
 
@@ -39,7 +40,7 @@ export default function AllCases() {
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-        <input type="text" placeholder="Search by case #, patient name, or disease..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-field pl-10" />
+        <input type="text" placeholder="Search by case #, patient name, or symptom..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-field pl-10" />
       </div>
 
       <div className="card p-0 overflow-hidden">
@@ -49,7 +50,7 @@ export default function AllCases() {
               <tr className="border-b border-surface-200">
                 <th className="table-header">Case #</th>
                 <th className="table-header">Patient</th>
-                <th className="table-header">Disease</th>
+                <th className="table-header">Indication / Symptom</th>
                 <th className="table-header">Imaging Modality</th>
                 <th className="table-header">Severity</th>
                 <th className="table-header">Status</th>
@@ -61,7 +62,7 @@ export default function AllCases() {
                 <tr key={c.id} className="hover:bg-surface-100 transition-colors">
                   <td className="table-cell font-mono text-navy-600 font-medium text-xs"><Link to={`/case/${c.id}`} className="hover:underline">{c.caseNumber}</Link></td>
                   <td className="table-cell"><Link to={`/patient/${c.patientId}`} className="font-medium text-surface-800 hover:text-navy-700 hover:underline">{c.patientName}</Link></td>
-                  <td className="table-cell text-xs text-surface-600">{c.disease || '—'}</td>
+                  <td className="table-cell text-xs text-surface-600">{getCaseIndication(c) || '—'}</td>
                   <td className="table-cell text-surface-600">{c.scanType}</td>
                   <td className="table-cell"><SeverityBadge severity={c.severity} /></td>
                   <td className="table-cell"><StatusBadge status={c.status} /></td>

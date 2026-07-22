@@ -6,6 +6,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle } from 'lucide-react';
 import { loadImages } from '../../services/imageStorage';
+import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 
 /** Loads images from IndexedDB by key and renders them */
 function CaseImages({ imageKeys }: { imageKeys?: string[] }) {
@@ -105,7 +106,7 @@ export default function CaseDetail() {
           <div className="card">
             <h2 className="section-title mb-4">Case Information</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><span className="text-xs text-surface-500">Disease / Condition</span><p className="text-surface-800 font-medium">{caseItem.disease || '—'}</p></div>
+              <div><span className="text-xs text-surface-500">Indication / Symptom</span><p className="text-surface-800 font-medium">{getCaseIndication(caseItem) || '—'}</p></div>
               <div><span className="text-xs text-surface-500">Imaging Modality</span><p className="text-surface-800">{caseItem.scanType}</p></div>
               <div><span className="text-xs text-surface-500">Body Region</span><p className="text-surface-800">{caseItem.bodyRegion || '—'}</p></div>
               <div><span className="text-xs text-surface-500">Healthcare Centre</span><p className="text-surface-800">{caseItem.clinicName || 'Pending AI Scheduler'}</p></div>
@@ -122,7 +123,7 @@ export default function CaseDetail() {
           <div className="card">
             <h2 className="section-title mb-4">Assigned Personnel</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <PersonnelCard label="Referring Doctor" name={caseItem.doctorName} icon={<User className="w-4 h-4" />} />
+              <PersonnelCard label="Registered by" name={getCaseRegistrar(caseItem)} icon={<User className="w-4 h-4" />} />
               <PersonnelCard label="Radiographer" name={caseItem.radiographerName || 'Not Assigned'} icon={<User className="w-4 h-4" />} />
               <PersonnelCard label="Radiologist" name={caseItem.radiologistName || 'Not Assigned'} icon={<User className="w-4 h-4" />} />
             </div>

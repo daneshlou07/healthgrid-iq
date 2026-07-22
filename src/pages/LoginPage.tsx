@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
 import { mockUsers } from '../services/mockData';
 import {
-  Stethoscope,
   ScanLine,
   FileSearch,
   Settings,
@@ -21,7 +20,6 @@ import {
 } from 'lucide-react';
 
 const roleCards: { role: UserRole; label: string; sublabel: string; icon: React.ReactNode }[] = [
-  { role: 'Doctor', label: 'Doctor', sublabel: 'Workspace', icon: <Stethoscope className="w-6 h-6" /> },
   { role: 'Radiographer', label: 'Radiographer', sublabel: 'Workspace', icon: <ScanLine className="w-6 h-6" /> },
   { role: 'Radiologist', label: 'Radiologist', sublabel: 'Workspace', icon: <FileSearch className="w-6 h-6" /> },
   { role: 'Radiology Department', label: 'Operations', sublabel: 'Dispatch', icon: <Brain className="w-6 h-6" /> },

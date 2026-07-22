@@ -1,6 +1,6 @@
 // HealthGrid IQ - Domain Entity Types
 
-export type UserRole = 'Doctor' | 'Radiographer' | 'Radiologist' | 'Radiology Department' | 'Administrator';
+export type UserRole = 'Radiographer' | 'Radiologist' | 'Radiology Department' | 'Administrator';
 
 export type CaseStatus = 'CREATED' | 'SCHEDULED' | 'SCANNED' | 'REPORTED' | 'FINALIZED';
 
@@ -76,8 +76,9 @@ export interface Case {
   caseNumber: string;
   patientId: string;
   patientName: string;
-  doctorId: string;
-  doctorName: string;
+  /** Radiology Department staff member who registered the case. */
+  registeredById?: string;
+  registeredByName?: string;
   radiographerId?: string;
   radiographerName?: string;
   radiologistId?: string;
@@ -85,7 +86,8 @@ export interface Case {
   clinicId?: string;
   clinicName?: string;
   scanType: string;
-  disease?: string;
+  /** The presenting indication or symptom; this is not a diagnosis. */
+  indication?: string;
   bodyRegion?: string;
   severity?: SeverityLevel;
   incubationPeriod?: string;
@@ -97,6 +99,12 @@ export interface Case {
   reportedAt?: string;
   finalizedAt?: string;
   images?: string[];
+  /** @deprecated Read-only support for cases created before the symptom workflow. */
+  disease?: string;
+  /** @deprecated Read-only support for cases created before radiology registration. */
+  doctorId?: string;
+  /** @deprecated Read-only support for cases created before radiology registration. */
+  doctorName?: string;
 }
 
 // 4.5 Report Entity
@@ -189,6 +197,50 @@ export interface RouteInfo {
   distanceKm: number;
   durationMinutes: number;
   polylineCoords: [number, number][];
+  durationInTraffic?: number; // Only available with Google Maps API
+}
+
+// IAS Scheduling Job (created by Intelligent Appointment System)
+export type IasJobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface IasSchedulingJob {
+  id: string;
+  caseId: string;
+  caseNumber: string;
+  patientId: string;
+  patientName: string;
+  patientLat?: number;
+  patientLon?: number;
+  scanType: string;
+  severity?: SeverityLevel;
+  requestedAt: string;
+  status: IasJobStatus;
+  assignedRadiographerId?: string;
+  assignedRadiographerName?: string;
+  assignedClinicId?: string;
+  assignedClinicName?: string;
+  assignedVanId?: string;
+  scheduledAt?: string;
+  distanceKm?: number;
+  estimatedDriveMinutes?: number;
+  routePolyline?: [number, number][];
+  optimizationScore?: number;
+  rejectionReason?: string;
+  processedAt?: string;
+}
+
+// Announcement entity
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  severity: 'info' | 'warning' | 'critical';
+  targetRoles: UserRole[];
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  expiresAt?: string;
+  pinned?: boolean;
 }
 
 // Notification type

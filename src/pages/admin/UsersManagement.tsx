@@ -6,7 +6,7 @@ import type { User, UserRole } from '../../types';
 import Modal from '../../components/ui/Modal';
 import { Search, Plus, Edit2, Trash2, ShieldCheck, ShieldOff } from 'lucide-react';
 
-const ROLES: UserRole[] = ['Doctor', 'Radiographer', 'Radiologist', 'Radiology Department', 'Administrator'];
+const ROLES: UserRole[] = ['Radiology Department', 'Radiographer', 'Radiologist', 'Administrator'];
 
 export default function UsersManagement() {
   const { currentUser } = useAuth();
@@ -16,7 +16,7 @@ export default function UsersManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState({
-    name: '', email: '', role: 'Doctor' as UserRole, specialty: '', shift: '',
+    name: '', email: '', role: 'Radiology Department' as UserRole, specialty: '', shift: '',
   });
 
   const filtered = users.filter((u) =>
@@ -27,7 +27,7 @@ export default function UsersManagement() {
 
   const openCreate = () => {
     setEditingUser(null);
-    setForm({ name: '', email: '', role: 'Doctor', specialty: '', shift: '' });
+    setForm({ name: '', email: '', role: 'Radiology Department', specialty: '', shift: '' });
     setShowModal(true);
   };
 

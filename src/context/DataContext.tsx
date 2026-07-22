@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import {
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+} from 'firebase/firestore';
+import { getFirestoreDb, isFirebaseConfigured } from '../services/firebase';
+import {
   getUsers, getCases, getPatients, getClinics, getReports,
   getPatientRequests, getAuditLogs, getMobilePacsVans,
   createCase as createCaseSvc, updateCase as updateCaseSvc,
@@ -14,7 +21,7 @@ import type { User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, Mob
 const STORAGE_KEY = 'healthgrid_data';
 // Bump this version whenever seed data changes (e.g. new demo images).
 // Any cached data from a previous version will be discarded and reloaded from mock.
-const STORAGE_VERSION = '2'; // v2: real X-ray images seeded per demo report
+const STORAGE_VERSION = '3'; // v3: radiology-owned case registration and symptom-based intake
 
 interface PersistedData {
   users: User[];
@@ -142,23 +149,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const loadAll = useCallback(async () => {
     setLoading(true);
 
-    const persisted = loadFromStorage();
-    if (persisted) {
-      setUsers(persisted.users);
-      setCases(persisted.cases);
-      setPatients(persisted.patients);
-      setClinics(persisted.clinics);
-      setReports(persisted.reports);
-      setPatientRequests(persisted.patientRequests);
-      setAuditLogs(persisted.auditLogs);
-      setEquipment(persisted.equipment);
+    // If Firebase is configured, skip localStorage/mock and use Firestore
+    if (isFirebaseConfigured()) {
+      try {
+        const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
+          getUsers(), getCases(), getPatients(), getClinics(),
+          getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
+        ]);
+        setUsers(u); setCases(c); setPatients(p); setClinics(cl);
+        setReports(r); setPatientRequests(pr); setAuditLogs(al); setEquipment(eq);
+      } catch (error) {
+        console.error('Failed to load from Firestore, falling back to mock:', error);
+        const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
+          getUsers(), getCases(), getPatients(), getClinics(),
+          getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
+        ]);
+        setUsers(u); setCases(c); setPatients(p); setClinics(cl);
+        setReports(r); setPatientRequests(pr); setAuditLogs(al); setEquipment(eq);
+      }
     } else {
-      const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
-        getUsers(), getCases(), getPatients(), getClinics(),
-        getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
-      ]);
-      setUsers(u); setCases(c); setPatients(p); setClinics(cl);
-      setReports(r); setPatientRequests(pr); setAuditLogs(al); setEquipment(eq);
+      const persisted = loadFromStorage();
+      if (persisted) {
+        setUsers(persisted.users);
+        setCases(persisted.cases);
+        setPatients(persisted.patients);
+        setClinics(persisted.clinics);
+        setReports(persisted.reports);
+        setPatientRequests(persisted.patientRequests);
+        setAuditLogs(persisted.auditLogs);
+        setEquipment(persisted.equipment);
+      } else {
+        const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
+          getUsers(), getCases(), getPatients(), getClinics(),
+          getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
+        ]);
+        setUsers(u); setCases(c); setPatients(p); setClinics(cl);
+        setReports(r); setPatientRequests(pr); setAuditLogs(al); setEquipment(eq);
+      }
     }
 
     setComments(loadComments());
@@ -169,6 +196,55 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Real-time Firestore listeners (only when Firebase is configured)
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return;
+    const db = getFirestoreDb();
+    if (!db) return;
+
+    const unsubscribers: (() => void)[] = [];
+
+    // Subscribe to cases (most frequently updated)
+    unsubscribers.push(
+      onSnapshot(
+        query(collection(db, 'cases'), orderBy('createdAt', 'desc')),
+        (snapshot) => {
+          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+          setCases(items);
+        },
+        (error) => console.error('Cases listener error:', error)
+      )
+    );
+
+    // Subscribe to reports
+    unsubscribers.push(
+      onSnapshot(
+        query(collection(db, 'reports'), orderBy('createdAt', 'desc')),
+        (snapshot) => {
+          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Report));
+          setReports(items);
+        },
+        (error) => console.error('Reports listener error:', error)
+      )
+    );
+
+    // Subscribe to mobile PACS vans
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, 'mobile_pacs_vans'),
+        (snapshot) => {
+          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as MobilePacsVan));
+          setEquipment(items);
+        },
+        (error) => console.error('Equipment listener error:', error)
+      )
+    );
+
+    return () => {
+      unsubscribers.forEach((unsub) => unsub());
+    };
+  }, []);
 
   // Persist to localStorage whenever state changes (debounced)
   useEffect(() => {

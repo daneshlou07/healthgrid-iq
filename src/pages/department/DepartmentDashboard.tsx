@@ -92,10 +92,14 @@ export default function DepartmentDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Link to="/patients/register" className="card-hover group">
+          <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Register Patient</h3>
+          <p className="text-xs text-surface-500 mt-1">Add a patient to the radiology patient registry</p>
+        </Link>
         <Link to="/cases/new" className="card-hover group">
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Register New Case</h3>
-          <p className="text-xs text-surface-500 mt-1">Create a new imaging referral from a doctor's request</p>
+          <p className="text-xs text-surface-500 mt-1">Record the patient's indication or symptom and imaging study</p>
         </Link>
         <Link to="/track-status" className="card-hover group">
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Track Status</h3>

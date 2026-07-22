@@ -35,7 +35,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       id: 'notif-003',
       userId: 'all',
       title: 'Patient Request Pending',
-      message: 'Dr. Sarah Chen submitted a profile update request for Mohd Hafiz bin Ibrahim.',
+      message: 'Radiology Department submitted a profile update request for Mohd Hafiz bin Ibrahim.',
       read: false,
       createdAt: '2026-07-14T16:30:00Z',
       type: 'info',

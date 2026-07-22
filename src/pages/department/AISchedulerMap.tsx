@@ -16,6 +16,7 @@ import {
 import RadiograperSelector from '../../components/scheduling/RadiograperSelector';
 import type { Case, Clinic, Patient, RadioScheduleProfile, RouteInfo } from '../../types';
 import StatusBadge from '../../components/ui/StatusBadge';
+import { getCaseIndication } from '../../utils/caseDisplay';
 import L from 'leaflet';
 import {
   MapPin,
@@ -25,6 +26,7 @@ import {
   ChevronRight,
   Calendar,
   Zap,
+  Loader2,
 } from 'lucide-react';
 
 type Step = 'select-case' | 'map-routing' | 'assign-radiographer' | 'confirm';
@@ -43,12 +45,54 @@ interface BulkAssignment {
   excluded?: boolean;
 }
 
+// Coordinate cache shared across the lifetime of the page so repeated bulk runs
+// never re-geocode the same address.
+const geocodeCache = new Map<string, { lat: number; lon: number }>();
+
+// Route cache to avoid refetching routes when user toggles checkboxes
+const routeCache = new Map<string, L.Polyline>();
+
+// Run up to `concurrency` promises at a time, returning all settled results.
+async function parallelLimit<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency: number,
+  onProgress?: (done: number, total: number) => void
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
+  let nextIndex = 0;
+  let done = 0;
+
+  async function worker() {
+    while (nextIndex < tasks.length) {
+      const idx = nextIndex++;
+      try {
+        results[idx] = { status: 'fulfilled', value: await tasks[idx]() };
+      } catch (reason) {
+        results[idx] = { status: 'rejected', reason };
+      }
+      done++;
+      onProgress?.(done, tasks.length);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, tasks.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+// Geocode with cache so the same address is only ever fetched once.
+async function cachedGeocode(address: string): Promise<{ lat: number; lon: number } | null> {
+  if (geocodeCache.has(address)) return geocodeCache.get(address)!;
+  const result = await geocodeAddress(address);
+  if (result) geocodeCache.set(address, result);
+  return result;
+}
+
 export default function AISchedulerMap() {
   const { currentUser } = useAuth();
   const { cases: allCases, clinics: allClinics, patients: allPatients, editCase, addAuditLog } = useData();
   const { addNotification } = useNotifications();
 
-  // Derived from DataContext (always in sync)
   const cases = allCases.filter((c) => c.status === 'CREATED');
   const clinics = allClinics.filter((c) => c.status === 'active');
   const patients = allPatients;
@@ -70,11 +114,14 @@ export default function AISchedulerMap() {
   const [bulkResult, setBulkResult] = useState<{ total: number; success: number; failed: number } | null>(null);
   const [bulkPreview, setBulkPreview] = useState<BulkAssignment[]>([]);
   const [showBulkReview, setShowBulkReview] = useState(false);
+  // Progress state for the two heavy phases
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; phase: string } | null>(null);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const routeLayer = useRef<L.Polyline | null>(null);
   const markersLayer = useRef<L.LayerGroup | null>(null);
+  const routesLayer = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -87,13 +134,20 @@ export default function AISchedulerMap() {
     return () => { map.remove(); mapInstance.current = null; };
   }, []);
 
-  // Auto-draw all scheduled routes on the map when there are no pending cases or after bulk
   useEffect(() => {
     if (cases.length === 0 && step === 'select-case') {
       drawBulkRoutes();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cases.length, step]);
 
+  // Redraw preview routes whenever bulkPreview changes (user checks/unchecks assignments)
+  useEffect(() => {
+    if (showBulkReview && bulkPreview.length > 0) {
+      drawBulkPreviewRoutes(bulkPreview);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulkPreview, showBulkReview]);
 
   const updateMap = useCallback(
     (patient: Patient | null, clinicId: string | null, route: RouteInfo | null) => {
@@ -146,12 +200,11 @@ export default function AISchedulerMap() {
     setSelectedPatient(patient);
 
     if (patient) {
-      // Geocode address if lat/lng missing
       let patLat = patient.latitude;
       let patLon = patient.longitude;
       if (!patLat || !patLon) {
         setRouteLoading(true);
-        const geo = await geocodeAddress(patient.address);
+        const geo = await cachedGeocode(patient.address);
         if (geo) { patLat = geo.lat; patLon = geo.lon; patient.latitude = geo.lat; patient.longitude = geo.lon; }
         setRouteLoading(false);
       }
@@ -180,7 +233,7 @@ export default function AISchedulerMap() {
       let patLat = selectedPatient.latitude;
       let patLon = selectedPatient.longitude;
       if (!patLat || !patLon) {
-        const geo = await geocodeAddress(selectedPatient.address);
+        const geo = await cachedGeocode(selectedPatient.address);
         if (geo) { patLat = geo.lat; patLon = geo.lon; selectedPatient.latitude = geo.lat; selectedPatient.longitude = geo.lon; }
       }
       if (patLat && patLon) {
@@ -197,7 +250,6 @@ export default function AISchedulerMap() {
 
   const handleProceedToAssignment = async () => {
     if (!selectedClinicId || !selectedCase) return;
-    // Try clinic-specific first, then ALL radiographers
     let profiles = await getRadioSchedulesByClinic(selectedClinicId);
     if (profiles.length === 0) profiles = await getRadioScheduleProfiles();
     setScheduleProfiles(profiles);
@@ -226,7 +278,9 @@ export default function AISchedulerMap() {
     await editCase(selectedCase.id, { status: 'SCHEDULED', scheduledAt: new Date(appointmentTime).toISOString(), clinicId: selectedClinicId, clinicName: clinic?.name || '', radiographerId: selectedRadiographerId, radiographerName: profile?.userName || '' });
     await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'CASE_SCHEDULED', target: `cases/${selectedCase.id}`, details: `AI Scheduler: ${selectedCase.caseNumber} at ${clinic?.name} with ${profile?.userName} on ${appointmentTime}. Route: ${routeInfo?.distanceKm}km, ~${routeInfo?.durationMinutes}min.`, timestamp: new Date().toISOString() });
     addNotification({ userId: selectedRadiographerId, title: 'New Case Assigned', message: `Case ${selectedCase.caseNumber} scheduled for ${appointmentTime}.`, type: 'info' });
-    addNotification({ userId: selectedCase.doctorId, title: 'Case Scheduled', message: `Case ${selectedCase.caseNumber} scheduled at ${clinic?.name}.`, type: 'success' });
+    if (selectedCase.registeredById) {
+      addNotification({ userId: selectedCase.registeredById, title: 'Case Scheduled', message: `Case ${selectedCase.caseNumber} scheduled at ${clinic?.name}.`, type: 'success' });
+    }
 
     setConfirming(false); setSuccess(true); setStep('confirm');
   };
@@ -238,106 +292,304 @@ export default function AISchedulerMap() {
     updateMap(null, null, null);
   };
 
-  // Bulk Schedule — generate preview (don't commit yet)
+  // ─── BULK SCHEDULE (Phase 1: build preview) ──────────────────────────────────
+  // Key fixes:
+  //  1. Cache all radiographer profiles once before the loop.
+  //  2. Run all geocoding in parallel (up to 6 at a time) so we don't wait
+  //     sequentially for each Nominatim HTTP call.
+  //  3. Report progress so the UI never looks frozen.
   const handleBulkSchedule = async () => {
     if (!currentUser) return;
+    
+    // Clear route cache for fresh bulk schedule
+    routeCache.clear();
+    
     setBulkLoading(true);
     setBulkResult(null);
     setBulkPreview([]);
-    const assignments: BulkAssignment[] = [];
+    setBulkProgress({ done: 0, total: cases.length, phase: 'Geocoding patients' });
 
-    for (const caseItem of cases) {
-      try {
-        const patient = patients.find((p) => p.id === caseItem.patientId);
-        if (!patient) continue;
+    // ── Step 1: fetch all radiographer profiles ONCE (not per case) ────────────
+    const [allProfiles, clinicProfileMap] = await (async () => {
+      const all = await getRadioScheduleProfiles();
+      // Build a quick lookup: clinicId → profiles at that clinic
+      const byClinic = new Map<string, RadioScheduleProfile[]>();
+      for (const p of all) {
+        const existing = byClinic.get(p.deployedClinicId) ?? [];
+        existing.push(p);
+        byClinic.set(p.deployedClinicId, existing);
+      }
+      return [all, byClinic] as const;
+    })();
 
-        let patLat = patient.latitude;
-        let patLon = patient.longitude;
-        if (!patLat || !patLon) {
-          const geo = await geocodeAddress(patient.address);
-          if (geo) { patLat = geo.lat; patLon = geo.lon; }
+    // ── Step 2: geocode all patients in parallel (max 6 concurrent requests) ──
+    const geocodeTasks = cases.map((caseItem) => async () => {
+      const patient = patients.find((p) => p.id === caseItem.patientId);
+      if (!patient) return null;
+
+      let patLat = patient.latitude;
+      let patLon = patient.longitude;
+      if (!patLat || !patLon) {
+        const geo = await cachedGeocode(patient.address);
+        if (geo) {
+          patLat = geo.lat;
+          patLon = geo.lon;
+          // Update the patient object in-memory so single-schedule also benefits
+          patient.latitude = geo.lat;
+          patient.longitude = geo.lon;
         }
-        if (!patLat || !patLon) continue;
+      }
+      if (!patLat || !patLon) return null;
+      return { caseItem, patient, patLat, patLon };
+    });
 
-        const nearest = findNearestClinic(patLat, patLon, clinics);
-        if (!nearest) continue;
+    let geocodeDone = 0;
+    const geocodeResults = await parallelLimit(geocodeTasks, 6, (done) => {
+      geocodeDone = done;
+      setBulkProgress({ done, total: cases.length, phase: 'Geocoding patients' });
+    });
 
-        const clinic = clinics.find((c) => c.id === nearest.clinicId);
-        if (!clinic) continue;
+    // ── Step 3: assign clinic + radiographer (all sync after geocode) ──────────
+    const assignments: BulkAssignment[] = [];
+    for (const result of geocodeResults) {
+      if (result.status !== 'fulfilled' || !result.value) continue;
+      const { caseItem, patLat, patLon } = result.value;
 
-        let profiles = await getRadioSchedulesByClinic(nearest.clinicId);
-        if (profiles.length === 0) profiles = await getRadioScheduleProfiles();
-        const modality = extractModality(caseItem.scanType);
-        const bestId = recommendBestRadiographer(profiles, modality);
-        if (!bestId) continue;
+      const nearest = findNearestClinic(patLat, patLon, clinics);
+      if (!nearest) continue;
 
-        const bestProfile = profiles.find((p) => p.userId === bestId);
-        const slot = bestProfile ? getEarliestSlot(bestProfile.schedule) : null;
-        if (!slot) continue;
+      const clinic = clinics.find((c) => c.id === nearest.clinicId);
+      if (!clinic) continue;
 
-        assignments.push({
-          caseId: caseItem.id,
-          caseNumber: caseItem.caseNumber,
-          patientName: caseItem.patientName,
-          scanType: caseItem.scanType,
-          clinicId: nearest.clinicId,
-          clinicName: clinic.name,
-          radiographerId: bestId,
-          radiographerName: bestProfile?.userName || '',
-          scheduledAt: `${slot.date}T${slot.startTime}`,
-          distanceKm: nearest.distanceKm,
-        });
-      } catch {}
+      const profiles = (clinicProfileMap.get(nearest.clinicId) ?? []).length > 0
+        ? clinicProfileMap.get(nearest.clinicId)!
+        : allProfiles;
+
+      const modality = extractModality(caseItem.scanType);
+      const bestId = recommendBestRadiographer(profiles, modality);
+      if (!bestId) continue;
+
+      const bestProfile = profiles.find((p) => p.userId === bestId);
+      const slot = bestProfile ? getEarliestSlot(bestProfile.schedule) : null;
+      if (!slot) continue;
+
+      assignments.push({
+        caseId: caseItem.id,
+        caseNumber: caseItem.caseNumber,
+        patientName: caseItem.patientName,
+        scanType: caseItem.scanType,
+        clinicId: nearest.clinicId,
+        clinicName: clinic.name,
+        radiographerId: bestId,
+        radiographerName: bestProfile?.userName || '',
+        scheduledAt: `${slot.date}T${slot.startTime}`,
+        distanceKm: nearest.distanceKm,
+      });
     }
 
     setBulkPreview(assignments);
+    setBulkProgress(null);
     setBulkLoading(false);
     setShowBulkReview(true);
+
+    // Draw the planned routes on the map immediately during review
+    // so users can see all assignments before confirming
+    drawBulkPreviewRoutes(assignments);
   };
 
-  // Confirm all bulk assignments
+  // Draw routes for the bulk preview (before confirm) using patient coords from cache
+  // Only draws routes for assignments that are NOT excluded
+  // Uses route cache to avoid refetching when user toggles checkboxes
+  const drawBulkPreviewRoutes = useCallback((assignments: BulkAssignment[]) => {
+    const map = mapInstance.current;
+    const markers = markersLayer.current;
+    if (!map || !markers) return;
+
+    // Only clear if this is the first draw (cache is empty)
+    const isFirstDraw = routeCache.size === 0;
+    
+    if (isFirstDraw) {
+      markers.clearLayers();
+      if (routeLayer.current) { map.removeLayer(routeLayer.current); routeLayer.current = null; }
+      if (routesLayer.current) { map.removeLayer(routesLayer.current); routesLayer.current = null; }
+
+      const routesGroup = L.layerGroup().addTo(map);
+      routesLayer.current = routesGroup;
+
+      // Place clinic markers
+      allClinics.filter((c) => c.status === 'active').forEach((clinic) => {
+        const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
+          radius: 9, fillColor: '#1B2B5B', color: '#1B2B5B', weight: 2, opacity: 1, fillOpacity: 0.85,
+        });
+        marker.bindPopup(`<strong>${clinic.name}</strong>`);
+        markers.addLayer(marker);
+      });
+    }
+
+    const routesGroup = routesLayer.current!;
+    const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6'];
+
+    // Track which case IDs should be visible
+    const visibleCaseIds = new Set(assignments.filter((a) => !a.excluded).map((a) => a.caseId));
+
+    // Update visibility of existing routes or create new ones
+    assignments.forEach((a, i) => {
+      const cacheKey = a.caseId;
+      const isVisible = !a.excluded;
+
+      // Handle patient marker
+      if (isFirstDraw && isVisible) {
+        const caseItem = allCases.find((c) => c.id === a.caseId);
+        const patient = allPatients.find((p) => p.id === caseItem?.patientId);
+        const clinic = allClinics.find((c) => c.id === a.clinicId);
+        if (!patient || !clinic) return;
+
+        const patLat = patient.latitude;
+        const patLon = patient.longitude;
+        if (!patLat || !patLon) return;
+
+        const color = colors[i % colors.length];
+        const patientMarker = L.marker([patLat, patLon], {
+          icon: L.divIcon({
+            className: '',
+            html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>`,
+            iconSize: [12, 12], iconAnchor: [6, 6],
+          }),
+        });
+        patientMarker.bindPopup(`<strong>${a.caseNumber}</strong><br/><small>${a.patientName} → ${a.clinicName}</small><br/><small>${a.radiographerName}</small>`);
+        markers.addLayer(patientMarker);
+      }
+
+      // Handle route: check cache first
+      const cachedRoute = routeCache.get(cacheKey);
+      if (cachedRoute) {
+        // Route exists in cache, just toggle visibility
+        if (isVisible && !routesGroup.hasLayer(cachedRoute)) {
+          routesGroup.addLayer(cachedRoute);
+        } else if (!isVisible && routesGroup.hasLayer(cachedRoute)) {
+          routesGroup.removeLayer(cachedRoute);
+        }
+      } else if (isVisible) {
+        // Route not in cache and should be visible, fetch it
+        const caseItem = allCases.find((c) => c.id === a.caseId);
+        const patient = allPatients.find((p) => p.id === caseItem?.patientId);
+        const clinic = allClinics.find((c) => c.id === a.clinicId);
+        if (!patient || !clinic) return;
+
+        const patLat = patient.latitude;
+        const patLon = patient.longitude;
+        if (!patLat || !patLon) return;
+
+        const color = colors[i % colors.length];
+        
+        // Fetch route asynchronously
+        getRoute(patLat, patLon, clinic.latitude, clinic.longitude)
+          .then((route) => {
+            if (route.polylineCoords.length > 0) {
+              const polyline = L.polyline(route.polylineCoords, { color, weight: 4, opacity: 0.85 });
+              routeCache.set(cacheKey, polyline);
+              // Only add if still visible (user might have unchecked while loading)
+              if (visibleCaseIds.has(a.caseId)) {
+                routesGroup.addLayer(polyline);
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    });
+
+    // Fit bounds if first draw
+    if (isFirstDraw) {
+      setTimeout(() => {
+        const all = [...markers.getLayers(), ...routesGroup.getLayers()];
+        if (all.length > 0) {
+          const group = L.featureGroup(all);
+          map.fitBounds(group.getBounds(), { padding: [30, 30] });
+        }
+      }, 1000);
+    }
+  }, [allCases, allClinics, allPatients]);
+
+  // ─── BULK CONFIRM (Phase 2: commit to storage) ────────────────────────────────
+  // Key fixes:
+  //  1. All editCase calls run in parallel — no waiting for one before starting next.
+  //  2. All addAuditLog calls run in parallel independently.
+  //  3. Notifications are fired-and-forgotten (no await needed).
+  //  4. Progress counter keeps the UI alive.
   const handleBulkConfirm = async () => {
     if (!currentUser) return;
     setBulkLoading(true);
-    let successCount = 0;
     const toSchedule = bulkPreview.filter((a) => !a.excluded);
+    setBulkProgress({ done: 0, total: toSchedule.length, phase: 'Saving assignments' });
 
-    for (const assignment of toSchedule) {
-      try {
-        await editCase(assignment.caseId, {
-          status: 'SCHEDULED',
-          scheduledAt: new Date(assignment.scheduledAt).toISOString(),
-          clinicId: assignment.clinicId,
-          clinicName: assignment.clinicName,
-          radiographerId: assignment.radiographerId,
-          radiographerName: assignment.radiographerName,
-        });
-        await addAuditLog({
-          userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
-          action: 'CASE_SCHEDULED', target: `cases/${assignment.caseId}`,
-          details: `Bulk: ${assignment.caseNumber} at ${assignment.clinicName} with ${assignment.radiographerName}`,
-          timestamp: new Date().toISOString(),
-        });
-        successCount++;
-      } catch {}
-    }
+    const writeTasks = toSchedule.map((assignment) => async () => {
+      await editCase(assignment.caseId, {
+        status: 'SCHEDULED',
+        scheduledAt: new Date(assignment.scheduledAt).toISOString(),
+        clinicId: assignment.clinicId,
+        clinicName: assignment.clinicName,
+        radiographerId: assignment.radiographerId,
+        radiographerName: assignment.radiographerName,
+      });
+      // Fire-and-forget: audit log and notifications don't block the progress counter
+      addAuditLog({
+        userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
+        action: 'CASE_SCHEDULED', target: `cases/${assignment.caseId}`,
+        details: `Bulk: ${assignment.caseNumber} at ${assignment.clinicName} with ${assignment.radiographerName}`,
+        timestamp: new Date().toISOString(),
+      }).catch(() => {});
+      addNotification({
+        userId: assignment.radiographerId,
+        title: 'New Case Assigned',
+        message: `Case ${assignment.caseNumber} has been scheduled for you.`,
+        type: 'info',
+      });
+    });
 
+    const writeResults = await parallelLimit(writeTasks, 8, (done) => {
+      setBulkProgress({ done, total: toSchedule.length, phase: 'Saving assignments' });
+    });
+
+    const successCount = writeResults.filter((r) => r.status === 'fulfilled').length;
+    const failedCount = writeResults.filter((r) => r.status === 'rejected').length;
+
+    setBulkProgress(null);
     setBulkLoading(false);
-    setBulkResult({ total: toSchedule.length, success: successCount, failed: toSchedule.length - successCount });
+    setBulkResult({ total: toSchedule.length, success: successCount, failed: failedCount });
     setShowBulkReview(false);
     setBulkPreview([]);
+    
+    // Clear route cache after bulk confirm
+    routeCache.clear();
+    
     drawBulkRoutes();
   };
 
-  // Draw multiple routes on map for all scheduled cases
+  // ─── DRAW BULK ROUTES ─────────────────────────────────────────────────────────
+  // Key fixes:
+  //  1. All getRoute calls run in parallel (max 6 at a time) instead of sequential.
+  //  2. Uses geocode cache — patients already geocoded during bulk schedule are free.
+  //  3. Cap raised to 30 but parallel so it completes in ~1 round-trip instead of 30.
+  //  4. Routes are stored in a layer group so they persist and are visible.
   const drawBulkRoutes = async () => {
     const map = mapInstance.current;
     const markers = markersLayer.current;
     if (!map || !markers) return;
+    
+    // Clear existing markers and routes
     markers.clearLayers();
-    if (routeLayer.current) { map.removeLayer(routeLayer.current); routeLayer.current = null; }
+    if (routeLayer.current) { 
+      map.removeLayer(routeLayer.current); 
+      routeLayer.current = null; 
+    }
+    if (routesLayer.current) {
+      map.removeLayer(routesLayer.current);
+      routesLayer.current = null;
+    }
 
-    // Add all clinic markers
+    const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6'];
+
+    // Place clinic markers immediately (sync, no delay)
     allClinics.filter((c) => c.status === 'active').forEach((clinic) => {
       const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
         radius: 9, fillColor: '#1B2B5B', color: '#1B2B5B', weight: 2, opacity: 1, fillOpacity: 0.85,
@@ -346,42 +598,63 @@ export default function AISchedulerMap() {
       markers.addLayer(marker);
     });
 
-    // Draw routes for recently scheduled cases
-    const scheduledCases = allCases.filter((c) => c.status === 'SCHEDULED' && c.clinicId);
-    const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6'];
+    const scheduledCases = allCases
+      .filter((c) => c.status === 'SCHEDULED' && c.clinicId)
+      .slice(0, 30);
 
-    for (let i = 0; i < Math.min(scheduledCases.length, 25); i++) {
-      const c = scheduledCases[i];
+    // Create a layer group for all routes so they persist
+    const routesGroup = L.layerGroup().addTo(map);
+    routesLayer.current = routesGroup;
+
+    // Build route-fetch tasks for all cases in parallel
+    const routeTasks = scheduledCases.map((c, i) => async () => {
       const patient = allPatients.find((p) => p.id === c.patientId);
       const clinic = allClinics.find((cl) => cl.id === c.clinicId);
-      if (!patient || !clinic) continue;
+      if (!patient || !clinic) return null;
 
       let patLat = patient.latitude;
       let patLon = patient.longitude;
       if (!patLat || !patLon) {
-        const geo = await geocodeAddress(patient.address);
+        const geo = await cachedGeocode(patient.address);
         if (geo) { patLat = geo.lat; patLon = geo.lon; }
       }
-      if (!patLat || !patLon) continue;
+      if (!patLat || !patLon) return null;
 
-      // Add patient marker
+      const color = colors[i % colors.length];
+
+      // Patient marker
       const patientMarker = L.marker([patLat, patLon], {
-        icon: L.divIcon({ className: '', html: `<div style="background:${colors[i % colors.length]};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>`, iconSize: [12, 12], iconAnchor: [6, 6] }),
+        icon: L.divIcon({
+          className: '',
+          html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>`,
+          iconSize: [12, 12], iconAnchor: [6, 6],
+        }),
       });
       patientMarker.bindPopup(`<strong>${c.caseNumber}</strong><br/><small>${patient.name} → ${clinic.name}</small>`);
       markers.addLayer(patientMarker);
 
-      // Draw route — thick and visible
+      // Fetch and draw route
       try {
         const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
         if (route.polylineCoords.length > 0) {
-          L.polyline(route.polylineCoords, { color: colors[i % colors.length], weight: 4, opacity: 0.85 }).addTo(map);
+          const polyline = L.polyline(route.polylineCoords, { 
+            color, 
+            weight: 4, 
+            opacity: 0.85 
+          });
+          routesGroup.addLayer(polyline);
+          return polyline;
         }
-      } catch {}
-    }
+      } catch (err) {
+        console.warn(`Failed to draw route for case ${c.caseNumber}:`, err);
+      }
+      return null;
+    });
 
-    // Fit map to show all markers
-    const allLayers = markers.getLayers();
+    await parallelLimit(routeTasks, 6);
+
+    // Fit bounds after all routes drawn
+    const allLayers = [...markers.getLayers(), ...routesGroup.getLayers()];
     if (allLayers.length > 0) {
       const group = L.featureGroup(allLayers);
       map.fitBounds(group.getBounds(), { padding: [30, 30] });
@@ -408,7 +681,7 @@ export default function AISchedulerMap() {
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Map — hidden on mobile */}
+        {/* Map */}
         <div className="hidden lg:block flex-1 relative">
           <div ref={mapRef} className="h-full w-full" />
           {routeInfo && step !== 'select-case' && !routeLoading && (
@@ -445,11 +718,38 @@ export default function AISchedulerMap() {
                     <h2 className="text-sm font-semibold text-navy-800">Select Case</h2>
                   </div>
                   {cases.length > 1 && (
-                    <button onClick={handleBulkSchedule} disabled={bulkLoading} className="text-xs text-navy-600 hover:text-navy-800 font-medium bg-navy-50 hover:bg-navy-100 px-2.5 py-1.5 rounded-lg border border-navy-200 transition-colors disabled:opacity-50">
-                      {bulkLoading ? 'Scheduling...' : `Schedule All (${cases.length})`}
+                    <button
+                      onClick={handleBulkSchedule}
+                      disabled={bulkLoading}
+                      className="text-xs text-navy-600 hover:text-navy-800 font-medium bg-navy-50 hover:bg-navy-100 px-2.5 py-1.5 rounded-lg border border-navy-200 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {bulkLoading
+                        ? <><Loader2 className="w-3 h-3 animate-spin" /> Processing...</>
+                        : <><Zap className="w-3 h-3" /> Schedule All ({cases.length})</>
+                      }
                     </button>
                   )}
                 </div>
+
+                {/* ── Bulk progress bar ── */}
+                {bulkProgress && (
+                  <div className="p-3 bg-navy-50 border border-navy-200 rounded-lg space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-navy-700 font-medium flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin text-navy-500" />
+                        {bulkProgress.phase}
+                      </span>
+                      <span className="text-navy-500 tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
+                    </div>
+                    <div className="h-1.5 bg-navy-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-navy-600 rounded-full transition-all duration-200"
+                        style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {bulkResult && (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700">
                     <p className="font-medium">Scheduling complete</p>
@@ -457,12 +757,15 @@ export default function AISchedulerMap() {
                     {bulkResult.failed > 0 && <p className="text-amber-600 mt-0.5">{bulkResult.failed} could not be scheduled.</p>}
                   </div>
                 )}
+
                 {/* Bulk Review Panel */}
                 {showBulkReview && bulkPreview.length > 0 && (
                   <div className="space-y-2">
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs font-medium text-blue-800">Review Assignments ({bulkPreview.filter((a) => !a.excluded).length} of {bulkPreview.length})</p>
-                      <p className="text-[10px] text-blue-600 mt-0.5">Uncheck cases you don't want to schedule. Then confirm.</p>
+                      <p className="text-xs font-medium text-blue-800">
+                        Review Assignments ({bulkPreview.filter((a) => !a.excluded).length} of {bulkPreview.length})
+                      </p>
+                      <p className="text-[10px] text-blue-600 mt-0.5">Uncheck cases you don't want to schedule, then confirm.</p>
                     </div>
                     <div className="max-h-[300px] overflow-y-auto space-y-1.5">
                       {bulkPreview.map((a) => (
@@ -475,9 +778,14 @@ export default function AISchedulerMap() {
                               <p className="text-surface-500">→ {a.clinicName}</p>
                               <p className="text-surface-500">⊕ {a.radiographerName}</p>
                               <p className="text-emerald-600">{a.scheduledAt.replace('T', ' ')}</p>
+                              {a.distanceKm !== undefined && (
+                                <p className="text-surface-400">{a.distanceKm} km away</p>
+                              )}
                             </div>
                             <button
-                              onClick={() => setBulkPreview((prev) => prev.map((p) => p.caseId === a.caseId ? { ...p, excluded: !p.excluded } : p))}
+                              onClick={() => setBulkPreview((prev) =>
+                                prev.map((p) => p.caseId === a.caseId ? { ...p, excluded: !p.excluded } : p)
+                              )}
                               className={`w-6 h-6 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${a.excluded ? 'border-surface-300 bg-white' : 'border-navy-500 bg-navy-600 text-white'}`}
                             >
                               {!a.excluded && <CheckCircle className="w-3.5 h-3.5" />}
@@ -486,14 +794,52 @@ export default function AISchedulerMap() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Confirm-phase progress bar */}
+                    {bulkProgress && bulkLoading && (
+                      <div className="p-3 bg-navy-50 border border-navy-200 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-navy-700 font-medium flex items-center gap-1.5">
+                            <Loader2 className="w-3 h-3 animate-spin text-navy-500" />
+                            {bulkProgress.phase}
+                          </span>
+                          <span className="text-navy-500 tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
+                        </div>
+                        <div className="h-1.5 bg-navy-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-navy-600 rounded-full transition-all duration-200"
+                            style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-2 pt-2">
-                      <button onClick={() => { setShowBulkReview(false); setBulkPreview([]); }} className="btn-secondary flex-1 text-xs">Cancel</button>
-                      <button onClick={handleBulkConfirm} disabled={bulkLoading || bulkPreview.filter((a) => !a.excluded).length === 0} className="btn-primary flex-1 text-xs disabled:opacity-50">
-                        {bulkLoading ? 'Scheduling...' : `Confirm (${bulkPreview.filter((a) => !a.excluded).length})`}
+                      <button
+                        onClick={() => { 
+                          setShowBulkReview(false); 
+                          setBulkPreview([]); 
+                          routeCache.clear();
+                        }}
+                        disabled={bulkLoading}
+                        className="btn-secondary flex-1 text-xs disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleBulkConfirm}
+                        disabled={bulkLoading || bulkPreview.filter((a) => !a.excluded).length === 0}
+                        className="btn-primary flex-1 text-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {bulkLoading
+                          ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving...</>
+                          : `Confirm (${bulkPreview.filter((a) => !a.excluded).length})`
+                        }
                       </button>
                     </div>
                   </div>
                 )}
+
                 {cases.length === 0 ? (
                   <div className="text-center py-6 space-y-3">
                     <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto opacity-60" />
@@ -504,14 +850,19 @@ export default function AISchedulerMap() {
                     </button>
                   </div>
                 ) : (
-                  cases.map((c) => (
-                    <button key={c.id} onClick={() => handleCaseSelect(c)} className="w-full text-left p-3 rounded-lg bg-surface-100 border border-surface-200 hover:border-navy-300 transition-all">
+                  !showBulkReview && cases.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleCaseSelect(c)}
+                      disabled={bulkLoading}
+                      className="w-full text-left p-3 rounded-lg bg-surface-100 border border-surface-200 hover:border-navy-300 transition-all disabled:opacity-40 disabled:pointer-events-none"
+                    >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-mono text-navy-600 font-medium">{c.caseNumber}</span>
                         <StatusBadge status={c.status} />
                       </div>
                       <p className="text-sm font-medium text-surface-800">{c.patientName}</p>
-                      <p className="text-xs text-surface-500">{c.scanType} &middot; {c.disease || ''}</p>
+                      <p className="text-xs text-surface-500">{c.scanType} &middot; {getCaseIndication(c)}</p>
                     </button>
                   ))
                 )}
@@ -534,7 +885,9 @@ export default function AISchedulerMap() {
                       <option key={c.id} value={c.id}>{c.name}{c.id === recommendedClinicId ? ' (Nearest)' : ''}</option>
                     ))}
                   </select>
-                  {recommendedClinicId === selectedClinicId && <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Nearest facility selected</p>}
+                  {recommendedClinicId === selectedClinicId && (
+                    <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Nearest facility selected</p>
+                  )}
                 </div>
 
                 {routeInfo && (
@@ -566,7 +919,6 @@ export default function AISchedulerMap() {
                   onSelect={handleRadiographerSelect}
                 />
 
-                {/* AI-Recommended Appointment */}
                 {selectedRadiographerId && appointmentTime && (
                   <div className="space-y-3">
                     <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
@@ -581,8 +933,6 @@ export default function AISchedulerMap() {
                         <div><p className="text-[10px] text-emerald-600">Est. Travel</p><p className="text-sm font-medium text-navy-800">{routeInfo?.durationMinutes || '—'} min</p></div>
                       </div>
                     </div>
-
-                    {/* Override option */}
                     <AppointmentOverride
                       scheduleProfiles={scheduleProfiles}
                       selectedRadiographerId={selectedRadiographerId}
@@ -628,7 +978,7 @@ export default function AISchedulerMap() {
   );
 }
 
-// Appointment Override Component
+// ─── Appointment Override (sub-component, unchanged) ─────────────────────────
 function AppointmentOverride({ scheduleProfiles, selectedRadiographerId, currentTime, onChangeTime }: {
   scheduleProfiles: import('../../types').RadioScheduleProfile[];
   selectedRadiographerId: string;

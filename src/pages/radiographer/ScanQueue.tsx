@@ -4,6 +4,7 @@ import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import { Link } from 'react-router-dom';
+import { getCaseRegistrar } from '../../utils/caseDisplay';
 
 export default function ScanQueue() {
   const { currentUser } = useAuth();
@@ -33,7 +34,7 @@ export default function ScanQueue() {
                   </div>
                   <p className="text-sm text-surface-700">Patient: {c.patientName}</p>
                   <p className="text-xs text-surface-500">Type: {c.scanType} &middot; Clinic: {c.clinicName}</p>
-                  <p className="text-xs text-surface-500">Referring: {c.doctorName}</p>
+                  <p className="text-xs text-surface-500">Registered by: {getCaseRegistrar(c)}</p>
                   {c.scheduledAt && <p className="text-xs text-emerald-600 mt-1">Scheduled: {new Date(c.scheduledAt).toLocaleString()}</p>}
                 </div>
                 <Link to="/upload" className="btn-primary text-xs">Upload Scan</Link>

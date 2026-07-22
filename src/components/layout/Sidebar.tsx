@@ -15,22 +15,6 @@ interface NavGroup { title: string; items: NavItem[]; }
 
 function getNavGroups(role: UserRole, pendingRequests: number): NavGroup[] {
   switch (role) {
-    case 'Doctor':
-      return [
-        { title: 'MAIN', items: [
-          { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
-          { label: 'My Cases', path: '/cases', icon: <FolderOpen className="w-[18px] h-[18px]" /> },
-        ]},
-        { title: 'REPORTS', items: [
-          { label: 'Reports', path: '/reports', icon: <FileText className="w-[18px] h-[18px]" /> },
-          { label: 'Patients', path: '/patients', icon: <Users className="w-[18px] h-[18px]" /> },
-        ]},
-        { title: 'ACTIONS', items: [
-          { label: 'New Referral', path: '/cases/new', icon: <FileText className="w-[18px] h-[18px]" /> },
-          { label: 'Register Patient', path: '/patients/register', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
-          { label: 'My Requests', path: '/requests', icon: <CheckSquare className="w-[18px] h-[18px]" /> },
-        ]},
-      ];
     case 'Radiographer':
       return [
         { title: 'MAIN', items: [
@@ -62,9 +46,13 @@ function getNavGroups(role: UserRole, pendingRequests: number): NavGroup[] {
       return [
         { title: 'RADIOLOGY DEPARTMENT', items: [
           { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
+          { label: 'Patient Registry', path: '/patients', icon: <Users className="w-[18px] h-[18px]" /> },
+          { label: 'Register Patient', path: '/patients/register', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
           { label: 'Register New Case', path: '/cases/new', icon: <FileText className="w-[18px] h-[18px]" /> },
-          { label: 'Track Status', path: '/track-status', icon: <Search className="w-[18px] h-[18px]" /> },
           { label: 'Cases', path: '/cases', icon: <FolderOpen className="w-[18px] h-[18px]" /> },
+          { label: 'Diagnostic Reports', path: '/reports', icon: <FileText className="w-[18px] h-[18px]" /> },
+          { label: 'Patient Record Requests', path: '/requests', icon: <CheckSquare className="w-[18px] h-[18px]" /> },
+          { label: 'Track Status', path: '/track-status', icon: <Search className="w-[18px] h-[18px]" /> },
         ]},
       ];
     case 'Administrator':

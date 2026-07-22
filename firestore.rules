@@ -37,7 +37,7 @@ service cloud.firestore {
     // Patients collection
     match /patients/{patientId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Doctor') || isAdmin());
+      allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
       allow update: if isAdmin() || hasRole('Radiology Department');
       allow delete: if isAdmin();
     }
@@ -45,7 +45,7 @@ service cloud.firestore {
     // Cases collection
     match /cases/{caseId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Doctor') || hasRole('Radiology Department') || isAdmin());
+      allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
       allow update: if isAuth();
       allow delete: if isAdmin();
     }
@@ -62,7 +62,7 @@ service cloud.firestore {
     // Patient requests collection
     match /patient_requests/{requestId} {
       allow read: if isAuth();
-      allow create: if isAuth() && hasRole('Doctor');
+      allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
       allow update: if isAdmin() || hasRole('Radiology Department');
       allow delete: if isAdmin();
     }
@@ -86,6 +86,20 @@ service cloud.firestore {
       allow read: if isAuth();
       allow create, update: if isAdmin() || hasRole('Radiology Department');
       allow delete: if isAdmin();
+    }
+
+    // IAS Scheduling Jobs (created by IAS system or admin)
+    match /scheduling_jobs/{jobId} {
+      allow read: if isAuth();
+      allow create: if isAdmin() || hasRole('Radiology Department');
+      allow update: if isAdmin() || hasRole('Radiology Department');
+      allow delete: if isAdmin();
+    }
+
+    // Announcements
+    match /announcements/{announcementId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
     }
   }
 }

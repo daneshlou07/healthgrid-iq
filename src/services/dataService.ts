@@ -116,10 +116,10 @@ export async function getCases(): Promise<Case[]> {
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
 }
 
-export async function getCasesByDoctor(doctorId: string): Promise<Case[]> {
-  if (useMock()) return mockCases.filter((c) => c.doctorId === doctorId);
+export async function getCasesByRegistrar(registeredById: string): Promise<Case[]> {
+  if (useMock()) return mockCases.filter((c) => c.registeredById === registeredById);
   const db = getFirestoreDb()!;
-  const q = query(collection(db, 'cases'), where('doctorId', '==', doctorId));
+  const q = query(collection(db, 'cases'), where('registeredById', '==', registeredById));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
 }
@@ -271,10 +271,87 @@ export async function updateMobilePacsVan(id: string, updates: Partial<MobilePac
 
 // ==================== RADIO SCHEDULE PROFILES ====================
 export async function getRadioScheduleProfiles(): Promise<RadioScheduleProfile[]> {
-  // In production, this would aggregate from Firestore
-  return [...mockRadioSchedules];
+  if (useMock()) return [...mockRadioSchedules];
+  const db = getFirestoreDb()!;
+  const snapshot = await getDocs(collection(db, 'radio_schedules'));
+  return snapshot.docs.map((d) => d.data() as RadioScheduleProfile);
 }
 
 export async function getRadioSchedulesByClinic(clinicId: string): Promise<RadioScheduleProfile[]> {
-  return mockRadioSchedules.filter((r) => r.deployedClinicId === clinicId);
+  if (useMock()) return mockRadioSchedules.filter((r) => r.deployedClinicId === clinicId);
+  const db = getFirestoreDb()!;
+  const q = query(collection(db, 'radio_schedules'), where('deployedClinicId', '==', clinicId));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => d.data() as RadioScheduleProfile);
+}
+
+export async function createRadioScheduleProfile(
+  profile: RadioScheduleProfile
+): Promise<RadioScheduleProfile> {
+  if (useMock()) {
+    mockRadioSchedules.push(profile);
+    return profile;
+  }
+  const db = getFirestoreDb()!;
+  await addDoc(collection(db, 'radio_schedules'), profile);
+  return profile;
+}
+
+export async function updateRadioScheduleProfile(
+  userId: string,
+  updates: Partial<RadioScheduleProfile>
+): Promise<void> {
+  if (useMock()) {
+    const idx = mockRadioSchedules.findIndex((r) => r.userId === userId);
+    if (idx !== -1) Object.assign(mockRadioSchedules[idx], updates);
+    return;
+  }
+  const db = getFirestoreDb()!;
+  await updateDoc(doc(db, 'radio_schedules', userId), updates as Record<string, unknown>);
+}
+
+// ==================== IAS SCHEDULING JOBS ====================
+export async function getIasSchedulingJobs(): Promise<import('../types').IasSchedulingJob[]> {
+  if (useMock()) return [];
+  const db = getFirestoreDb()!;
+  const q = query(collection(db, 'scheduling_jobs'), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as import('../types').IasSchedulingJob));
+}
+
+export async function createIasSchedulingJob(
+  job: Omit<import('../types').IasSchedulingJob, 'id'>
+): Promise<import('../types').IasSchedulingJob> {
+  const id = generateId('job');
+  if (useMock()) {
+    return { ...job, id };
+  }
+  const db = getFirestoreDb()!;
+  const docRef = await addDoc(collection(db, 'scheduling_jobs'), job);
+  return { ...job, id: docRef.id };
+}
+
+// ==================== REAL-TIME SUBSCRIPTIONS (Firestore listeners) ====================
+// These are used by DataContext when Firebase is configured for live updates
+
+export function subscribeToCollection<T>(
+  collectionName: string,
+  onUpdate: (items: T[]) => void,
+  queryConstraints?: Parameters<typeof query>[1][]
+): (() => void) | null {
+  const db = getFirestoreDb();
+  if (!db) return null;
+
+  const { onSnapshot } = require('firebase/firestore');
+
+  const ref = queryConstraints
+    ? query(collection(db, collectionName), ...queryConstraints)
+    : collection(db, collectionName);
+
+  const unsubscribe = onSnapshot(ref, (snapshot: any) => {
+    const items = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() } as T));
+    onUpdate(items);
+  });
+
+  return unsubscribe;
 }

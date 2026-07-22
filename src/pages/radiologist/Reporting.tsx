@@ -5,6 +5,7 @@ import { useToast } from '../../components/ux/Toast';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { CheckCircle, Image, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getCaseRegistrar } from '../../utils/caseDisplay';
 import { loadImages } from '../../services/imageStorage';
 
 /** Loads and displays images from IndexedDB keys stored on the case */
@@ -119,7 +120,7 @@ export default function Reporting() {
               <div className="flex justify-between"><span className="text-surface-500">Case</span><Link to={`/case/${selectedCase.id}`} className="text-navy-700 font-mono hover:underline">{selectedCase.caseNumber}</Link></div>
               <div className="flex justify-between"><span className="text-surface-500">Patient</span><span className="text-surface-800">{selectedCase.patientName}</span></div>
               <div className="flex justify-between"><span className="text-surface-500">Scan</span><span className="text-surface-800">{selectedCase.scanType}</span></div>
-              <div className="flex justify-between"><span className="text-surface-500">Doctor</span><span className="text-surface-800">{selectedCase.doctorName}</span></div>
+              <div className="flex justify-between"><span className="text-surface-500">Registered by</span><span className="text-surface-800">{getCaseRegistrar(selectedCase)}</span></div>
             </div>
             {selectedCase.notes && (
               <div className="mt-3 p-3 bg-surface-100 rounded-lg">

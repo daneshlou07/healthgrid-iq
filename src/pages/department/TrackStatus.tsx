@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import { Link } from 'react-router-dom';
 import { Clock, AlertTriangle } from 'lucide-react';
+import { getCaseIndication } from '../../utils/caseDisplay';
 
 export default function TrackStatus() {
   const { cases } = useData();
@@ -28,7 +29,7 @@ export default function TrackStatus() {
         <KanbanColumn title="Pending Scheduling" count={pending.length} color="amber">
           {pending.map((c) => (
             <KanbanCard key={c.id} caseId={c.id} caseNumber={c.caseNumber} patient={c.patientName}
-              detail={`${c.scanType}${c.disease ? ' — ' + c.disease : ''}`}
+              detail={`${c.scanType}${getCaseIndication(c) ? ' — ' + getCaseIndication(c) : ''}`}
               severity={c.severity} date={c.createdAt} overdue={isOverdue(c.createdAt)} />
           ))}
         </KanbanColumn>

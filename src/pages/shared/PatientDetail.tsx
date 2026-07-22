@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
+import { getCaseIndication } from '../../utils/caseDisplay';
 import { ArrowLeft, User, FolderOpen, FileText, MapPin, Phone, Mail } from 'lucide-react';
 
 export default function PatientDetail() {
@@ -86,7 +87,7 @@ export default function PatientDetail() {
                   <Link key={c.id} to={`/case/${c.id}`} className="flex items-center justify-between p-3 bg-surface-100 rounded-lg border border-surface-200 hover:border-navy-300 transition-colors">
                     <div>
                       <p className="text-sm font-medium text-navy-700 font-mono">{c.caseNumber}</p>
-                      <p className="text-xs text-surface-500">{c.scanType} &middot; {c.disease || ''}</p>
+                      <p className="text-xs text-surface-500">{c.scanType} &middot; {getCaseIndication(c)}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <SeverityBadge severity={c.severity} />
