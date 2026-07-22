@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import { Upload, Image, X } from 'lucide-react';
+import { saveImage } from '../../services/imageStorage';
 
 export default function UploadScans() {
   const { currentUser } = useAuth();
@@ -36,7 +37,20 @@ export default function UploadScans() {
     setUploading(true);
     const selectedCase = myCases.find((c) => c.id === selectedCaseId);
 
-    await editCase(selectedCaseId, { status: 'SCANNED', scannedAt: new Date().toISOString(), images: previews });
+    // Save each image to IndexedDB and collect persistent keys
+    const imageKeys: string[] = [];
+    for (const dataUrl of previews) {
+      const key = await saveImage(dataUrl);
+      imageKeys.push(key);
+    }
+
+    // Store the IndexedDB keys (not raw base64) on the case so localStorage stays small
+    await editCase(selectedCaseId, {
+      status: 'SCANNED',
+      scannedAt: new Date().toISOString(),
+      images: imageKeys,
+    });
+
     await addAuditLog({
       userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
       action: 'SCAN_UPLOADED', target: `cases/${selectedCaseId}`,

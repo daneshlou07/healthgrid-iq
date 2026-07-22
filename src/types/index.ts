@@ -113,6 +113,7 @@ export interface Report {
   status: ReportStatus;
   createdAt: string;
   signedAt?: string;
+  imageKeys?: string[]; // IndexedDB keys for persisted images
 }
 
 // 4.6 PatientRequest Entity

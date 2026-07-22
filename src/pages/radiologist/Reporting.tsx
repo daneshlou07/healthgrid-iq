@@ -1,10 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { CheckCircle, Image, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { loadImages } from '../../services/imageStorage';
+
+/** Loads and displays images from IndexedDB keys stored on the case */
+function CaseImageViewer({ imageKeys }: { imageKeys?: string[] }) {
+  const [urls, setUrls] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!imageKeys || imageKeys.length === 0) { setUrls([]); return; }
+    setLoading(true);
+    loadImages(imageKeys).then((loaded) => { setUrls(loaded); setLoading(false); });
+  }, [imageKeys?.join(',')]);
+
+  if (!imageKeys || imageKeys.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8 text-surface-400">
+        <div className="text-center"><Image className="w-8 h-8 mx-auto mb-2 opacity-40" /><p className="text-xs">No images uploaded for this case</p></div>
+      </div>
+    );
+  }
+  if (loading) return <p className="text-xs text-surface-400 py-4 text-center">Loading images…</p>;
+  if (urls.length === 0) return <p className="text-xs text-surface-400 py-4 text-center">Images unavailable.</p>;
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {urls.map((url, i) => (
+        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+          <img src={url} alt={`Scan ${i + 1}`} className="w-full rounded-lg border border-surface-300 object-contain bg-black max-h-48 cursor-pointer hover:opacity-90 transition-opacity" />
+        </a>
+      ))}
+    </div>
+  );
+}
 
 export default function Reporting() {
   const { currentUser } = useAuth();
@@ -27,6 +59,7 @@ export default function Reporting() {
       radiologistId: currentUser.id, radiologistName: currentUser.name, findings, impression,
       suggestions: suggestions || undefined, status: 'Verified / Signed Off',
       createdAt: new Date().toISOString(), signedAt: new Date().toISOString(),
+      imageKeys: selectedCase.images && selectedCase.images.length > 0 ? selectedCase.images : undefined,
     });
 
     await editCase(selectedCase.id, {
@@ -97,9 +130,7 @@ export default function Reporting() {
           </div>
           <div className="card">
             <h3 className="text-xs font-semibold text-surface-500 uppercase mb-3">Medical Images</h3>
-            <div className="flex items-center justify-center py-8 text-surface-400">
-              <div className="text-center"><Image className="w-8 h-8 mx-auto mb-2 opacity-40" /><p className="text-xs">Images displayed in production</p></div>
-            </div>
+            <CaseImageViewer imageKeys={selectedCase.images} />
           </div>
         </div>
 

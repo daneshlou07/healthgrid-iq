@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import type { Report } from '../../types';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -6,6 +6,35 @@ import SeverityBadge from '../../components/ui/SeverityBadge';
 import Modal from '../../components/ui/Modal';
 import { Eye, Printer } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { loadImages } from '../../services/imageStorage';
+
+/** Inline image loader for the report modal */
+function ReportImages({ imageKeys }: { imageKeys?: string[] }) {
+  const [urls, setUrls] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!imageKeys || imageKeys.length === 0) { setUrls([]); return; }
+    setLoading(true);
+    loadImages(imageKeys).then((loaded) => { setUrls(loaded); setLoading(false); });
+  }, [imageKeys?.join(',')]);
+
+  if (!imageKeys || imageKeys.length === 0) return null;
+  if (loading) return <p className="text-xs text-surface-400 py-2">Loading images…</p>;
+  if (urls.length === 0) return null;
+  return (
+    <div>
+      <p className="text-xs font-semibold text-surface-500 uppercase mb-2">Scan Images</p>
+      <div className="grid grid-cols-2 gap-2">
+        {urls.map((url, i) => (
+          <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+            <img src={url} alt={`Scan ${i + 1}`} className="w-full rounded-lg border border-surface-300 object-contain bg-black max-h-48 cursor-pointer hover:opacity-90 transition-opacity" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function handlePrint(report: Report) {
   const printWindow = window.open('', '_blank');
@@ -72,18 +101,19 @@ export default function DoctorReports() {
               <div><span className="text-surface-500">Patient</span><p className="text-surface-800 font-medium">{selected.patientName}</p></div>
               <div><span className="text-surface-500">Radiologist</span><p className="text-surface-800 font-medium">{selected.radiologistName}</p></div>
             </div>
+            <ReportImages imageKeys={selected.imageKeys} />
             <div>
               <p className="text-xs font-semibold text-surface-500 uppercase mb-1">Findings</p>
-              <div className="bg-surface-100 rounded-lg p-4 text-sm text-surface-700 leading-relaxed">{selected.findings}</div>
+              <div className="bg-surface-100 rounded-lg p-4 text-sm text-surface-700 leading-relaxed whitespace-pre-line">{selected.findings}</div>
             </div>
             <div>
               <p className="text-xs font-semibold text-surface-500 uppercase mb-1">Impression</p>
-              <div className="bg-surface-100 rounded-lg p-4 text-sm text-surface-700 leading-relaxed">{selected.impression}</div>
+              <div className="bg-surface-100 rounded-lg p-4 text-sm text-surface-700 leading-relaxed whitespace-pre-line">{selected.impression}</div>
             </div>
             {selected.suggestions && (
               <div>
                 <p className="text-xs font-semibold text-surface-500 uppercase mb-1">Suggestions</p>
-                <div className="bg-surface-100 rounded-lg p-4 text-sm text-surface-700 leading-relaxed">{selected.suggestions}</div>
+                <div className="bg-surface-100 rounded-lg p-4 text-sm text-surface-700 leading-relaxed whitespace-pre-line">{selected.suggestions}</div>
               </div>
             )}
             <div className="flex justify-end pt-2 border-t border-surface-200">

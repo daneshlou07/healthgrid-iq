@@ -1,10 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle } from 'lucide-react';
+import { loadImages } from '../../services/imageStorage';
+
+/** Loads images from IndexedDB by key and renders them */
+function CaseImages({ imageKeys }: { imageKeys?: string[] }) {
+  const [urls, setUrls] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!imageKeys || imageKeys.length === 0) { setUrls([]); return; }
+    setLoading(true);
+    loadImages(imageKeys).then((loaded) => { setUrls(loaded); setLoading(false); });
+  }, [imageKeys?.join(',')]);
+
+  if (!imageKeys || imageKeys.length === 0) return null;
+  if (loading) return <p className="text-xs text-surface-400 py-2">Loading images…</p>;
+  if (urls.length === 0) return <p className="text-xs text-surface-400 py-2">Images unavailable.</p>;
+  return (
+    <div className="grid grid-cols-2 gap-2 mt-2">
+      {urls.map((url, i) => (
+        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+          <img src={url} alt={`Scan ${i + 1}`} className="w-full rounded-lg border border-surface-300 object-contain bg-black max-h-48 cursor-pointer hover:opacity-90 transition-opacity" />
+        </a>
+      ))}
+    </div>
+  );
+}
 
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
@@ -107,11 +133,26 @@ export default function CaseDetail() {
             <div className="card">
               <h2 className="section-title mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-navy-600" /> Diagnostic Report</h2>
               <div className="space-y-3">
-                <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Findings</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700">{report.findings}</div></div>
-                <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Impression</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700">{report.impression}</div></div>
-                {report.suggestions && <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Suggestions</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700">{report.suggestions}</div></div>}
+                {/* Scan Images */}
+                {(report.imageKeys && report.imageKeys.length > 0) || (caseItem.images && caseItem.images.length > 0) ? (
+                  <div>
+                    <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Scan Images</p>
+                    <CaseImages imageKeys={report.imageKeys && report.imageKeys.length > 0 ? report.imageKeys : caseItem.images} />
+                  </div>
+                ) : null}
+                <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Findings</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700 whitespace-pre-line">{report.findings}</div></div>
+                <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Impression</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700 whitespace-pre-line">{report.impression}</div></div>
+                {report.suggestions && <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Suggestions</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700 whitespace-pre-line">{report.suggestions}</div></div>}
                 <p className="text-[10px] text-surface-400">Signed by {report.radiologistName} on {report.signedAt ? new Date(report.signedAt).toLocaleString() : '—'}</p>
               </div>
+            </div>
+          )}
+
+          {/* Scan images for cases without a report yet (SCANNED status) */}
+          {!report && caseItem.images && caseItem.images.length > 0 && (
+            <div className="card">
+              <h2 className="section-title mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-navy-600" /> Scan Images</h2>
+              <CaseImages imageKeys={caseItem.images} />
             </div>
           )}
 
