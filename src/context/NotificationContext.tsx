@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Notification } from '../types';
 
 interface NotificationContextType {
@@ -7,58 +7,86 @@ interface NotificationContextType {
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
+  clearAll: () => void;
+}
+
+const NOTIF_STORAGE_KEY = 'healthgrid_notifications';
+
+const DEFAULT_NOTIFICATIONS: Notification[] = [
+  {
+    id: 'notif-001',
+    userId: 'all',
+    title: 'Report Ready',
+    message: 'Diagnostic report for case HG-2026-0001 has been finalized by Dr. Priya Nair.',
+    read: false,
+    createdAt: '2026-07-15T15:00:00Z',
+    type: 'success',
+  },
+  {
+    id: 'notif-002',
+    userId: 'all',
+    title: 'New Case Assigned',
+    message: 'Case XR2026030008 has been scheduled at Klinik Kesihatan Bukit Cherakah.',
+    read: false,
+    createdAt: '2026-07-15T09:00:00Z',
+    type: 'warning',
+  },
+  {
+    id: 'notif-003',
+    userId: 'all',
+    title: 'Patient Request Pending',
+    message: 'Radiology Department submitted a profile update request for Mohd Hafiz bin Ibrahim.',
+    read: false,
+    createdAt: '2026-07-14T16:30:00Z',
+    type: 'info',
+  },
+  {
+    id: 'notif-004',
+    userId: 'all',
+    title: 'Scheduled Maintenance',
+    message: 'System maintenance window: 2026-07-20 02:00-04:00 MYT. Plan accordingly.',
+    read: true,
+    createdAt: '2026-07-14T08:00:00Z',
+    type: 'error',
+  },
+  {
+    id: 'notif-005',
+    userId: 'all',
+    title: 'New Equipment Deployed',
+    message: 'PACS Charlie deployed to Hospital Tanjong Karang with X-Ray Unit.',
+    read: true,
+    createdAt: '2026-07-13T11:00:00Z',
+    type: 'info',
+  },
+];
+
+function loadNotifications(): Notification[] {
+  try {
+    const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
+    if (!raw) return DEFAULT_NOTIFICATIONS;
+    const parsed = JSON.parse(raw) as Notification[];
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    return DEFAULT_NOTIFICATIONS;
+  } catch {
+    return DEFAULT_NOTIFICATIONS;
+  }
+}
+
+function saveNotifications(notifications: Notification[]) {
+  try {
+    localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifications));
+  } catch { /* storage full — fail silently */ }
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 'notif-001',
-      userId: 'all',
-      title: 'Report Ready',
-      message: 'Diagnostic report for case HG-2026-0001 has been finalized by Dr. Priya Nair.',
-      read: false,
-      createdAt: '2026-07-15T15:00:00Z',
-      type: 'success',
-    },
-    {
-      id: 'notif-002',
-      userId: 'all',
-      title: 'New Case Assigned',
-      message: 'Case XR2026030008 has been scheduled at Klinik Kesihatan Bukit Cherakah.',
-      read: false,
-      createdAt: '2026-07-15T09:00:00Z',
-      type: 'warning',
-    },
-    {
-      id: 'notif-003',
-      userId: 'all',
-      title: 'Patient Request Pending',
-      message: 'Radiology Department submitted a profile update request for Mohd Hafiz bin Ibrahim.',
-      read: false,
-      createdAt: '2026-07-14T16:30:00Z',
-      type: 'info',
-    },
-    {
-      id: 'notif-004',
-      userId: 'all',
-      title: 'Scheduled Maintenance',
-      message: 'System maintenance window: 2026-07-20 02:00-04:00 MYT. Plan accordingly.',
-      read: true,
-      createdAt: '2026-07-14T08:00:00Z',
-      type: 'error',
-    },
-    {
-      id: 'notif-005',
-      userId: 'all',
-      title: 'New Equipment Deployed',
-      message: 'PACS Charlie deployed to Hospital Tanjong Karang with X-Ray Unit.',
-      read: true,
-      createdAt: '2026-07-13T11:00:00Z',
-      type: 'info',
-    },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>(loadNotifications);
+
+  // Persist to localStorage on every change
+  useEffect(() => {
+    saveNotifications(notifications);
+  }, [notifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -80,9 +108,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
+  const clearAll = () => {
+    setNotifications([]);
+  };
+
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead }}
+      value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead, clearAll }}
     >
       {children}
     </NotificationContext.Provider>

@@ -248,29 +248,32 @@ export default function NewCaseRegistration() {
               </div>
             )}
 
-            {/* Body Region — auto-populated, editable, with a manual option */}
-            {form.modality && (
-              <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Body Region *</label>
-                <select required={form.bodyRegion !== 'Other'} value={form.bodyRegion} onChange={(e) => setForm({ ...form, bodyRegion: e.target.value, customBodyRegion: '' })} className="select-field">
-                  <option value="">Select body region...</option>
-                  {BODY_REGIONS.map((b) => <option key={b} value={b}>{b}</option>)}
-                  <option value="Other">Others (type manually)</option>
-                </select>
-                {form.bodyRegion === 'Other' && (
-                  <input
-                    required
-                    value={form.customBodyRegion}
-                    onChange={(e) => setForm({ ...form, customBodyRegion: e.target.value })}
-                    className="input-field mt-2"
-                    placeholder="Enter body region..."
-                  />
-                )}
-                {form.examination && form.examination !== 'Other' && (
-                  <p className="text-[10px] text-emerald-600 mt-1">Auto-populated from examination</p>
-                )}
-              </div>
-            )}
+            {/* Body Region — always visible, auto-populated when examination is selected */}
+            <div>
+              <label className="block text-sm font-medium text-surface-700 mb-1">Body Region *</label>
+              <select
+                required={form.bodyRegion !== 'Other'}
+                value={form.bodyRegion}
+                onChange={(e) => setForm({ ...form, bodyRegion: e.target.value, customBodyRegion: '' })}
+                className="select-field"
+              >
+                <option value="">Select body region...</option>
+                {BODY_REGIONS.map((b) => <option key={b} value={b}>{b}</option>)}
+                <option value="Other">Others (type manually)</option>
+              </select>
+              {form.bodyRegion === 'Other' && (
+                <input
+                  required
+                  value={form.customBodyRegion}
+                  onChange={(e) => setForm({ ...form, customBodyRegion: e.target.value })}
+                  className="input-field mt-2"
+                  placeholder="Enter body region..."
+                />
+              )}
+              {form.examination && form.examination !== 'Other' && form.bodyRegion && form.bodyRegion !== 'Other' && (
+                <p className="text-[10px] text-emerald-600 mt-1">Auto-populated from examination</p>
+              )}
+            </div>
 
             {/* Severity */}
             <div>

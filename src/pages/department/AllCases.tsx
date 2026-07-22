@@ -51,6 +51,7 @@ export default function AllCases() {
                 <th className="table-header">Case #</th>
                 <th className="table-header">Patient</th>
                 <th className="table-header">Indication / Symptom</th>
+                <th className="table-header">Body Region</th>
                 <th className="table-header">Imaging Modality</th>
                 <th className="table-header">Severity</th>
                 <th className="table-header">Status</th>
@@ -63,6 +64,7 @@ export default function AllCases() {
                   <td className="table-cell font-mono text-navy-600 font-medium text-xs"><Link to={`/case/${c.id}`} className="hover:underline">{c.caseNumber}</Link></td>
                   <td className="table-cell"><Link to={`/patient/${c.patientId}`} className="font-medium text-surface-800 hover:text-navy-700 hover:underline">{c.patientName}</Link></td>
                   <td className="table-cell text-xs text-surface-600">{getCaseIndication(c) || '—'}</td>
+                  <td className="table-cell text-xs text-surface-600">{c.bodyRegion || '—'}</td>
                   <td className="table-cell text-surface-600">{c.scanType}</td>
                   <td className="table-cell"><SeverityBadge severity={c.severity} /></td>
                   <td className="table-cell"><StatusBadge status={c.status} /></td>

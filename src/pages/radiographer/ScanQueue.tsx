@@ -33,7 +33,7 @@ export default function ScanQueue() {
                     <SeverityBadge severity={c.severity} />
                   </div>
                   <p className="text-sm text-surface-700">Patient: {c.patientName}</p>
-                  <p className="text-xs text-surface-500">Type: {c.scanType} &middot; Clinic: {c.clinicName}</p>
+                  <p className="text-xs text-surface-500">Type: {c.scanType}{c.bodyRegion ? ` · ${c.bodyRegion}` : ''} &middot; Clinic: {c.clinicName}</p>
                   <p className="text-xs text-surface-500">Registered by: {getCaseRegistrar(c)}</p>
                   {c.scheduledAt && <p className="text-xs text-emerald-600 mt-1">Scheduled: {new Date(c.scheduledAt).toLocaleString()}</p>}
                 </div>
