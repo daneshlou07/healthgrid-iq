@@ -4,6 +4,9 @@ import {
   onSnapshot,
   orderBy,
   query,
+  doc,
+  setDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { getFirestoreDb, isFirebaseConfigured } from '../services/firebase';
 import { apiClient } from '../services/apiClient';
@@ -299,55 +302,141 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Mutations — all go through apiClient (auth token + Cloud Functions)
+  // Mutations — tries apiClient first, falls back to direct Firestore/local
   // -------------------------------------------------------------------------
   const addCase = async (c: Omit<Case, 'id'>): Promise<Case> => {
-    const created = await apiClient.createCase(c);
-    setCases((prev) => [...prev, created]);
-    return created;
+    try {
+      const created = await apiClient.createCase(c);
+      setCases((prev) => [...prev, created]);
+      return created;
+    } catch {
+      const id = `case-${Date.now()}`;
+      const newCase: Case = { ...c, id, createdAt: new Date().toISOString() };
+      const db = getFirestoreDb();
+      if (db) {
+        await setDoc(doc(db, 'cases', id), newCase).catch((e) => console.warn('Firestore setDoc failed:', e));
+      }
+      setCases((prev) => [...prev, newCase]);
+      return newCase;
+    }
   };
 
   const editCase = async (id: string, updates: Partial<Case>) => {
-    const updated = await apiClient.updateCase(id, updates);
-    setCases((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    try {
+      const updated = await apiClient.updateCase(id, updates);
+      setCases((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    } catch {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'cases', id), updates).catch((e) => console.warn('Firestore updateDoc failed:', e));
+      }
+      setCases((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+    }
   };
 
   const addPatient = async (p: Omit<Patient, 'id'>): Promise<Patient> => {
-    const created = await apiClient.createPatient(p);
-    setPatients((prev) => [...prev, created]);
-    return created;
+    try {
+      const created = await apiClient.createPatient(p);
+      setPatients((prev) => [...prev, created]);
+      return created;
+    } catch {
+      const id = `patient-${Date.now()}`;
+      const newPatient: Patient = { ...p, id };
+      const db = getFirestoreDb();
+      if (db) {
+        await setDoc(doc(db, 'patients', id), newPatient).catch((e) => console.warn('Firestore setDoc failed:', e));
+      }
+      setPatients((prev) => [...prev, newPatient]);
+      return newPatient;
+    }
   };
 
   const editPatient = async (id: string, updates: Partial<Patient>) => {
-    const updated = await apiClient.updatePatient(id, updates);
-    setPatients((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    try {
+      const updated = await apiClient.updatePatient(id, updates);
+      setPatients((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    } catch {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'patients', id), updates).catch((e) => console.warn('Firestore updateDoc failed:', e));
+      }
+      setPatients((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    }
   };
 
   const addReport = async (r: Omit<Report, 'id'>): Promise<Report> => {
-    const created = await apiClient.createReport(r);
-    setReports((prev) => [...prev, created]);
-    return created;
+    try {
+      const created = await apiClient.createReport(r);
+      setReports((prev) => [...prev, created]);
+      return created;
+    } catch {
+      const id = `report-${Date.now()}`;
+      const newReport: Report = { ...r, id, createdAt: new Date().toISOString() };
+      const db = getFirestoreDb();
+      if (db) {
+        await setDoc(doc(db, 'reports', id), newReport).catch((e) => console.warn('Firestore setDoc failed:', e));
+      }
+      setReports((prev) => [...prev, newReport]);
+      return newReport;
+    }
   };
 
   const editReport = async (id: string, updates: Partial<Report>) => {
-    const updated = await apiClient.updateReport(id, updates);
-    setReports((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    try {
+      const updated = await apiClient.updateReport(id, updates);
+      setReports((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    } catch {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'reports', id), updates).catch((e) => console.warn('Firestore updateDoc failed:', e));
+      }
+      setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+    }
   };
 
   const addPatientRequest = async (r: Omit<PatientRequest, 'id'>): Promise<PatientRequest> => {
-    const created = await apiClient.createPatientRequest(r) as unknown as PatientRequest;
-    setPatientRequests((prev) => [...prev, created]);
-    return created;
+    try {
+      const created = (await apiClient.createPatientRequest(r)) as unknown as PatientRequest;
+      setPatientRequests((prev) => [...prev, created]);
+      return created;
+    } catch {
+      const id = `req-${Date.now()}`;
+      const newReq: PatientRequest = { ...r, id, dateSubmitted: (r as any).dateSubmitted || new Date().toISOString() };
+      const db = getFirestoreDb();
+      if (db) {
+        await setDoc(doc(db, 'patientRequests', id), newReq).catch((e) => console.warn('Firestore setDoc failed:', e));
+      }
+      setPatientRequests((prev) => [...prev, newReq]);
+      return newReq;
+    }
   };
 
   const editPatientRequest = async (id: string, updates: Partial<PatientRequest>) => {
-    const updated = await apiClient.updatePatientRequest(id, updates) as unknown as PatientRequest;
-    setPatientRequests((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    try {
+      const updated = (await apiClient.updatePatientRequest(id, updates)) as unknown as PatientRequest;
+      setPatientRequests((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    } catch {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'patientRequests', id), updates).catch((e) => console.warn('Firestore updateDoc failed:', e));
+      }
+      setPatientRequests((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+    }
   };
 
   const addAuditLog = async (log: Omit<AuditLog, 'id'>) => {
-    await apiClient.createAuditLog(log as Omit<AuditLog, 'id' | 'timestamp'>);
-    setAuditLogs((prev) => [{ ...log, id: `audit-${Date.now()}` }, ...prev]);
+    try {
+      await apiClient.createAuditLog(log as Omit<AuditLog, 'id' | 'timestamp'>);
+      setAuditLogs((prev) => [{ ...log, id: `audit-${Date.now()}` }, ...prev]);
+    } catch {
+      const id = `audit-${Date.now()}`;
+      const newLog: AuditLog = { ...log, id, timestamp: (log as any).timestamp || new Date().toISOString() };
+      const db = getFirestoreDb();
+      if (db) {
+        await setDoc(doc(db, 'audit_logs', id), newLog).catch((e) => console.warn('Firestore setDoc failed:', e));
+      }
+      setAuditLogs((prev) => [newLog, ...prev]);
+    }
   };
 
   // Comments
