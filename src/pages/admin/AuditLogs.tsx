@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getAuditLogs } from '../../services/dataService';
 import type { AuditLog } from '../../types';
-import { Search, Shield } from 'lucide-react';
+import { Search, Shield, Download } from 'lucide-react';
+import { exportToCSV } from '../../utils/exportUtils';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -17,11 +18,29 @@ export default function AuditLogs() {
     return matchSearch && matchAction;
   });
 
+  const handleExport = () => {
+    exportToCSV(
+      filtered.map((l) => ({
+        Timestamp: new Date(l.timestamp).toLocaleString(),
+        User: l.userName,
+        Role: l.userRole,
+        Action: l.action,
+        Details: l.details,
+      })),
+      'HealthGrid_Audit_Logs'
+    );
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="page-title">System Audit Logs</h1>
-        <p className="page-subtitle flex items-center gap-1"><Shield className="w-3.5 h-3.5" /> Immutable, append-only audit trail</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="page-title">System Audit Logs</h1>
+          <p className="page-subtitle flex items-center gap-1"><Shield className="w-3.5 h-3.5" /> Immutable, append-only audit trail</p>
+        </div>
+        <button onClick={handleExport} className="btn-secondary text-sm flex items-center gap-1.5">
+          <Download className="w-4 h-4" /> Export to Spreadsheet (CSV)
+        </button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">

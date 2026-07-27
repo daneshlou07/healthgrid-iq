@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ux/Toast';
 import type { Patient, Gender } from '../../types';
 import Modal from '../../components/ui/Modal';
-import { Search, Eye, Edit2, Archive, RotateCcw, Plus } from 'lucide-react';
+import { Search, Eye, Edit2, Archive, RotateCcw, Plus, Download } from 'lucide-react';
+import { exportToCSV } from '../../utils/exportUtils';
 
 export default function PatientRegistry() {
   const { currentUser } = useAuth();
@@ -27,6 +28,24 @@ export default function PatientRegistry() {
     p.nric.toLowerCase().includes(search.toLowerCase()) ||
     p.address.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleExport = () => {
+    exportToCSV(
+      filtered.map((p) => ({
+        MRN: p.mrn,
+        Name: p.name,
+        NRIC: p.nric,
+        Gender: p.gender,
+        DOB: p.dob,
+        Phone: p.phone,
+        Email: p.email || '',
+        Address: p.address,
+        MedicalHistory: p.medicalHistory ? p.medicalHistory.join('; ') : '',
+        AssignedClinic: p.clinicName || '',
+      })),
+      showArchived ? 'HealthGrid_Archived_Patients' : 'HealthGrid_Patients_Registry'
+    );
+  };
 
   const openEdit = (patient: Patient) => {
     setShowEdit(patient);
@@ -74,6 +93,9 @@ export default function PatientRegistry() {
           <p className="page-subtitle">View, edit, archive, and restore patient records</p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={handleExport} className="btn-secondary text-sm flex items-center gap-1.5">
+            <Download className="w-4 h-4" /> Export to Spreadsheet (CSV)
+          </button>
           <button
             onClick={() => setShowArchived(!showArchived)}
             className={`text-sm flex items-center gap-1.5 px-3 py-2 rounded-lg border transition-colors ${showArchived ? 'bg-amber-50 border-amber-300 text-amber-700' : 'btn-secondary'}`}

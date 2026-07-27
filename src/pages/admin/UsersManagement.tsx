@@ -4,7 +4,8 @@ import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import type { User, UserRole } from '../../types';
 import Modal from '../../components/ui/Modal';
-import { Search, Plus, Edit2, Trash2, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, ShieldCheck, ShieldOff, Download } from 'lucide-react';
+import { exportToCSV } from '../../utils/exportUtils';
 
 const ROLES: UserRole[] = ['Radiology Department', 'Radiographer', 'Radiologist', 'Administrator'];
 
@@ -25,6 +26,22 @@ export default function UsersManagement() {
     u.role.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleExport = () => {
+    exportToCSV(
+      filtered.map((u) => ({
+        ID: u.id,
+        Name: u.name,
+        Email: u.email,
+        Role: u.role,
+        Status: u.status,
+        Shift: u.shift || '',
+        Specialty: u.specialty || '',
+        CreatedAt: u.createdAt ? new Date(u.createdAt).toLocaleString() : '',
+      })),
+      'HealthGrid_Users_Registry'
+    );
+  };
+
   const openCreate = () => {
     setEditingUser(null);
     setForm({ name: '', email: '', role: 'Radiology Department', specialty: '', shift: '' });
@@ -40,7 +57,6 @@ export default function UsersManagement() {
   const handleSave = async () => {
     if (!currentUser) return;
     if (editingUser) {
-      // Update existing
       const idx = users.findIndex((u) => u.id === editingUser.id);
       if (idx !== -1) {
         const updated = { ...users[idx], name: form.name, email: form.email, role: form.role, specialty: form.specialty || undefined, shift: form.shift || undefined };
@@ -49,7 +65,6 @@ export default function UsersManagement() {
         toast.success(`${form.name} updated`);
       }
     } else {
-      // Create new
       const newUser: User = {
         id: `user-${Date.now()}`, name: form.name, email: form.email, role: form.role,
         specialty: form.specialty || undefined, shift: form.shift || undefined,
@@ -84,9 +99,14 @@ export default function UsersManagement() {
           <h1 className="page-title">User Management</h1>
           <p className="page-subtitle">Create, edit, and manage system user accounts</p>
         </div>
-        <button onClick={openCreate} className="btn-primary text-sm flex items-center gap-1.5">
-          <Plus className="w-4 h-4" /> Create User
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExport} className="btn-secondary text-sm flex items-center gap-1.5">
+            <Download className="w-4 h-4" /> Export to Spreadsheet (CSV)
+          </button>
+          <button onClick={openCreate} className="btn-primary text-sm flex items-center gap-1.5">
+            <Plus className="w-4 h-4" /> Create User
+          </button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
