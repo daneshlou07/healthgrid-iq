@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Notification } from '../types';
+import { isFirebaseConfigured, getFirestoreDb } from '../services/firebase';
+import {
+  subscribeToNotifications,
+  markNotificationReadInFirestore,
+  markAllNotificationsReadInFirestore,
+} from '../services/notificationService';
+import { useAuth } from './AuthContext';
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -12,6 +19,9 @@ interface NotificationContextType {
 
 const NOTIF_STORAGE_KEY = 'healthgrid_notifications';
 
+// ---------------------------------------------------------------------------
+// Demo mode default notifications (used when Firebase is not configured)
+// ---------------------------------------------------------------------------
 const DEFAULT_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-001',
@@ -60,6 +70,9 @@ const DEFAULT_NOTIFICATIONS: Notification[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// localStorage helpers (demo mode only)
+// ---------------------------------------------------------------------------
 function loadNotifications(): Notification[] {
   try {
     const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
@@ -78,19 +91,69 @@ function saveNotifications(notifications: Notification[]) {
   } catch { /* storage full — fail silently */ }
 }
 
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(loadNotifications);
+  const { currentUser } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>(
+    isFirebaseConfigured() ? [] : loadNotifications()
+  );
+  const [firestoreMode, setFirestoreMode] = useState(false);
 
-  // Persist to localStorage on every change
+  // -------------------------------------------------------------------------
+  // When Firebase is configured and a user is logged in, subscribe to
+  // their Firestore notifications collection in real time.
+  // Falls back to localStorage when Firebase is not configured (demo mode).
+  // -------------------------------------------------------------------------
   useEffect(() => {
-    saveNotifications(notifications);
-  }, [notifications]);
+    if (!isFirebaseConfigured() || !currentUser) {
+      setFirestoreMode(false);
+      return;
+    }
+
+    const db = getFirestoreDb();
+    if (!db) {
+      setFirestoreMode(false);
+      return;
+    }
+
+    setFirestoreMode(true);
+
+    const unsubscribe = subscribeToNotifications(
+      db,
+      currentUser.id,
+      (firestoreNotifications) => {
+        setNotifications(firestoreNotifications);
+      },
+      (error) => {
+        console.warn('Notifications Firestore listener failed, falling back to localStorage:', error);
+        setFirestoreMode(false);
+        setNotifications(loadNotifications());
+      }
+    );
+
+    return unsubscribe;
+  }, [currentUser]);
+
+  // Persist to localStorage in demo mode only
+  useEffect(() => {
+    if (!firestoreMode) {
+      saveNotifications(notifications);
+    }
+  }, [notifications, firestoreMode]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const addNotification = (notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => {
+  // -------------------------------------------------------------------------
+  // addNotification — only used in demo / local mode.
+  // In Firebase mode, notifications are created server-side by Cloud Functions.
+  // -------------------------------------------------------------------------
+  const addNotification = (
+    notification: Omit<Notification, 'id' | 'createdAt' | 'read'>
+  ) => {
     const newNotif: Notification = {
       ...notification,
       id: `notif-${Date.now()}`,
@@ -100,16 +163,55 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => [newNotif, ...prev]);
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  const markAsRead = async (id: string) => {
+    // Optimistic local update
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+
+    // Persist to Firestore if in live mode
+    if (firestoreMode) {
+      const db = getFirestoreDb();
+      if (db) {
+        try {
+          await markNotificationReadInFirestore(db, id);
+        } catch (error) {
+          console.error('Failed to mark notification as read in Firestore:', error);
+          // Revert optimistic update on failure
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === id ? { ...n, read: false } : n))
+          );
+        }
+      }
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    // Optimistic local update
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
+    // Persist to Firestore if in live mode
+    if (firestoreMode) {
+      const db = getFirestoreDb();
+      if (db) {
+        const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+        try {
+          await markAllNotificationsReadInFirestore(db, unreadIds);
+        } catch (error) {
+          console.error('Failed to mark all notifications read in Firestore:', error);
+        }
+      }
+    }
   };
 
   const clearAll = () => {
-    setNotifications([]);
+    // In demo mode: clear localStorage
+    // In Firebase mode: we don't permanently delete — just mark all read
+    if (firestoreMode) {
+      markAllAsRead();
+    } else {
+      setNotifications([]);
+    }
   };
 
   return (

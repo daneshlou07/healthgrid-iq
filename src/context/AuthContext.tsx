@@ -1,228 +1,250 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { User, UserRole } from '../types';
 import { mockUsers } from '../services/mockData';
-import { getFirebaseAuth, isFirebaseConfigured } from '../services/firebase';
+import { getFirebaseAuth, getFirebaseAuthSync, isFirebaseConfigured } from '../services/firebase';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  TotpMultiFactorGenerator,
 } from 'firebase/auth';
 import { getFirestoreDb } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { createAuditLog } from '../services/dataService';
 
-interface AuthContextType {
+// ---------------------------------------------------------------------------
+// Context shape
+// ---------------------------------------------------------------------------
+export interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Pending MFA resolver returned when login requires a second factor */
+  mfaResolver: any | null;
+  login: (email: string, password: string) => Promise<{ requiresMfa: boolean }>;
   loginAsRole: (role: UserRole) => void;
   loginAsUser: (userId: string) => void;
+  completeMfaLogin: (totpCode: string) => Promise<void>;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const LOCAL_STORAGE_USER_KEY = 'healthgrid_demo_user';
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mfaResolver, setMfaResolver] = useState<any | null>(null);
 
+  // -----------------------------------------------------------------------
+  // Map a Firebase user → HealthGrid User profile by reading Firestore
+  // -----------------------------------------------------------------------
+  const loadUserProfile = async (uid: string, email: string | null): Promise<User | null> => {
+    const db = getFirestoreDb();
+    if (!db) return null;
+
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      return { id: userDoc.id, ...userDoc.data() } as User;
+    }
+
+    console.error(
+      `[AuthContext] Firebase user ${uid} (${email}) has no Firestore /users/${uid} document.`
+    );
+    return null;
+  };
+
+  // -----------------------------------------------------------------------
+  // Auth state listener
+  // -----------------------------------------------------------------------
   useEffect(() => {
-    if (isFirebaseConfigured()) {
-      // Real Firebase Auth listener
-      const auth = getFirebaseAuth();
+    if (!isFirebaseConfigured()) {
+      // Local dev / demo mode: restore cached demo user if present
+      const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
+      if (saved) {
+        try {
+          setCurrentUser(JSON.parse(saved));
+        } catch {
+          setCurrentUser(mockUsers[0]);
+        }
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    let unsubscribe: (() => void) | undefined;
+
+    (async () => {
+      const auth = await getFirebaseAuth();
       if (!auth) {
         setIsLoading(false);
         return;
       }
 
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
           try {
-            // Fetch full user profile from Firestore
-            const db = getFirestoreDb();
-            if (db) {
-              const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-              if (userDoc.exists()) {
-                const userData = { id: userDoc.id, ...userDoc.data() } as User;
-                setCurrentUser(userData);
-                localStorage.setItem('healthgrid_user', JSON.stringify(userData));
-              } else {
-                // User exists in Auth but not in Firestore — map by email
-                const matchedUser = mockUsers.find((u) => u.email === firebaseUser.email);
-                if (matchedUser) {
-                  setCurrentUser(matchedUser);
-                  localStorage.setItem('healthgrid_user', JSON.stringify(matchedUser));
-                } else {
-                  setCurrentUser(null);
-                }
-              }
-            }
+            const profile = await loadUserProfile(firebaseUser.uid, firebaseUser.email);
+            setCurrentUser(profile);
           } catch (error) {
             console.error('Failed to fetch user profile:', error);
-            // Restore from localStorage as fallback
-            const savedUser = localStorage.getItem('healthgrid_user');
-            if (savedUser) {
-              setCurrentUser(JSON.parse(savedUser));
-            }
+            setCurrentUser(null);
           }
         } else {
           setCurrentUser(null);
-          localStorage.removeItem('healthgrid_user');
+          setMfaResolver(null);
         }
         setIsLoading(false);
       });
+    })();
 
-      return unsubscribe;
-    } else {
-      // Demo mode: restore from localStorage
-      const savedUser = localStorage.getItem('healthgrid_user');
-      if (savedUser) {
-        setCurrentUser(JSON.parse(savedUser));
-      }
-      setIsLoading(false);
-    }
+    return () => { unsubscribe?.(); };
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // Rate limiting
-    const lockKey = 'healthgrid_login_lock';
-    const attemptsKey = 'healthgrid_login_attempts';
-    const lockUntil = localStorage.getItem(lockKey);
-    if (lockUntil && Date.now() < parseInt(lockUntil)) {
-      const remainingSec = Math.ceil((parseInt(lockUntil) - Date.now()) / 1000);
-      throw new Error(`Account locked. Try again in ${remainingSec} seconds.`);
+  // -----------------------------------------------------------------------
+  const recordLoginAudit = (user: User) => {
+    try {
+      createAuditLog({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: 'USER_LOGIN',
+        target: `users/${user.id}`,
+        details: `User signed in: ${user.name} (${user.role}) - ${user.email}`,
+        timestamp: new Date().toISOString(),
+      }).then(() => {
+        try {
+          const bc = new BroadcastChannel('healthgrid_sync');
+          bc.postMessage({ type: 'DATA_UPDATED', timestamp: Date.now() });
+          bc.close();
+        } catch {}
+      });
+    } catch (e) { console.error('Failed to record login audit:', e); }
+  };
+
+  const recordLogoutAudit = (user: User) => {
+    try {
+      createAuditLog({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: 'USER_LOGOUT',
+        target: `users/${user.id}`,
+        details: `User signed out: ${user.name} (${user.role}) - ${user.email}`,
+        timestamp: new Date().toISOString(),
+      }).then(() => {
+        try {
+          const bc = new BroadcastChannel('healthgrid_sync');
+          bc.postMessage({ type: 'DATA_UPDATED', timestamp: Date.now() });
+          bc.close();
+        } catch {}
+      });
+    } catch (e) { console.error('Failed to record logout audit:', e); }
+  };
+
+  // -----------------------------------------------------------------------
+  // Login
+  // -----------------------------------------------------------------------
+  const login = async (email: string, password: string): Promise<{ requiresMfa: boolean }> => {
+    if (!isFirebaseConfigured()) {
+      // Local Dev / Demo Mode: find matching user or default to Admin
+      const matched = mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      const userToSet = matched || mockUsers.find((u) => u.role === 'Administrator') || mockUsers[0];
+      setCurrentUser(userToSet);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(userToSet));
+      recordLoginAudit(userToSet);
+      return { requiresMfa: false };
     }
 
-    try {
-      if (isFirebaseConfigured()) {
-        // Real Firebase Auth login
-        const auth = getFirebaseAuth();
-        if (!auth) throw new Error('Firebase Auth not available');
-        
-        await signInWithEmailAndPassword(auth, email, password);
-        // onAuthStateChanged will handle setting the user
-        
-        // Reset failed attempts on success
-        localStorage.removeItem(attemptsKey);
-        localStorage.removeItem(lockKey);
-        localStorage.setItem('healthgrid_last_login', new Date().toISOString());
-      } else {
-        // Demo mode: match by email to mock users
-        const user = mockUsers.find((u) => u.email === email);
-        if (!user) {
-          const attempts = parseInt(localStorage.getItem(attemptsKey) || '0') + 1;
-          localStorage.setItem(attemptsKey, String(attempts));
-          if (attempts >= 5) {
-            localStorage.setItem(lockKey, String(Date.now() + 60000));
-            localStorage.setItem(attemptsKey, '0');
-            throw new Error('Too many failed attempts. Account locked for 60 seconds.');
-          }
-          throw new Error(`Invalid credentials. ${5 - attempts} attempts remaining.`);
-        }
+    const auth = await getFirebaseAuth();
+    if (!auth) throw new Error('Firebase Auth is not available.');
 
-        localStorage.removeItem(attemptsKey);
-        localStorage.removeItem(lockKey);
-        setCurrentUser(user);
-        localStorage.setItem('healthgrid_user', JSON.stringify(user));
-        localStorage.setItem('healthgrid_last_login', new Date().toISOString());
-        
-        await createAuditLog({
-          userId: user.id,
-          userName: user.name,
-          userRole: user.role,
-          action: 'USER_LOGIN',
-          target: `users/${user.id}`,
-          details: `${user.name} logged in successfully`,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      // Track failed attempts for rate limiting
-      if ((error as Error).message?.includes('auth/') || (error as Error).message?.includes('Invalid')) {
-        const attempts = parseInt(localStorage.getItem(attemptsKey) || '0') + 1;
-        localStorage.setItem(attemptsKey, String(attempts));
-        if (attempts >= 5) {
-          localStorage.setItem(lockKey, String(Date.now() + 60000));
-          localStorage.setItem(attemptsKey, '0');
-          throw new Error('Too many failed attempts. Account locked for 60 seconds.');
-        }
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      return { requiresMfa: false };
+    } catch (error: any) {
+      if (error.code === 'auth/multi-factor-auth-required') {
+        const resolver = (error as any).resolver;
+        setMfaResolver(resolver);
+        return { requiresMfa: true };
       }
       throw error;
     }
   };
 
+  // -----------------------------------------------------------------------
+  // Demo / Quick Access Login Helpers
+  // -----------------------------------------------------------------------
   const loginAsRole = (role: UserRole) => {
-    // Only available in demo mode
-    const user = mockUsers.find((u) => u.role === role);
-    if (!user) return;
+    const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
     setCurrentUser(user);
-    localStorage.setItem('healthgrid_user', JSON.stringify(user));
-    localStorage.setItem('healthgrid_last_login', new Date().toISOString());
-    createAuditLog({
-      userId: user.id,
-      userName: user.name,
-      userRole: user.role,
-      action: 'USER_LOGIN',
-      target: `users/${user.id}`,
-      details: `${user.name} logged in via role selection`,
-      timestamp: new Date().toISOString(),
-    });
+    if (!isFirebaseConfigured()) {
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
+    }
+    recordLoginAudit(user);
   };
 
   const loginAsUser = (userId: string) => {
-    // Only available in demo mode
-    const user = mockUsers.find((u) => u.id === userId);
-    if (!user) return;
+    const user = mockUsers.find((u) => u.id === userId) || mockUsers[0];
     setCurrentUser(user);
-    localStorage.setItem('healthgrid_user', JSON.stringify(user));
-    localStorage.setItem('healthgrid_last_login', new Date().toISOString());
-    createAuditLog({
-      userId: user.id,
-      userName: user.name,
-      userRole: user.role,
-      action: 'USER_LOGIN',
-      target: `users/${user.id}`,
-      details: `${user.name} logged in via user selection`,
-      timestamp: new Date().toISOString(),
-    });
+    if (!isFirebaseConfigured()) {
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
+    }
+    recordLoginAudit(user);
   };
 
+  // -----------------------------------------------------------------------
+  // Complete MFA login with a TOTP code
+  // -----------------------------------------------------------------------
+  const completeMfaLogin = async (totpCode: string): Promise<void> => {
+    if (!mfaResolver) throw new Error('No pending MFA challenge. Please log in first.');
+
+    const multiFactorAssertion = TotpMultiFactorGenerator.assertionForSignIn(
+      mfaResolver.hints[0].uid,
+      totpCode
+    );
+    await mfaResolver.resolveSignIn(multiFactorAssertion);
+    setMfaResolver(null);
+  };
+
+  // -----------------------------------------------------------------------
+  // Logout
+  // -----------------------------------------------------------------------
   const logout = async () => {
     if (currentUser) {
-      await createAuditLog({
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userRole: currentUser.role,
-        action: 'USER_LOGOUT',
-        target: `users/${currentUser.id}`,
-        details: `${currentUser.name} logged out`,
-        timestamp: new Date().toISOString(),
-      });
+      recordLogoutAudit(currentUser);
     }
-    
     if (isFirebaseConfigured()) {
-      const auth = getFirebaseAuth();
+      const auth = getFirebaseAuthSync();
       if (auth) {
-        await signOut(auth);
+        try {
+          await signOut(auth);
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
       }
     }
-    
+    localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
     setCurrentUser(null);
-    localStorage.removeItem('healthgrid_user');
+    setMfaResolver(null);
   };
 
+  // -----------------------------------------------------------------------
+  // Password reset
+  // -----------------------------------------------------------------------
   const sendPasswordReset = async (email: string) => {
-    if (isFirebaseConfigured()) {
-      const auth = getFirebaseAuth();
-      if (!auth) throw new Error('Firebase Auth not available');
-      await sendPasswordResetEmail(auth, email);
-    } else {
-      // Demo mode: simulate email sent
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    if (!isFirebaseConfigured()) {
+      return; // Simulated success in demo mode
     }
+    const auth = await getFirebaseAuth();
+    if (!auth) throw new Error('Firebase Auth is not available.');
+    await sendPasswordResetEmail(auth, email);
   };
 
   return (
@@ -231,9 +253,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentUser,
         isAuthenticated: !!currentUser,
         isLoading,
+        mfaResolver,
         login,
         loginAsRole,
         loginAsUser,
+        completeMfaLogin,
         logout,
         sendPasswordReset,
       }}

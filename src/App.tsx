@@ -11,6 +11,7 @@ import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import DashboardRouter from './pages/DashboardRouter';
+import PageLoader from './components/ux/PageLoader';
 
 // Lazy-loaded pages (code splitting per workspace)
 const PatientsList = lazy(() => import('./pages/department/PatientsList'));
@@ -23,7 +24,6 @@ const ScheduleView = lazy(() => import('./pages/radiographer/ScheduleView'));
 const UploadScans = lazy(() => import('./pages/radiographer/UploadScans'));
 const ReviewQueue = lazy(() => import('./pages/radiologist/ReviewQueue'));
 const Reporting = lazy(() => import('./pages/radiologist/Reporting'));
-const SignedReports = lazy(() => import('./pages/radiologist/SignedReports'));
 const RadiologistOnboarding = lazy(() => import('./pages/radiologist/Onboarding'));
 const RadiogrOnboarding = lazy(() => import('./pages/radiographer/Onboarding'));
 const AllCases = lazy(() => import('./pages/department/AllCases'));
@@ -44,10 +44,6 @@ const PatientRegistry = lazy(() => import('./pages/admin/PatientRegistry'));
 const RecycleBin = lazy(() => import('./pages/admin/RecycleBin'));
 const NotFound = lazy(() => import('./pages/shared/NotFound'));
 
-// Loading fallback
-function PageLoader() {
-  return <div className="flex items-center justify-center h-64"><div className="w-6 h-6 border-2 border-navy-500 border-t-transparent rounded-full animate-spin" /></div>;
-}
 
 function OnboardingRouter() {
   const { currentUser } = useAuth();

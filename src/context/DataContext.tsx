@@ -6,16 +6,12 @@ import {
   query,
 } from 'firebase/firestore';
 import { getFirestoreDb, isFirebaseConfigured } from '../services/firebase';
+import { apiClient } from '../services/apiClient';
 import {
   getUsers, getCases, getPatients, getClinics, getReports,
   getPatientRequests, getAuditLogs, getMobilePacsVans,
-  createCase as createCaseSvc, updateCase as updateCaseSvc,
-  createPatient as createPatientSvc, updatePatient as updatePatientSvc,
-  createReport as createReportSvc, updateReport as updateReportSvc,
-  createPatientRequest as createPatientRequestSvc, updatePatientRequest as updatePatientRequestSvc,
-  createAuditLog as createAuditLogSvc,
 } from '../services/dataService';
-import type { User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, MobilePacsVan } from '../types';
+import type { User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, MobilePacsVan, Comment } from '../types';
 
 // --- LocalStorage Persistence Layer ---
 const STORAGE_KEY = 'healthgrid_data';
@@ -52,16 +48,8 @@ function saveToStorage(data: Omit<PersistedData, 'lastUpdated'>) {
   } catch { /* Storage full or unavailable — fail silently */ }
 }
 
-// --- Case Comments (communication thread) ---
-export interface CaseComment {
-  id: string;
-  caseId: string;
-  userId: string;
-  userName: string;
-  userRole: string;
-  message: string;
-  timestamp: string;
-}
+// Re-export canonical Comment type for backwards-compat with components that imported CaseComment
+export type CaseComment = Comment;
 
 const COMMENTS_KEY = 'healthgrid_comments';
 function loadComments(): CaseComment[] {
@@ -119,6 +107,7 @@ interface DataContextValue {
   softDelete: (type: TrashItem['type'], id: string, deletedBy: string) => void;
   restoreFromTrash: (trashItemId: string) => void;
   permanentDelete: (trashItemId: string) => void;
+  // Exposed for admin pages that do optimistic local state updates
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   setEquipment: React.Dispatch<React.SetStateAction<MobilePacsVan[]>>;
   setClinics: React.Dispatch<React.SetStateAction<Clinic[]>>;
@@ -241,6 +230,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       )
     );
 
+    // Subscribe to audit logs (live audit trail)
+    unsubscribers.push(
+      onSnapshot(
+        query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc')),
+        (snapshot) => {
+          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AuditLog));
+          setAuditLogs(items);
+        },
+        (error) => console.error('Audit logs listener error:', error)
+      )
+    );
+
+    // Subscribe to users
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, 'users'),
+        (snapshot) => {
+          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+          setUsers(items);
+        },
+        (error) => console.error('Users listener error:', error)
+      )
+    );
+
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
@@ -285,53 +298,55 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => { bc?.close(); };
   }, []);
 
-  // Mutations
+  // -------------------------------------------------------------------------
+  // Mutations — all go through apiClient (auth token + Cloud Functions)
+  // -------------------------------------------------------------------------
   const addCase = async (c: Omit<Case, 'id'>): Promise<Case> => {
-    const created = await createCaseSvc(c);
+    const created = await apiClient.createCase(c);
     setCases((prev) => [...prev, created]);
     return created;
   };
 
   const editCase = async (id: string, updates: Partial<Case>) => {
-    await updateCaseSvc(id, updates);
-    setCases((prev) => prev.map((c) => c.id === id ? { ...c, ...updates } : c));
+    const updated = await apiClient.updateCase(id, updates);
+    setCases((prev) => prev.map((c) => (c.id === id ? updated : c)));
   };
 
   const addPatient = async (p: Omit<Patient, 'id'>): Promise<Patient> => {
-    const created = await createPatientSvc(p);
+    const created = await apiClient.createPatient(p);
     setPatients((prev) => [...prev, created]);
     return created;
   };
 
   const editPatient = async (id: string, updates: Partial<Patient>) => {
-    await updatePatientSvc(id, updates);
-    setPatients((prev) => prev.map((p) => p.id === id ? { ...p, ...updates } : p));
+    const updated = await apiClient.updatePatient(id, updates);
+    setPatients((prev) => prev.map((p) => (p.id === id ? updated : p)));
   };
 
   const addReport = async (r: Omit<Report, 'id'>): Promise<Report> => {
-    const created = await createReportSvc(r);
+    const created = await apiClient.createReport(r);
     setReports((prev) => [...prev, created]);
     return created;
   };
 
   const editReport = async (id: string, updates: Partial<Report>) => {
-    await updateReportSvc(id, updates);
-    setReports((prev) => prev.map((r) => r.id === id ? { ...r, ...updates } : r));
+    const updated = await apiClient.updateReport(id, updates);
+    setReports((prev) => prev.map((r) => (r.id === id ? updated : r)));
   };
 
   const addPatientRequest = async (r: Omit<PatientRequest, 'id'>): Promise<PatientRequest> => {
-    const created = await createPatientRequestSvc(r);
+    const created = await apiClient.createPatientRequest(r) as unknown as PatientRequest;
     setPatientRequests((prev) => [...prev, created]);
     return created;
   };
 
   const editPatientRequest = async (id: string, updates: Partial<PatientRequest>) => {
-    await updatePatientRequestSvc(id, updates);
-    setPatientRequests((prev) => prev.map((r) => r.id === id ? { ...r, ...updates } : r));
+    const updated = await apiClient.updatePatientRequest(id, updates) as unknown as PatientRequest;
+    setPatientRequests((prev) => prev.map((r) => (r.id === id ? updated : r)));
   };
 
   const addAuditLog = async (log: Omit<AuditLog, 'id'>) => {
-    await createAuditLogSvc(log);
+    await apiClient.createAuditLog(log as Omit<AuditLog, 'id' | 'timestamp'>);
     setAuditLogs((prev) => [{ ...log, id: `audit-${Date.now()}` }, ...prev]);
   };
 

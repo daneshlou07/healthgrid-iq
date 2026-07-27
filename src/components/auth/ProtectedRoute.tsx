@@ -13,8 +13,8 @@ export default function ProtectedRoute({ children, allowedRoles }: Props) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-theta-slate-950 flex items-center justify-center">
-        <div className="text-theta-slate-400">Loading...</div>
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center">
+        <div className="text-surface-400">Loading...</div>
       </div>
     );
   }

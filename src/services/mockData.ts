@@ -154,6 +154,16 @@ export const mockUsers: User[] = [
     shift: 'Day',
     leaveStatus: 'Active',
   },
+  {
+    id: 'admin-002',
+    name: 'Danesh Lou',
+    email: 'daneshlou05@gmail.com',
+    role: 'Administrator',
+    status: 'active',
+    createdAt: '2025-01-01T08:00:00Z',
+    shift: 'Day',
+    leaveStatus: 'Active',
+  },
 ];
 
 export const mockClinics: Clinic[] = [

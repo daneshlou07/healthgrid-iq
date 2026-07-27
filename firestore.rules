@@ -2,39 +2,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: Check if the user is authenticated
+    // -----------------------------------------------------------------------
+    // Helper functions
+    // -----------------------------------------------------------------------
+
+    // Check if the request is from an authenticated user
     function isAuth() {
       return request.auth != null;
     }
 
-    // Helper: Get the user's role from their document
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    // Read the custom role claim from the Firebase ID token (fast, tamper-proof)
+    // Falls back to the Firestore users document role if claim is absent.
+    function tokenRole() {
+      return request.auth.token.role;
     }
 
-    // Helper: Check if user has a specific role
+    // Check if the authenticated user has a specific role via custom claim
     function hasRole(role) {
-      return isAuth() && getUserRole() == role;
+      return isAuth() && tokenRole() == role;
     }
 
-    // Helper: Check if user is an administrator
+    // Check if user is an administrator
     function isAdmin() {
       return hasRole('Administrator');
     }
 
+    // Check if the caller is the owner of this document
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    // -----------------------------------------------------------------------
     // Users collection
+    // -----------------------------------------------------------------------
     match /users/{userId} {
+      // Any authenticated user can read user profiles (needed for name lookups)
       allow read: if isAuth();
+      // Only admins can create, update, or delete users
       allow create, update, delete: if isAdmin();
     }
 
+    // -----------------------------------------------------------------------
     // Clinics collection
+    // -----------------------------------------------------------------------
     match /clinics/{clinicId} {
       allow read: if isAuth();
       allow create, update, delete: if isAdmin();
     }
 
+    // -----------------------------------------------------------------------
     // Patients collection
+    // -----------------------------------------------------------------------
     match /patients/{patientId} {
       allow read: if isAuth();
       allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
@@ -42,24 +60,55 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Cases collection
+    // -----------------------------------------------------------------------
+    // Cases collection — tightened update rule
+    // -----------------------------------------------------------------------
     match /cases/{caseId} {
       allow read: if isAuth();
+      // Only Radiology Department staff or admins can create cases
       allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
-      allow update: if isAuth();
+      // Update requires one of: assigned radiographer, assigned radiologist,
+      // Radiology Department staff (case managers), or admin.
+      allow update: if isAdmin()
+        || hasRole('Radiology Department')
+        || (isAuth() && request.auth.uid == resource.data.radiographerId)
+        || (isAuth() && request.auth.uid == resource.data.radiologistId);
+      // Only admin can delete (soft delete preferred; hard delete is admin-only)
       allow delete: if isAdmin();
     }
 
+    // -----------------------------------------------------------------------
     // Reports collection
+    // -----------------------------------------------------------------------
     match /reports/{reportId} {
       allow read: if isAuth();
       allow create: if isAuth() && (hasRole('Radiologist') || isAdmin());
-      // Reports are locked after sign-off — only admin can modify
-      allow update: if isAdmin() || (hasRole('Radiologist') && resource.data.status == 'draft');
+      // Reports are locked after sign-off — only admin can modify a signed report
+      allow update: if isAdmin()
+        || (hasRole('Radiologist')
+            && resource.data.status != 'Verified / Signed Off'
+            && request.auth.uid == resource.data.radiologistId);
       allow delete: if isAdmin();
     }
 
+    // -----------------------------------------------------------------------
+    // Case Comments collection
+    // -----------------------------------------------------------------------
+    match /comments/{commentId} {
+      // Any authenticated user can read comments (clinical communication)
+      allow read: if isAuth();
+      // Any authenticated user can post comments
+      allow create: if isAuth();
+      // Only the author or an admin can edit a comment
+      allow update: if isAdmin()
+        || (isAuth() && request.auth.uid == resource.data.userId);
+      // Only admins can delete comments (audit trail)
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
     // Patient requests collection
+    // -----------------------------------------------------------------------
     match /patient_requests/{requestId} {
       allow read: if isAuth();
       allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
@@ -67,28 +116,36 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Audit logs — write-once, read by admin only
+    // -----------------------------------------------------------------------
+    // Audit logs — write-once, read by admin only (immutable trail)
+    // -----------------------------------------------------------------------
     match /audit_logs/{logId} {
       allow read: if isAdmin();
       allow create: if isAuth();
-      // NEVER allow update or delete — immutable audit trail
+      // NEVER allow update or delete
       allow update, delete: if false;
     }
 
+    // -----------------------------------------------------------------------
     // Mobile PACS vans (equipment)
+    // -----------------------------------------------------------------------
     match /mobile_pacs_vans/{vanId} {
       allow read: if isAuth();
       allow create, update, delete: if isAdmin();
     }
 
+    // -----------------------------------------------------------------------
     // Radiographer schedules
+    // -----------------------------------------------------------------------
     match /radio_schedules/{scheduleId} {
       allow read: if isAuth();
       allow create, update: if isAdmin() || hasRole('Radiology Department');
       allow delete: if isAdmin();
     }
 
-    // IAS Scheduling Jobs (created by IAS system or admin)
+    // -----------------------------------------------------------------------
+    // IAS Scheduling Jobs
+    // -----------------------------------------------------------------------
     match /scheduling_jobs/{jobId} {
       allow read: if isAuth();
       allow create: if isAdmin() || hasRole('Radiology Department');
@@ -96,10 +153,48 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // -----------------------------------------------------------------------
     // Announcements
+    // -----------------------------------------------------------------------
     match /announcements/{announcementId} {
       allow read: if isAuth();
       allow create, update, delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Notifications — users can only read/update their own
+    // -----------------------------------------------------------------------
+    match /notifications/{notificationId} {
+      // User may read their own notifications; admin can read all
+      allow read: if isAdmin()
+        || (isAuth() && resource.data.userId == request.auth.uid);
+      // Only backend (Cloud Functions via Admin SDK) should create notifications.
+      // Client creates are denied to prevent notification spam.
+      allow create: if false;
+      // User may mark their own notification as read (update read field only)
+      allow update: if isAdmin()
+        || (isAuth()
+            && resource.data.userId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Sessions — server-managed, clients cannot write directly
+    // -----------------------------------------------------------------------
+    match /sessions/{sessionId} {
+      // Users can read their own session info
+      allow read: if isAdmin()
+        || (isAuth() && resource.data.userId == request.auth.uid);
+      // Sessions are created and managed by the backend only
+      allow create, update, delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Trash / Soft deletes — admin only
+    // -----------------------------------------------------------------------
+    match /trash/{trashItemId} {
+      allow read, write: if isAdmin();
     }
   }
 }

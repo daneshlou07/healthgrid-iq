@@ -1,8 +1,15 @@
 /**
- * API Client for Firebase Cloud Functions
- * Provides typed interfaces for all backend endpoints
+ * apiClient.ts — Authenticated REST API Client for Firebase Cloud Functions
+ *
+ * Every request automatically attaches the current user's Firebase ID token
+ * as Authorization: Bearer <token>. On a 401 the client forces a token refresh
+ * and retries once before throwing.
+ *
+ * Set VITE_API_BASE_URL in .env to your Cloud Functions URL, e.g.:
+ *   VITE_API_BASE_URL=https://us-central1-healthgrid-iq.cloudfunctions.net/api
  */
 
+import { getIdToken } from './firebase';
 import type {
   User,
   Clinic,
@@ -13,162 +20,253 @@ import type {
   AuditLog,
   MobilePacsVan,
   RadioScheduleProfile,
+  Notification,
+  Comment,
 } from '../types';
 
-// Base URL for API calls (defaults to localhost for development)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/healthgrid-iq-demo/us-central1/api';
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  'http://localhost:5001/healthgrid-iq-demo/us-central1/api';
 
-// API Key for authenticated requests (if required)
-const API_KEY = import.meta.env.VITE_API_KEY || '';
-
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  message?: string;
+// ---------------------------------------------------------------------------
+// Response types
+// ---------------------------------------------------------------------------
+interface PaginatedResponse<T> {
+  data: T[];
+  count: number;
+  nextCursor?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Core client
+// ---------------------------------------------------------------------------
 class ApiClient {
   private baseUrl: string;
-  private headers: Record<string, string>;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
-    this.headers = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (API_KEY) {
-      this.headers['X-API-Key'] = API_KEY;
-    }
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...this.headers,
-        ...options.headers,
-      },
-    });
+  private url(endpoint: string): string {
+    return `${this.baseUrl}${endpoint}`;
+  }
+
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const attemptRequest = async (forceRefresh: boolean): Promise<Response> => {
+      const token = await getIdToken(forceRefresh);
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string>),
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      return fetch(this.url(endpoint), { ...options, headers });
+    };
+
+    let response = await attemptRequest(false);
+
+    // On 401, force a token refresh and retry exactly once
+    if (response.status === 401) {
+      response = await attemptRequest(true);
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: response.statusText }));
+      if (response.status === 401) throw new Error('Session expired. Please log in again.');
       throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
     }
 
     return response.json();
   }
 
-  // ==================== USERS ====================
+  // =========================================================================
+  // USERS
+  // =========================================================================
+
   async getUsers(role?: string): Promise<{ users: User[]; count: number }> {
     const params = role ? `?role=${encodeURIComponent(role)}` : '';
-    return this.request(`/api/users${params}`);
+    return this.request(`/v1/users${params}`);
   }
 
   async getUser(userId: string): Promise<User> {
-    return this.request(`/api/users/${userId}`);
+    return this.request(`/v1/users/${userId}`);
   }
 
-  // ==================== CLINICS ====================
+  async updateUser(userId: string, updates: Partial<User>): Promise<User> {
+    return this.request(`/v1/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  // =========================================================================
+  // CLINICS
+  // =========================================================================
+
   async getClinics(status?: string): Promise<{ clinics: Clinic[]; count: number }> {
     const params = status ? `?status=${encodeURIComponent(status)}` : '';
-    return this.request(`/api/clinics${params}`);
+    return this.request(`/v1/clinics${params}`);
   }
 
   async getClinic(clinicId: string): Promise<Clinic> {
-    return this.request(`/api/clinics/${clinicId}`);
+    return this.request(`/v1/clinics/${clinicId}`);
   }
 
-  // ==================== PATIENTS ====================
-  async getPatients(clinicId?: string): Promise<{ patients: Patient[]; count: number }> {
-    const params = clinicId ? `?clinicId=${encodeURIComponent(clinicId)}` : '';
-    return this.request(`/api/patients${params}`);
+  // =========================================================================
+  // PATIENTS
+  // =========================================================================
+
+  async getPatients(opts?: {
+    clinicId?: string;
+    after?: string;
+    limit?: number;
+  }): Promise<PaginatedResponse<Patient>> {
+    const params = new URLSearchParams();
+    if (opts?.clinicId) params.set('clinicId', opts.clinicId);
+    if (opts?.after) params.set('after', opts.after);
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    return this.request(`/v1/patients${qs ? `?${qs}` : ''}`);
   }
 
   async createPatient(patient: Omit<Patient, 'id'>): Promise<Patient> {
-    return this.request('/api/patients', {
+    return this.request('/v1/patients', {
       method: 'POST',
       body: JSON.stringify(patient),
     });
   }
 
-  // ==================== CASES ====================
+  async updatePatient(patientId: string, updates: Partial<Patient>): Promise<Patient> {
+    return this.request(`/v1/patients/${patientId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  // =========================================================================
+  // CASES
+  // =========================================================================
+
   async getCases(filters?: {
     status?: string;
     registeredById?: string;
     radiographerId?: string;
     severity?: string;
+    after?: string;
     limit?: number;
-  }): Promise<{ cases: Case[]; count: number }> {
+  }): Promise<PaginatedResponse<Case>> {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.registeredById) params.append('registeredById', filters.registeredById);
     if (filters?.radiographerId) params.append('radiographerId', filters.radiographerId);
     if (filters?.severity) params.append('severity', filters.severity);
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    
-    const queryString = params.toString();
-    return this.request(`/api/cases${queryString ? `?${queryString}` : ''}`);
+    if (filters?.after) params.append('after', filters.after);
+    if (filters?.limit) params.append('limit', String(filters.limit));
+    const qs = params.toString();
+    return this.request(`/v1/cases${qs ? `?${qs}` : ''}`);
   }
 
   async getCase(caseId: string): Promise<Case> {
-    return this.request(`/api/cases/${caseId}`);
+    return this.request(`/v1/cases/${caseId}`);
   }
 
   async createCase(caseData: Omit<Case, 'id'>): Promise<Case> {
-    return this.request('/api/cases', {
+    return this.request('/v1/cases', {
       method: 'POST',
       body: JSON.stringify(caseData),
     });
   }
 
   async updateCase(caseId: string, updates: Partial<Case>): Promise<Case> {
-    return this.request(`/api/cases/${caseId}`, {
+    return this.request(`/v1/cases/${caseId}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
     });
   }
 
-  // ==================== REPORTS ====================
+  // =========================================================================
+  // REPORTS
+  // =========================================================================
+
   async getReports(filters?: {
     caseId?: string;
     radiologistId?: string;
     status?: string;
-  }): Promise<{ reports: Report[]; count: number }> {
+    after?: string;
+    limit?: number;
+  }): Promise<PaginatedResponse<Report>> {
     const params = new URLSearchParams();
     if (filters?.caseId) params.append('caseId', filters.caseId);
     if (filters?.radiologistId) params.append('radiologistId', filters.radiologistId);
     if (filters?.status) params.append('status', filters.status);
-    
-    const queryString = params.toString();
-    return this.request(`/api/reports${queryString ? `?${queryString}` : ''}`);
+    if (filters?.after) params.append('after', filters.after);
+    if (filters?.limit) params.append('limit', String(filters.limit));
+    const qs = params.toString();
+    return this.request(`/v1/reports${qs ? `?${qs}` : ''}`);
   }
 
   async createReport(report: Omit<Report, 'id'>): Promise<Report> {
-    return this.request('/api/reports', {
+    return this.request('/v1/reports', {
       method: 'POST',
       body: JSON.stringify(report),
     });
   }
 
-  // ==================== FLEET (MOBILE PACS VANS) ====================
-  async getFleet(): Promise<{ vans: MobilePacsVan[]; count: number }> {
-    return this.request('/api/fleet');
-  }
-
-  async updateVan(vanId: string, updates: Partial<MobilePacsVan>): Promise<MobilePacsVan> {
-    return this.request(`/api/fleet/${vanId}`, {
+  async updateReport(reportId: string, updates: Partial<Report>): Promise<Report> {
+    return this.request(`/v1/reports/${reportId}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
     });
   }
 
-  // ==================== SCHEDULES (IAS INTEGRATION) ====================
+  // =========================================================================
+  // PATIENT REQUESTS
+  // =========================================================================
+
+  async getPatientRequests(): Promise<PaginatedResponse<PatientRequest>> {
+    return this.request('/v1/patient-requests');
+  }
+
+  async createPatientRequest(req: Omit<PatientRequest, 'id'>): Promise<PatientRequest> {
+    return this.request('/v1/patient-requests', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
+  }
+
+  async updatePatientRequest(
+    requestId: string,
+    updates: Partial<PatientRequest>
+  ): Promise<PatientRequest> {
+    return this.request(`/v1/patient-requests/${requestId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  // =========================================================================
+  // FLEET (MOBILE PACS VANS)
+  // =========================================================================
+
+  async getFleet(): Promise<{ vans: MobilePacsVan[]; count: number }> {
+    return this.request('/v1/fleet');
+  }
+
+  async updateVan(vanId: string, updates: Partial<MobilePacsVan>): Promise<MobilePacsVan> {
+    return this.request(`/v1/fleet/${vanId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  // =========================================================================
+  // SCHEDULES
+  // =========================================================================
+
   async getSchedules(filters?: {
     userId?: string;
     clinicId?: string;
@@ -178,48 +276,94 @@ class ApiClient {
     if (filters?.userId) params.append('userId', filters.userId);
     if (filters?.clinicId) params.append('clinicId', filters.clinicId);
     if (filters?.date) params.append('date', filters.date);
-    
-    const queryString = params.toString();
-    return this.request(`/api/schedules${queryString ? `?${queryString}` : ''}`);
+    const qs = params.toString();
+    return this.request(`/v1/schedules${qs ? `?${qs}` : ''}`);
   }
 
-  async createSchedule(schedule: Omit<RadioScheduleProfile, 'id'>): Promise<RadioScheduleProfile> {
-    return this.request('/api/schedules', {
+  async createSchedule(schedule: RadioScheduleProfile): Promise<RadioScheduleProfile> {
+    return this.request('/v1/schedules', {
       method: 'POST',
       body: JSON.stringify(schedule),
     });
   }
 
-  async updateSchedule(scheduleId: string, updates: Partial<RadioScheduleProfile>): Promise<RadioScheduleProfile> {
-    return this.request(`/api/schedules/${scheduleId}`, {
+  async updateSchedule(
+    scheduleId: string,
+    updates: Partial<RadioScheduleProfile>
+  ): Promise<RadioScheduleProfile> {
+    return this.request(`/v1/schedules/${scheduleId}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
     });
   }
 
-  // ==================== AUDIT LOGS ====================
+  // =========================================================================
+  // AUDIT LOGS
+  // =========================================================================
+
   async getAuditLogs(filters?: {
     userId?: string;
     action?: string;
     limit?: number;
-  }): Promise<{ logs: AuditLog[]; count: number }> {
+    after?: string;
+  }): Promise<PaginatedResponse<AuditLog>> {
     const params = new URLSearchParams();
     if (filters?.userId) params.append('userId', filters.userId);
     if (filters?.action) params.append('action', filters.action);
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    
-    const queryString = params.toString();
-    return this.request(`/api/audit-logs${queryString ? `?${queryString}` : ''}`);
+    if (filters?.limit) params.append('limit', String(filters.limit));
+    if (filters?.after) params.append('after', filters.after);
+    const qs = params.toString();
+    return this.request(`/v1/audit-logs${qs ? `?${qs}` : ''}`);
   }
 
   async createAuditLog(log: Omit<AuditLog, 'id' | 'timestamp'>): Promise<AuditLog> {
-    return this.request('/api/audit-logs', {
+    return this.request('/v1/audit-logs', {
       method: 'POST',
       body: JSON.stringify(log),
     });
   }
 
-  // ==================== ANALYTICS ====================
+  // =========================================================================
+  // COMMENTS
+  // =========================================================================
+
+  async getComments(caseId: string): Promise<{ comments: Comment[]; count: number }> {
+    return this.request(`/v1/cases/${caseId}/comments`);
+  }
+
+  async addComment(
+    caseId: string,
+    comment: Omit<Comment, 'id' | 'timestamp'>
+  ): Promise<Comment> {
+    return this.request(`/v1/cases/${caseId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(comment),
+    });
+  }
+
+  // =========================================================================
+  // NOTIFICATIONS
+  // =========================================================================
+
+  async getNotifications(userId: string): Promise<{ notifications: Notification[]; count: number }> {
+    return this.request(`/v1/notifications?userId=${encodeURIComponent(userId)}`);
+  }
+
+  async markNotificationRead(notificationId: string): Promise<void> {
+    return this.request(`/v1/notifications/${notificationId}/read`, { method: 'PATCH' });
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    return this.request('/v1/notifications/mark-all-read', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  }
+
+  // =========================================================================
+  // ANALYTICS
+  // =========================================================================
+
   async getDashboardAnalytics(): Promise<{
     totalCases: number;
     totalPatients: number;
@@ -229,10 +373,13 @@ class ApiClient {
     casesBySeverity: Record<string, number>;
     reportsByStatus: Record<string, number>;
   }> {
-    return this.request('/api/analytics/dashboard');
+    return this.request('/v1/analytics/dashboard');
   }
 
-  // ==================== IAS WEBHOOK (for external systems) ====================
+  // =========================================================================
+  // IAS WEBHOOK
+  // =========================================================================
+
   async sendIasWebhook(data: {
     event: 'SCHEDULE_ASSIGNED' | 'SCHEDULE_UPDATED' | 'SCHEDULE_CANCELLED';
     caseId: string;
@@ -242,7 +389,7 @@ class ApiClient {
     clinicId?: string;
     vanId?: string;
   }): Promise<{ success: boolean; message: string }> {
-    return this.request('/api/ias/webhook', {
+    return this.request('/v1/ias/webhook', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -252,5 +399,5 @@ class ApiClient {
 // Export singleton instance
 export const apiClient = new ApiClient();
 
-// Export class for testing/custom instances
+// Export class for testing / custom instances
 export default ApiClient;

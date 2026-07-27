@@ -5,14 +5,8 @@ import Header from './Header';
 import ErrorBoundary from '../ux/ErrorBoundary';
 import SessionTimeout from '../ux/SessionTimeout';
 import { Menu, X } from 'lucide-react';
+import PageLoader from '../ux/PageLoader';
 
-function PageLoader() {
-  return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-6 h-6 border-2 border-navy-500 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-}
 
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
