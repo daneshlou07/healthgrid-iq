@@ -137,46 +137,69 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [trash, setTrash] = useState<TrashItem[]>([]);
   const initialized = useRef(false);
 
-  // Load from localStorage first, then fall back to mock data
+  // Helper to merge live items with current state by ID
+  const mergeItems = <T extends { id: string }>(current: T[], incoming: T[]): T[] => {
+    if (!incoming || incoming.length === 0) return current;
+    const map = new Map<string, T>();
+    current.forEach((item) => map.set(item.id, item));
+    incoming.forEach((item) => map.set(item.id, item));
+    return Array.from(map.values());
+  };
+
+  // Load from localStorage first, then merge with Firestore or mock data
   const loadAll = useCallback(async () => {
     setLoading(true);
 
-    // If Firebase is configured, skip localStorage/mock and use Firestore
+    const persisted = loadFromStorage();
+    let initUsers = persisted?.users || [];
+    let initCases = persisted?.cases || [];
+    let initPatients = persisted?.patients || [];
+    let initClinics = persisted?.clinics || [];
+    let initReports = persisted?.reports || [];
+    let initRequests = persisted?.patientRequests || [];
+    let initLogs = persisted?.auditLogs || [];
+    let initEquipment = persisted?.equipment || [];
+
+    // Fall back to mock data if empty
+    if (!persisted) {
+      try {
+        const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
+          getUsers(), getCases(), getPatients(), getClinics(),
+          getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
+        ]);
+        initUsers = u; initCases = c; initPatients = p; initClinics = cl;
+        initReports = r; initRequests = pr; initLogs = al; initEquipment = eq;
+      } catch (e) {
+        console.warn('Mock loading error:', e);
+      }
+    }
+
+    setUsers(initUsers);
+    setCases(initCases);
+    setPatients(initPatients);
+    setClinics(initClinics);
+    setReports(initReports);
+    setPatientRequests(initRequests);
+    setAuditLogs(initLogs);
+    setEquipment(initEquipment);
+
+    // If Firebase is configured, attempt background fetch from Firestore and merge
     if (isFirebaseConfigured()) {
       try {
         const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
           getUsers(), getCases(), getPatients(), getClinics(),
           getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
         ]);
-        setUsers(u); setCases(c); setPatients(p); setClinics(cl);
-        setReports(r); setPatientRequests(pr); setAuditLogs(al); setEquipment(eq);
+        setUsers((prev) => mergeItems(prev, u));
+        setCases((prev) => mergeItems(prev, c));
+        setPatients((prev) => mergeItems(prev, p));
+        setClinics((prev) => mergeItems(prev, cl));
+        setReports((prev) => mergeItems(prev, r));
+        setPatientRequests((prev) => mergeItems(prev, pr));
+        setAuditLogs((prev) => mergeItems(prev, al));
+        setEquipment((prev) => mergeItems(prev, eq));
       } catch (error) {
-        console.error('Failed to load from Firestore, falling back to mock:', error);
-        const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
-          getUsers(), getCases(), getPatients(), getClinics(),
-          getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
-        ]);
-        setUsers(u); setCases(c); setPatients(p); setClinics(cl);
-        setReports(r); setPatientRequests(pr); setAuditLogs(al); setEquipment(eq);
-      }
-    } else {
-      const persisted = loadFromStorage();
-      if (persisted) {
-        setUsers(persisted.users);
-        setCases(persisted.cases);
-        setPatients(persisted.patients);
-        setClinics(persisted.clinics);
-        setReports(persisted.reports);
-        setPatientRequests(persisted.patientRequests);
-        setAuditLogs(persisted.auditLogs);
-        setEquipment(persisted.equipment);
-      } else {
-        const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
-          getUsers(), getCases(), getPatients(), getClinics(),
-          getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
-        ]);
-        setUsers(u); setCases(c); setPatients(p); setClinics(cl);
-        setReports(r); setPatientRequests(pr); setAuditLogs(al); setEquipment(eq);
+        console.warn('Background Firestore fetch error (using local storage):', error);
       }
     }
 
@@ -189,7 +212,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Real-time Firestore listeners (only when Firebase is configured)
+  // Real-time Firestore listeners (merges live docs without replacing local state if empty)
   useEffect(() => {
     if (!isFirebaseConfigured()) return;
     const db = getFirestoreDb();
@@ -197,63 +220,68 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const unsubscribers: (() => void)[] = [];
 
-    // Subscribe to cases (most frequently updated)
     unsubscribers.push(
       onSnapshot(
         query(collection(db, 'cases'), orderBy('createdAt', 'desc')),
         (snapshot) => {
-          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
-          setCases(items);
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+            setCases((prev) => mergeItems(prev, items));
+          }
         },
-        (error) => console.error('Cases listener error:', error)
+        (error) => console.warn('Cases listener warning:', error)
       )
     );
 
-    // Subscribe to reports
     unsubscribers.push(
       onSnapshot(
         query(collection(db, 'reports'), orderBy('createdAt', 'desc')),
         (snapshot) => {
-          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Report));
-          setReports(items);
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Report));
+            setReports((prev) => mergeItems(prev, items));
+          }
         },
-        (error) => console.error('Reports listener error:', error)
+        (error) => console.warn('Reports listener warning:', error)
       )
     );
 
-    // Subscribe to mobile PACS vans
     unsubscribers.push(
       onSnapshot(
         collection(db, 'mobile_pacs_vans'),
         (snapshot) => {
-          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as MobilePacsVan));
-          setEquipment(items);
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as MobilePacsVan));
+            setEquipment((prev) => mergeItems(prev, items));
+          }
         },
-        (error) => console.error('Equipment listener error:', error)
+        (error) => console.warn('Equipment listener warning:', error)
       )
     );
 
-    // Subscribe to audit logs (live audit trail)
     unsubscribers.push(
       onSnapshot(
         query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc')),
         (snapshot) => {
-          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AuditLog));
-          setAuditLogs(items);
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AuditLog));
+            setAuditLogs((prev) => mergeItems(prev, items));
+          }
         },
-        (error) => console.error('Audit logs listener error:', error)
+        (error) => console.warn('Audit logs listener warning:', error)
       )
     );
 
-    // Subscribe to users
     unsubscribers.push(
       onSnapshot(
         collection(db, 'users'),
         (snapshot) => {
-          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
-          setUsers(items);
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+            setUsers((prev) => mergeItems(prev, items));
+          }
         },
-        (error) => console.error('Users listener error:', error)
+        (error) => console.warn('Users listener warning:', error)
       )
     );
 
