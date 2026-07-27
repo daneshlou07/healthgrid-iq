@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
-import { getPatientRequests, updatePatientRequest, updatePatient, createAuditLog } from '../../services/dataService';
+import { updatePatientRequest, updatePatient } from '../../services/dataService';
 import type { PatientRequest } from '../../types';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Modal from '../../components/ui/Modal';
@@ -9,16 +10,14 @@ import { CheckCircle, XCircle, Trash2, Search, Eye } from 'lucide-react';
 
 export default function PatientRequestsReview() {
   const { currentUser } = useAuth();
+  const { patientRequests, setPatientRequests, editPatient, addAuditLog } = useData();
   const toast = useToast();
-  const [requests, setRequests] = useState<PatientRequest[]>([]);
   const [selectedReq, setSelectedReq] = useState<PatientRequest | null>(null);
   const [remarks, setRemarks] = useState('');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  useEffect(() => { getPatientRequests().then(setRequests); }, []);
-
-  const filtered = requests.filter((r) => {
+  const filtered = patientRequests.filter((r) => {
     const matchSearch = r.patientName.toLowerCase().includes(search.toLowerCase()) || r.mrn.toLowerCase().includes(search.toLowerCase()) || r.requestedBy.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === 'all' || r.status === filterStatus;
     return matchSearch && matchStatus;
@@ -26,21 +25,36 @@ export default function PatientRequestsReview() {
 
   const handleDecision = async (decision: 'Approved' | 'Rejected') => {
     if (!currentUser || !selectedReq) return;
-    await updatePatientRequest(selectedReq.id, { status: decision, approverName: currentUser.name, approvedOrRejectedAt: new Date().toISOString(), remarks });
+    const updated = { status: decision, approverName: currentUser.name, approvedOrRejectedAt: new Date().toISOString(), remarks };
+    setPatientRequests((prev) => prev.map((r) => r.id === selectedReq.id ? { ...r, ...updated } : r));
+    updatePatientRequest(selectedReq.id, updated).catch(() => {});
+
     if (decision === 'Approved' && selectedReq.requestType === 'Update') {
-      await updatePatient(selectedReq.patientId, selectedReq.requestedChanges as Record<string, any>);
+      editPatient(selectedReq.patientId, selectedReq.requestedChanges as Record<string, any>);
+      updatePatient(selectedReq.patientId, selectedReq.requestedChanges as Record<string, any>).catch(() => {});
     }
-    await createAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: `PATIENT_REQUEST_${decision.toUpperCase()}`, target: `patient_requests/${selectedReq.id}`, details: `${decision} ${selectedReq.requestType} request for ${selectedReq.patientName} (${selectedReq.mrn})`, timestamp: new Date().toISOString() });
+
+    addAuditLog({
+      userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
+      action: `PATIENT_REQUEST_${decision.toUpperCase()}`, target: `patient_requests/${selectedReq.id}`,
+      details: `${decision} ${selectedReq.requestType} request for ${selectedReq.patientName} (${selectedReq.mrn})`,
+      timestamp: new Date().toISOString(),
+    });
+
     toast.success(`Request ${decision.toLowerCase()} for ${selectedReq.patientName}`);
     setSelectedReq(null); setRemarks('');
-    getPatientRequests().then(setRequests);
   };
 
   const deleteRequest = async (req: PatientRequest) => {
     if (!currentUser) return;
     if (!confirm(`Delete this ${req.requestType} request for ${req.patientName}?`)) return;
-    setRequests((prev) => prev.filter((r) => r.id !== req.id));
-    await createAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'PATIENT_REQUEST_DELETED', target: `patient_requests/${req.id}`, details: `Deleted ${req.requestType} request for ${req.patientName}`, timestamp: new Date().toISOString() });
+    setPatientRequests((prev) => prev.filter((r) => r.id !== req.id));
+    addAuditLog({
+      userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
+      action: 'PATIENT_REQUEST_DELETED', target: `patient_requests/${req.id}`,
+      details: `Deleted ${req.requestType} request for ${req.patientName}`,
+      timestamp: new Date().toISOString(),
+    });
     toast.success('Request deleted');
   };
 
