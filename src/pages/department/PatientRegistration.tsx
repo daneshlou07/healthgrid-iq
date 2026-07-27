@@ -156,8 +156,9 @@ export default function PatientRegistration() {
 
       toast.success(`${form.name} registered successfully — MRN: ${mrnGenerated}`);
       setForm({ name: '', idNumber: '', dob: '', gender: 'Male', phone: '', email: '', address: '', medicalHistory: '', emergencyContact: '', preferredClinicId: '' });
-    } catch {
-      toast.error('Failed to register patient. Please try again.');
+    } catch (err: any) {
+      console.error('Patient registration error:', err);
+      toast.error(err?.message || 'Failed to register patient. Please check NRIC and required fields.');
     }
   };
 
