@@ -272,17 +272,29 @@ export async function updateMobilePacsVan(id: string, updates: Partial<MobilePac
 // ==================== RADIO SCHEDULE PROFILES ====================
 export async function getRadioScheduleProfiles(): Promise<RadioScheduleProfile[]> {
   if (useMock()) return [...mockRadioSchedules];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'radio_schedules'));
-  return snapshot.docs.map((d) => d.data() as RadioScheduleProfile);
+  try {
+    const db = getFirestoreDb()!;
+    const snapshot = await getDocs(collection(db, 'radio_schedules'));
+    if (snapshot.empty) return [...mockRadioSchedules];
+    return snapshot.docs.map((d) => d.data() as RadioScheduleProfile);
+  } catch (err) {
+    console.warn('Failed to fetch radio schedules from Firestore, using mock:', err);
+    return [...mockRadioSchedules];
+  }
 }
 
 export async function getRadioSchedulesByClinic(clinicId: string): Promise<RadioScheduleProfile[]> {
   if (useMock()) return mockRadioSchedules.filter((r) => r.deployedClinicId === clinicId);
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'radio_schedules'), where('deployedClinicId', '==', clinicId));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => d.data() as RadioScheduleProfile);
+  try {
+    const db = getFirestoreDb()!;
+    const q = query(collection(db, 'radio_schedules'), where('deployedClinicId', '==', clinicId));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return mockRadioSchedules.filter((r) => r.deployedClinicId === clinicId);
+    return snapshot.docs.map((d) => d.data() as RadioScheduleProfile);
+  } catch (err) {
+    console.warn('Failed to fetch radio schedules by clinic, using mock:', err);
+    return mockRadioSchedules.filter((r) => r.deployedClinicId === clinicId);
+  }
 }
 
 export async function createRadioScheduleProfile(
