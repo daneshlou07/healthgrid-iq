@@ -2,66 +2,15 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
-import type { SeverityLevel } from '../../types';
-import { Info } from 'lucide-react';
+import type { SeverityLevel, ExaminationRequest, ExaminationSide } from '../../types';
+import {
+  getModalityRef,
+  MODALITY_REFERENCE_DATASET,
+  getSideOptions,
+} from '../../data/modalityReference';
+import { Info, Plus, Trash2, Layers, Check } from 'lucide-react';
 
-// Modality → Examination mapping with auto body-region
-const MODALITY_EXAMINATIONS: Record<string, { name: string; bodyRegion: string }[]> = {
-  'X-Ray': [
-    { name: 'Chest X-Ray', bodyRegion: 'Chest' },
-    { name: 'Abdomen X-Ray', bodyRegion: 'Abdomen' },
-    { name: 'Skull X-Ray', bodyRegion: 'Head' },
-    { name: 'Spine X-Ray', bodyRegion: 'Lumbar Spine' },
-    { name: 'Knee X-Ray', bodyRegion: 'Knee' },
-    { name: 'Ankle X-Ray', bodyRegion: 'Ankle' },
-    { name: 'Wrist X-Ray', bodyRegion: 'Wrist' },
-    { name: 'Hip X-Ray', bodyRegion: 'Hip' },
-    { name: 'Shoulder X-Ray', bodyRegion: 'Shoulder' },
-    { name: 'Cervical Spine X-Ray', bodyRegion: 'Cervical Spine' },
-    { name: 'Thoracic Spine X-Ray', bodyRegion: 'Thoracic Spine' },
-    { name: 'Pelvis X-Ray', bodyRegion: 'Pelvis' },
-    { name: 'Hand X-Ray', bodyRegion: 'Hand' },
-    { name: 'Foot X-Ray', bodyRegion: 'Foot' },
-  ],
-  'CT Scan': [
-    { name: 'CT Brain', bodyRegion: 'Head' },
-    { name: 'CT Thorax', bodyRegion: 'Chest' },
-    { name: 'CT Abdomen', bodyRegion: 'Abdomen' },
-    { name: 'CT Abdomen & Pelvis', bodyRegion: 'Abdomen' },
-    { name: 'CT Pulmonary Angiography', bodyRegion: 'Chest' },
-    { name: 'CT Paranasal Sinus', bodyRegion: 'Head' },
-    { name: 'CT Cervical Spine', bodyRegion: 'Cervical Spine' },
-    { name: 'CT Lumbar Spine', bodyRegion: 'Lumbar Spine' },
-    { name: 'CT Kidney', bodyRegion: 'Abdomen' },
-    { name: 'CT Angiography', bodyRegion: 'Chest' },
-  ],
-  'MRI': [
-    { name: 'MRI Brain', bodyRegion: 'Head' },
-    { name: 'MRI Cervical Spine', bodyRegion: 'Cervical Spine' },
-    { name: 'MRI Thoracic Spine', bodyRegion: 'Thoracic Spine' },
-    { name: 'MRI Lumbar Spine', bodyRegion: 'Lumbar Spine' },
-    { name: 'MRI Brain & Spine', bodyRegion: 'Head' },
-    { name: 'MRI Knee', bodyRegion: 'Knee' },
-    { name: 'MRI Shoulder', bodyRegion: 'Shoulder' },
-    { name: 'MRI Hip', bodyRegion: 'Hip' },
-    { name: 'MRI Wrist', bodyRegion: 'Wrist' },
-    { name: 'MRI Ankle', bodyRegion: 'Ankle' },
-    { name: 'MRI Abdomen', bodyRegion: 'Abdomen' },
-    { name: 'MRI Pelvis', bodyRegion: 'Pelvis' },
-  ],
-  'Ultrasound': [
-    { name: 'Abdominal Ultrasound', bodyRegion: 'Abdomen' },
-    { name: 'Pelvic Ultrasound', bodyRegion: 'Pelvis' },
-    { name: 'Thyroid Ultrasound', bodyRegion: 'Neck' },
-    { name: 'Obstetric Ultrasound', bodyRegion: 'Pelvis' },
-    { name: 'Cardiac Echo', bodyRegion: 'Chest' },
-    { name: 'Renal Ultrasound', bodyRegion: 'Abdomen' },
-    { name: 'Breast Ultrasound', bodyRegion: 'Chest' },
-    { name: 'Musculoskeletal Ultrasound', bodyRegion: 'Upper Limb' },
-  ],
-};
-
-const MODALITIES = Object.keys(MODALITY_EXAMINATIONS);
+const MODALITIES = Object.keys(MODALITY_REFERENCE_DATASET);
 
 const SYMPTOM_SUGGESTIONS = [
   'Persistent cough', 'Chest pain', 'Shortness of breath',
@@ -71,96 +20,196 @@ const SYMPTOM_SUGGESTIONS = [
   'Suspected fracture', 'Post-operative follow-up',
 ];
 
-const BODY_REGIONS = [
-  'Head', 'Neck', 'Chest', 'Abdomen', 'Pelvis',
-  'Cervical Spine', 'Thoracic Spine', 'Lumbar Spine',
-  'Shoulder', 'Upper Limb', 'Wrist', 'Hand',
-  'Hip', 'Knee', 'Ankle', 'Foot',
-];
-
 const SEVERITIES: SeverityLevel[] = ['Mild', 'Moderate', 'Severe', 'Critical'];
+
+interface FormExamCard {
+  id: string;
+  bodyPart: string;
+  customBodyPart: string;
+  side: ExaminationSide;
+  viewsOrProtocol: string[];
+  notes: string;
+}
+
+function createBlankExamCard(idSuffix: number): FormExamCard {
+  return {
+    id: `exam-${Date.now()}-${idSuffix}`,
+    bodyPart: '',
+    customBodyPart: '',
+    side: 'N/A',
+    viewsOrProtocol: [],
+    notes: '',
+  };
+}
 
 export default function NewCaseRegistration() {
   const { currentUser } = useAuth();
   const { patients, clinics, addCase, addAuditLog } = useData();
   const toast = useToast();
-  const [form, setForm] = useState({
-    patientId: '',
-    modality: '',
-    examination: '',
-    customExamination: '',
-    bodyRegion: '',
-    customBodyRegion: '',
-    indication: '',
-    severity: 'Moderate' as SeverityLevel,
-    incubationPeriod: '',
-    preferredClinicId: '',
-    notes: '',
-  });
 
-  const selectedPatient = patients.find((p) => p.id === form.patientId);
+  const [patientId, setPatientId] = useState('');
+  const [modality, setModality] = useState('X-Ray');
+  const [indication, setIndication] = useState('');
+  const [severity, setSeverity] = useState<SeverityLevel>('Moderate');
+  const [incubationPeriod, setIncubationPeriod] = useState('');
+  const [preferredClinicId, setPreferredClinicId] = useState('');
+  const [notes, setNotes] = useState('');
 
-  // Get available examinations based on selected modality
-  const examinations = useMemo(() => {
-    if (!form.modality) return [];
-    return MODALITY_EXAMINATIONS[form.modality] || [];
-  }, [form.modality]);
+  // Repeatable Examination Cards State
+  const [examCards, setExamCards] = useState<FormExamCard[]>([createBlankExamCard(1)]);
 
-  // Handle modality change — reset examination and body region
-  const handleModalityChange = (modality: string) => {
-    setForm({ ...form, modality, examination: '', customExamination: '', bodyRegion: '', customBodyRegion: '' });
+  const selectedPatient = patients.find((p) => p.id === patientId);
+  const modalityRef = useMemo(() => getModalityRef(modality), [modality]);
+
+  // Handle Modality Change — reset all examination cards to match new modality
+  const handleModalityChange = (newModality: string) => {
+    setModality(newModality);
+    setExamCards([createBlankExamCard(1)]);
   };
 
-  // Handle examination change — auto-populate body region
-  const handleExaminationChange = (examination: string) => {
-    if (examination === 'Other') {
-      setForm({ ...form, examination: 'Other', customExamination: '', bodyRegion: '', customBodyRegion: '' });
+  // Add Examination Card
+  const handleAddCard = () => {
+    setExamCards((prev) => [...prev, createBlankExamCard(prev.length + 1)]);
+  };
+
+  // Remove Examination Card (except index 0)
+  const handleRemoveCard = (index: number) => {
+    if (index === 0) return;
+    setExamCards((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Update specific card field
+  const updateCard = (index: number, updates: Partial<FormExamCard>) => {
+    setExamCards((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...updates };
+      return next;
+    });
+  };
+
+  // Handle Body Part selection on a specific card — auto default side & options
+  const handleBodyPartChange = (index: number, bodyPartName: string) => {
+    if (bodyPartName === 'Other') {
+      updateCard(index, { bodyPart: 'Other', customBodyPart: '', side: 'N/A', viewsOrProtocol: [] });
+      return;
+    }
+
+    const partRef = modalityRef.bodyParts.find((b) => b.name === bodyPartName);
+    const newSide: ExaminationSide = partRef?.supportsLaterality ? 'Right' : 'N/A';
+    const defaultOpts = partRef?.defaultViewsOrProtocols || [];
+
+    updateCard(index, {
+      bodyPart: bodyPartName,
+      customBodyPart: '',
+      side: newSide,
+      viewsOrProtocol: defaultOpts,
+    });
+  };
+
+  // Toggle View/Protocol option for a card
+  const toggleCardOption = (index: number, option: string) => {
+    const currentOpts = examCards[index].viewsOrProtocol || [];
+    if (modalityRef.isMultiOptionAllowed) {
+      const exists = currentOpts.includes(option);
+      const nextOpts = exists ? currentOpts.filter((o) => o !== option) : [...currentOpts, option];
+      updateCard(index, { viewsOrProtocol: nextOpts });
     } else {
-      const exam = examinations.find((e) => e.name === examination);
-      setForm({ ...form, examination, customExamination: '', bodyRegion: exam?.bodyRegion || '', customBodyRegion: '' });
+      // Single choice
+      updateCard(index, { viewsOrProtocol: [option] });
     }
   };
 
-  // Resolve the final scan type for submission
-  const resolvedScanType = form.examination === 'Other' ? form.customExamination : form.examination;
-  const resolvedIndication = form.indication.trim();
-  const resolvedBodyRegion = form.bodyRegion === 'Other' ? form.customBodyRegion.trim() : form.bodyRegion;
+  // Validate form submission
+  const isValid = useMemo(() => {
+    if (!currentUser || !patientId || !indication.trim() || !modality) return false;
+    if (examCards.length === 0) return false;
+    return examCards.every((card) => {
+      const partValid = card.bodyPart === 'Other' ? Boolean(card.customBodyPart.trim()) : Boolean(card.bodyPart);
+      const optsValid = card.viewsOrProtocol.length > 0;
+      return partValid && optsValid;
+    });
+  }, [currentUser, patientId, indication, modality, examCards]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser || !resolvedScanType || !resolvedIndication || !resolvedBodyRegion) return;
-    const patient = patients.find((p) => p.id === form.patientId);
-    const preferredClinic = clinics.find((c) => c.id === form.preferredClinicId);
+    if (!isValid || !currentUser) return;
+
+    const patient = patients.find((p) => p.id === patientId);
+    const preferredClinic = clinics.find((c) => c.id === preferredClinicId);
     const caseNumber = `XR${new Date().getFullYear()}${String(Date.now()).slice(-6)}`;
+
+    // Build requestedExaminations array
+    const requestedExaminations: ExaminationRequest[] = examCards.map((card) => {
+      const resolvedPart = card.bodyPart === 'Other' ? card.customBodyPart.trim() : card.bodyPart;
+      return {
+        id: card.id,
+        bodyPart: resolvedPart,
+        side: card.side,
+        viewsOrProtocol: card.viewsOrProtocol,
+        notes: card.notes.trim() || undefined,
+      };
+    });
+
+    // Build summary string for parent scanType and bodyRegion
+    const scanTypeSummary = requestedExaminations.map((ex) => {
+      const sideStr = ex.side && ex.side !== 'N/A' ? ` [${ex.side}]` : '';
+      const optsStr = ex.viewsOrProtocol.length ? ` (${ex.viewsOrProtocol.join(', ')})` : '';
+      return `${ex.bodyPart}${sideStr}${optsStr}`;
+    }).join('; ');
+
+    const fullScanType = `${modality} — ${scanTypeSummary}`;
+
+    // Extract unique body regions for parent record
+    const uniqueRegions = Array.from(
+      new Set(
+        examCards.map((card) => {
+          const partRef = modalityRef.bodyParts.find((b) => b.name === card.bodyPart);
+          return partRef?.bodyRegion || (card.bodyPart === 'Other' ? card.customBodyPart : card.bodyPart);
+        }).filter(Boolean)
+      )
+    ).join(', ');
 
     try {
       await addCase({
         caseNumber,
-        patientId: form.patientId,
+        patientId,
         patientName: patient?.name || '',
         registeredById: currentUser.id,
         registeredByName: currentUser.name,
-        clinicId: form.preferredClinicId || undefined,
+        clinicId: preferredClinicId || undefined,
         clinicName: preferredClinic?.name || undefined,
-        scanType: resolvedScanType,
-        indication: resolvedIndication,
-        bodyRegion: resolvedBodyRegion,
-        severity: form.severity,
-        incubationPeriod: form.incubationPeriod || undefined,
-        notes: form.notes,
+        scanType: fullScanType,
+        modality,
+        requestedExaminations,
+        indication: indication.trim(),
+        bodyRegion: uniqueRegions || 'General',
+        severity,
+        incubationPeriod: incubationPeriod || undefined,
+        notes,
         status: 'CREATED',
         createdAt: new Date().toISOString(),
       });
 
       await addAuditLog({
-        userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
-        action: 'CASE_CREATED', target: `cases/${caseNumber}`,
-        details: `Registered ${caseNumber} for ${patient?.name} — ${resolvedIndication} (${resolvedScanType})`,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'CASE_CREATED',
+        target: `cases/${caseNumber}`,
+        details: `Registered ${caseNumber} for ${patient?.name} — ${indication} (${requestedExaminations.length} exam(s) under ${modality})`,
         timestamp: new Date().toISOString(),
       });
 
-      toast.success(`Case ${caseNumber} registered — pending AI Scheduler`);
-      setForm({ patientId: '', modality: '', examination: '', customExamination: '', bodyRegion: '', customBodyRegion: '', indication: '', severity: 'Moderate', incubationPeriod: '', preferredClinicId: '', notes: '' });
+      toast.success(`Case ${caseNumber} registered with ${requestedExaminations.length} examination(s) — pending AI Scheduler`);
+
+      // Reset form
+      setPatientId('');
+      setIndication('');
+      setSeverity('Moderate');
+      setIncubationPeriod('');
+      setPreferredClinicId('');
+      setNotes('');
+      setExamCards([createBlankExamCard(1)]);
     } catch {
       toast.error('Failed to create case.');
     }
@@ -170,108 +219,75 @@ export default function NewCaseRegistration() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="page-title">Register New Case</h1>
-        <p className="page-subtitle">Register a patient imaging case. The AI Scheduler handles all operational assignments.</p>
+        <p className="page-subtitle">
+          Register a patient imaging referral with one or more requested examinations under a single imaging modality.
+        </p>
       </div>
 
       <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
         <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
         <div className="text-xs text-blue-700 space-y-1">
-          <p className="font-medium">Case Registration Workflow</p>
-          <p>1. Register the patient and clinical information below &rarr; 2. Case enters the AI Scheduler queue &rarr; 3. System recommends the optimal healthcare centre, radiographer, and appointment &rarr; 4. Administrator reviews and confirms the assignment</p>
+          <p className="font-medium">Multi-Examination Case Registration</p>
+          <p>
+            1. Select patient &amp; presenting indication &rarr; 2. Select imaging modality &rarr; 3. Add requested examinations (body parts, sides, views/protocols) &rarr; 4. Submit for automated AI scheduling.
+          </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="card space-y-6">
-        {/* Clinical Information */}
+        {/* ── Patient & Presenting Indication ── */}
         <div>
-          <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Clinical Information</h3>
+          <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
+            Clinical Information
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-surface-700 mb-1">Registered by</label>
-              <input disabled value={currentUser?.name || ''} className="input-field bg-surface-100 text-surface-600 cursor-not-allowed" />
+              <input
+                disabled
+                value={currentUser?.name || ''}
+                className="input-field bg-surface-100 text-surface-600 cursor-not-allowed"
+              />
             </div>
 
-            {/* Presenting indication / symptom with optional suggestions */}
+            {/* Presenting indication */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1">Indication / Symptom *</label>
+              <label className="block text-sm font-medium text-surface-700 mb-1">
+                Indication / Symptom *
+              </label>
               <input
                 required
                 list="symptom-suggestions"
-                value={form.indication}
-                onChange={(e) => setForm({ ...form, indication: e.target.value })}
+                value={indication}
+                onChange={(e) => setIndication(e.target.value)}
                 className="input-field"
-                placeholder="Type the patient's indication or symptom..."
+                placeholder="Type the patient's presenting symptom or clinical indication..."
               />
               <datalist id="symptom-suggestions">
-                {SYMPTOM_SUGGESTIONS.map((symptom) => <option key={symptom} value={symptom} />)}
-              </datalist>
-              <p className="text-[10px] text-surface-400 mt-1">Type any indication or choose one of the suggested symptoms.</p>
-            </div>
-
-            {/* Imaging Modality */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1">Imaging Modality *</label>
-              <div className="grid grid-cols-4 gap-2">
-                {MODALITIES.map((m) => (
-                  <button key={m} type="button" onClick={() => handleModalityChange(m)}
-                    className={`py-2.5 rounded-lg text-xs font-medium border transition-colors ${
-                      form.modality === m ? 'bg-navy-600 text-white border-navy-600' : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
-                    }`}
-                  >{m}</button>
+                {SYMPTOM_SUGGESTIONS.map((symptom) => (
+                  <option key={symptom} value={symptom} />
                 ))}
-              </div>
+              </datalist>
             </div>
 
-            {/* Examination / Study — dynamic based on modality */}
-            {form.modality && (
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-surface-700 mb-1">Examination / Study *</label>
-                <select
-                  required={form.examination !== 'Other'}
-                  value={form.examination}
-                  onChange={(e) => handleExaminationChange(e.target.value)}
-                  className="select-field"
-                >
-                  <option value="">Select examination...</option>
-                  {examinations.map((ex) => <option key={ex.name} value={ex.name}>{ex.name}</option>)}
-                  <option value="Other">Other (type manually)</option>
-                </select>
-                {form.examination === 'Other' && (
-                  <input
-                    required
-                    value={form.customExamination}
-                    onChange={(e) => setForm({ ...form, customExamination: e.target.value })}
-                    className="input-field mt-2"
-                    placeholder="Enter examination name..."
-                  />
-                )}
-              </div>
-            )}
-
-            {/* Body Region — always visible, auto-populated when examination is selected */}
-            <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Body Region *</label>
-              <select
-                required={form.bodyRegion !== 'Other'}
-                value={form.bodyRegion}
-                onChange={(e) => setForm({ ...form, bodyRegion: e.target.value, customBodyRegion: '' })}
-                className="select-field"
-              >
-                <option value="">Select body region...</option>
-                {BODY_REGIONS.map((b) => <option key={b} value={b}>{b}</option>)}
-                <option value="Other">Others (type manually)</option>
-              </select>
-              {form.bodyRegion === 'Other' && (
-                <input
-                  required
-                  value={form.customBodyRegion}
-                  onChange={(e) => setForm({ ...form, customBodyRegion: e.target.value })}
-                  className="input-field mt-2"
-                  placeholder="Enter body region..."
-                />
-              )}
-              {form.examination && form.examination !== 'Other' && form.bodyRegion && form.bodyRegion !== 'Other' && (
-                <p className="text-[10px] text-emerald-600 mt-1">Auto-populated from examination</p>
+            {/* Patient Selection */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-surface-700 mb-1">Patient *</label>
+              <PatientSearchSelect
+                patients={patients}
+                value={patientId}
+                onChange={(id) => setPatientId(id)}
+              />
+              {selectedPatient && (
+                <div className="mt-2 p-3 bg-surface-100 rounded-lg border border-surface-200 text-xs space-y-0.5">
+                  <p className="font-medium text-surface-700">
+                    {selectedPatient.name} — <span className="font-mono">{selectedPatient.mrn}</span> ({selectedPatient.nric})
+                  </p>
+                  <p className="text-surface-500">Address: {selectedPatient.address}</p>
+                  {selectedPatient.medicalHistory.length > 0 && (
+                    <p className="text-surface-500">History: {selectedPatient.medicalHistory.join(', ')}</p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -280,66 +296,310 @@ export default function NewCaseRegistration() {
               <label className="block text-sm font-medium text-surface-700 mb-1.5">Severity *</label>
               <div className="flex gap-2">
                 {SEVERITIES.map((s) => (
-                  <button key={s} type="button" onClick={() => setForm({ ...form, severity: s })}
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSeverity(s)}
                     className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                      form.severity === s ? 'bg-navy-600 text-white border-navy-600' : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                      severity === s
+                        ? 'bg-navy-600 text-white border-navy-600'
+                        : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
                     }`}
-                  >{s}</button>
+                  >
+                    {s}
+                  </button>
                 ))}
               </div>
             </div>
 
             {/* Incubation Period */}
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Incubation Period (days)</label>
-              <input value={form.incubationPeriod} onChange={(e) => setForm({ ...form, incubationPeriod: e.target.value })} className="input-field" placeholder="Optional — if applicable" />
+              <label className="block text-sm font-medium text-surface-700 mb-1">
+                Incubation Period (days)
+              </label>
+              <input
+                value={incubationPeriod}
+                onChange={(e) => setIncubationPeriod(e.target.value)}
+                className="input-field"
+                placeholder="Optional — e.g. 3"
+              />
             </div>
           </div>
         </div>
 
-        {/* Patient Information */}
-        <div>
-          <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Patient Information</h3>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-surface-700 mb-1">Patient *</label>
-            <PatientSearchSelect patients={patients} value={form.patientId} onChange={(id) => setForm({ ...form, patientId: id })} />
+        {/* ── Single Imaging Modality Selection ── */}
+        <div className="pt-4 border-t border-surface-200">
+          <label className="block text-sm font-medium text-surface-700 mb-1.5">
+            Imaging Modality * <span className="text-xs text-surface-400 font-normal">(applies to all requested examinations in this case)</span>
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {MODALITIES.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => handleModalityChange(m)}
+                className={`py-3 rounded-xl text-xs font-semibold border transition-all duration-150 flex flex-col items-center gap-1 ${
+                  modality === m
+                    ? 'bg-navy-700 text-white border-navy-700 shadow-md ring-2 ring-navy-300'
+                    : 'bg-white border-surface-300 text-surface-700 hover:border-surface-400 hover:bg-surface-50'
+                }`}
+              >
+                <span>{m}</span>
+                {modality === m && <span className="text-[10px] text-emerald-300 font-normal">Active Selection</span>}
+              </button>
+            ))}
           </div>
-          {selectedPatient && (
-            <div className="mt-3 p-3 bg-surface-100 rounded-lg border border-surface-200 text-xs space-y-1">
-              <p className="font-medium text-surface-700">{selectedPatient.name} — {selectedPatient.nric}</p>
-              <p className="text-surface-500">Address: {selectedPatient.address}</p>
-              {selectedPatient.medicalHistory.length > 0 && <p className="text-surface-500">History: {selectedPatient.medicalHistory.join(', ')}</p>}
-            </div>
-          )}
         </div>
 
-        {/* Notes */}
-        <div>
-          <label className="block text-sm font-medium text-surface-700 mb-1">Clinical Notes</label>
-          <textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input-field resize-none" placeholder="Additional clinical information, symptoms, history..." />
+        {/* ── Repeatable Requested Examinations Component ── */}
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-navy-600" />
+              <h3 className="text-sm font-bold text-navy-800">
+                Requested Examinations ({examCards.length})
+              </h3>
+            </div>
+            <span className="text-[11px] text-surface-500">
+              Modality: <strong className="text-navy-700">{modality}</strong>
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {examCards.map((card, index) => {
+              const selectedPartRef = modalityRef.bodyParts.find((b) => b.name === card.bodyPart);
+              const supportsLaterality = selectedPartRef?.supportsLaterality ?? true;
+              const sideOptions = getSideOptions(supportsLaterality);
+
+              return (
+                <div
+                  key={card.id}
+                  className="p-4 bg-surface-50 border border-surface-250 rounded-xl space-y-4 relative group"
+                >
+                  {/* Card Header */}
+                  <div className="flex items-center justify-between border-b border-surface-200 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 bg-navy-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                      <span className="text-xs font-bold text-navy-800 uppercase tracking-wider">
+                        Examination #{index + 1}
+                      </span>
+                    </div>
+
+                    {index > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCard(index)}
+                        className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-surface-400">Primary Examination</span>
+                    )}
+                  </div>
+
+                  {/* Body Part & Side Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                    {/* Body Part */}
+                    <div className="sm:col-span-7">
+                      <label className="block text-xs font-medium text-surface-700 mb-1">
+                        Body Part *
+                      </label>
+                      <select
+                        required={card.bodyPart !== 'Other'}
+                        value={card.bodyPart}
+                        onChange={(e) => handleBodyPartChange(index, e.target.value)}
+                        className="select-field text-xs"
+                      >
+                        <option value="">Select body part for {modality}...</option>
+                        {modalityRef.bodyParts.map((part) => (
+                          <option key={part.name} value={part.name}>
+                            {part.name} ({part.bodyRegion})
+                          </option>
+                        ))}
+                        <option value="Other">Other / Custom Body Part</option>
+                      </select>
+                      {card.bodyPart === 'Other' && (
+                        <input
+                          required
+                          value={card.customBodyPart}
+                          onChange={(e) => updateCard(index, { customBodyPart: e.target.value })}
+                          className="input-field text-xs mt-2"
+                          placeholder="Type body part name..."
+                        />
+                      )}
+                    </div>
+
+                    {/* Side / Laterality */}
+                    <div className="sm:col-span-5">
+                      <label className="block text-xs font-medium text-surface-700 mb-1">
+                        Side / Laterality *
+                      </label>
+                      <div className="flex gap-1">
+                        {sideOptions.map((s) => {
+                          const isSelected = card.side === s;
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => updateCard(index, { side: s })}
+                              className={`flex-1 py-2 text-[11px] font-medium rounded-lg border transition-all ${
+                                isSelected
+                                  ? 'bg-navy-700 text-white border-navy-700'
+                                  : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                              }`}
+                            >
+                              {s}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {!supportsLaterality && (
+                        <p className="text-[10px] text-surface-400 mt-1">N/A applies to central anatomical structures.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Adaptive Examination Details (Views / Protocols) */}
+                  {card.bodyPart && (
+                    <div className="pt-2 border-t border-surface-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-medium text-surface-700">
+                          {modalityRef.optionTypeLabel} *
+                        </label>
+                        {modalityRef.isMultiOptionAllowed && (
+                          <span className="text-[10px] text-navy-600 font-medium">
+                            {card.viewsOrProtocol.length} selected
+                          </span>
+                        )}
+                      </div>
+
+                      {/* X-Ray: Multi-Select Pill Checkboxes for Views */}
+                      {modalityRef.isMultiOptionAllowed ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {modalityRef.availableViewsOrProtocols.map((opt) => {
+                            const isSelected = card.viewsOrProtocol.includes(opt);
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => toggleCardOption(index, opt)}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                    : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400 hover:bg-surface-100'
+                                }`}
+                              >
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                                <span>{opt}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        /* CT / MRI / Ultrasound: Protocol Select Dropdown */
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {modalityRef.availableViewsOrProtocols.map((opt) => {
+                            const isSelected = card.viewsOrProtocol.includes(opt);
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => toggleCardOption(index, opt)}
+                                className={`p-2.5 rounded-lg text-xs font-medium border text-left transition-all flex items-center justify-between ${
+                                  isSelected
+                                    ? 'bg-navy-700 text-white border-navy-700 shadow-sm'
+                                    : 'bg-white border-surface-300 text-surface-700 hover:border-surface-400 hover:bg-surface-100'
+                                }`}
+                              >
+                                <span>{opt}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-300 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Card Notes */}
+                  <div>
+                    <input
+                      type="text"
+                      value={card.notes}
+                      onChange={(e) => updateCard(index, { notes: e.target.value })}
+                      placeholder="Specific exam instruction / notes (optional)..."
+                      className="input-field text-xs bg-white"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add Another Examination Button */}
+          <button
+            type="button"
+            onClick={handleAddCard}
+            className="w-full py-2.5 border-2 border-dashed border-navy-200 hover:border-navy-400 bg-navy-50/50 hover:bg-navy-50 text-navy-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all duration-150"
+          >
+            <Plus className="w-4 h-4 text-navy-600" />
+            Add Another Examination ({modality})
+          </button>
         </div>
 
-        {/* Advanced Options — collapsible */}
-        <details className="group">
-          <summary className="cursor-pointer text-xs font-semibold text-surface-500 uppercase tracking-wider flex items-center gap-2 select-none hover:text-navy-600 transition-colors">
-            <span>Advanced Options</span>
-            <span className="text-[10px] font-normal text-surface-400 normal-case">(optional)</span>
-          </summary>
-          <div className="mt-3 p-4 bg-surface-50 rounded-lg border border-surface-200 space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Preferred Healthcare Centre</label>
-              <select value={form.preferredClinicId} onChange={(e) => setForm({ ...form, preferredClinicId: e.target.value })} className="select-field">
-                <option value="">No preference — AI Scheduler will determine</option>
-                {clinics.filter((c) => c.status === 'active').map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <p className="text-[10px] text-surface-400 mt-1">Advisory only. The AI Scheduler will honour this preference if scheduling constraints allow. Otherwise, the next most suitable centre will be recommended.</p>
-            </div>
+        {/* Clinical Notes & Preferred Clinic */}
+        <div className="pt-4 border-t border-surface-200 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-surface-700 mb-1">General Clinical Notes</label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="input-field resize-none text-xs"
+              placeholder="Additional referral history, clinical notes..."
+            />
           </div>
-        </details>
 
-        <div className="flex items-center justify-between pt-3 border-t border-surface-200">
-          <p className="text-[10px] text-surface-400">AI Scheduler will determine healthcare centre, radiographer, and appointment.</p>
-          <button type="submit" className="btn-primary">Register Case</button>
+          <details className="group">
+            <summary className="cursor-pointer text-xs font-semibold text-surface-500 uppercase tracking-wider flex items-center gap-2 select-none hover:text-navy-600 transition-colors">
+              <span>Advanced Options</span>
+              <span className="text-[10px] font-normal text-surface-400 normal-case">(optional)</span>
+            </summary>
+            <div className="mt-3 p-4 bg-surface-50 rounded-lg border border-surface-200 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-surface-700 mb-1">
+                  Preferred Healthcare Centre
+                </label>
+                <select
+                  value={preferredClinicId}
+                  onChange={(e) => setPreferredClinicId(e.target.value)}
+                  className="select-field"
+                >
+                  <option value="">No preference — AI Scheduler will determine</option>
+                  {clinics.filter((c) => c.status === 'active').map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        {/* Form Submission Footer */}
+        <div className="flex items-center justify-between pt-4 border-t border-surface-200">
+          <p className="text-[10px] text-surface-400">
+            All {examCards.length} examination(s) will be submitted under 1 parent case for AI scheduling.
+          </p>
+          <button
+            type="submit"
+            disabled={!isValid}
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Register Case ({examCards.length} Examination{examCards.length > 1 ? 's' : ''})
+          </button>
         </div>
       </form>
     </div>
@@ -347,7 +607,11 @@ export default function NewCaseRegistration() {
 }
 
 // Searchable patient selector component
-function PatientSearchSelect({ patients, value, onChange }: {
+function PatientSearchSelect({
+  patients,
+  value,
+  onChange,
+}: {
   patients: import('../../types').Patient[];
   value: string;
   onChange: (id: string) => void;

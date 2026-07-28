@@ -107,8 +107,8 @@ export default function CaseDetail() {
             <h2 className="section-title mb-4">Case Information</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div><span className="text-xs text-surface-500">Indication / Symptom</span><p className="text-surface-800 font-medium">{getCaseIndication(caseItem) || '—'}</p></div>
-              <div><span className="text-xs text-surface-500">Imaging Modality</span><p className="text-surface-800">{caseItem.scanType}</p></div>
-              <div><span className="text-xs text-surface-500">Body Region</span><p className="text-surface-800">{caseItem.bodyRegion || '—'}</p></div>
+              <div><span className="text-xs text-surface-500">Imaging Modality</span><p className="text-surface-800 font-medium">{caseItem.modality || caseItem.scanType}</p></div>
+              <div><span className="text-xs text-surface-500">Body Region(s)</span><p className="text-surface-800">{caseItem.bodyRegion || '—'}</p></div>
               <div><span className="text-xs text-surface-500">Healthcare Centre</span><p className="text-surface-800">{caseItem.clinicName || 'Pending AI Scheduler'}</p></div>
             </div>
             {caseItem.notes && (
@@ -118,6 +118,37 @@ export default function CaseDetail() {
               </div>
             )}
           </div>
+
+          {/* Requested Examinations (if present) */}
+          {caseItem.requestedExaminations && caseItem.requestedExaminations.length > 0 && (
+            <div className="card space-y-3">
+              <h2 className="section-title flex items-center gap-2">
+                Requested Examinations ({caseItem.requestedExaminations.length})
+              </h2>
+              <div className="space-y-2">
+                {caseItem.requestedExaminations.map((ex, i) => (
+                  <div key={ex.id || i} className="p-3 bg-surface-100 border border-surface-200 rounded-lg text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-navy-800">
+                        #{i + 1} — {ex.bodyPart} {ex.side && ex.side !== 'N/A' ? `[${ex.side}]` : ''}
+                      </span>
+                      <span className="text-[10px] bg-navy-50 text-navy-700 px-2 py-0.5 rounded font-medium">
+                        {ex.viewsOrProtocol.length} Option(s)
+                      </span>
+                    </div>
+                    {ex.viewsOrProtocol.length > 0 && (
+                      <p className="text-surface-600">
+                        <strong className="text-surface-700">Views / Protocol:</strong> {ex.viewsOrProtocol.join(', ')}
+                      </p>
+                    )}
+                    {ex.notes && (
+                      <p className="text-surface-500 italic">Instruction: {ex.notes}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Personnel */}
           <div className="card">

@@ -83,6 +83,16 @@ export interface Patient {
 // ---------------------------------------------------------------------------
 export type SeverityLevel = 'Mild' | 'Moderate' | 'Severe' | 'Critical';
 
+export type ExaminationSide = 'Left' | 'Right' | 'Bilateral' | 'N/A';
+
+export interface ExaminationRequest {
+  id: string;
+  bodyPart: string;
+  side?: ExaminationSide;
+  viewsOrProtocol: string[];
+  notes?: string;
+}
+
 export interface Case {
   id: string;
   caseNumber: string;
@@ -98,6 +108,8 @@ export interface Case {
   clinicId?: string;
   clinicName?: string;
   scanType: string;
+  modality?: string;
+  requestedExaminations?: ExaminationRequest[];
   /** The presenting indication or symptom; this is not a diagnosis. */
   indication?: string;
   bodyRegion?: string;
