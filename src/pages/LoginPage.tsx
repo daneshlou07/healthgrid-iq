@@ -337,30 +337,86 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="mt-10 flex items-center justify-between text-[11px] text-surface-400">
-            <span>Need help? <button className="text-purple-500 hover:text-purple-600 font-medium">Contact Support</button></span>
-            <span>&copy; 2026 Theta Edge Berhad. All rights reserved.</span>
-          </div>
+          {/* ── Test / Demo Accounts ───────────────────────────── */}
+          <div className="mt-8 pt-6 border-t border-surface-200">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-bold text-surface-400 uppercase tracking-widest">Demo Test Accounts</span>
+              <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">No password needed</span>
+            </div>
 
-          {/* Test Accounts — Radiographers */}
-          <details className="mt-6">
-            <summary className="text-[11px] text-surface-400 cursor-pointer hover:text-navy-600 select-none">
-              Test Accounts (Radiographers)
-            </summary>
-            <div className="mt-2 p-3 bg-surface-100 border border-surface-200 rounded-lg space-y-1.5">
-              {mockUsers.filter((u) => u.role === 'Radiographer' && u.status === 'active').map((u) => (
-                <button key={u.id} onClick={() => loginAsUser(u.id)} className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-white border border-transparent hover:border-surface-300 transition-colors text-left">
-                  <div>
-                    <p className="text-xs font-medium text-surface-800">{u.name}</p>
-                    <p className="text-[10px] text-surface-500">{u.email}</p>
+            {/* ── 5 Healthcare Center Radiographers ── */}
+            <p className="text-[10px] text-surface-500 mb-2 font-medium">🩻 Healthcare Centre Radiographers (1 per clinic)</p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+              {[
+                { id: 'rad-001', name: 'Ahmad Razak',       clinic: 'Putrajaya',       modalities: 'X-Ray · CT · MRI' },
+                { id: 'rad-002', name: 'Lim Mei Ling',      clinic: 'Cyberjaya',       modalities: 'X-Ray · MRI · US' },
+                { id: 'rad-003', name: 'Kumaran Pillai',    clinic: 'Bangi',           modalities: 'CT · X-Ray · MRI' },
+                { id: 'rad-006', name: 'Zainal Abidin',     clinic: 'Tanjong Karang',  modalities: 'X-Ray · CT · MRI' },
+                { id: 'rad-008', name: 'Syed Farid Hassan', clinic: 'Ijok',            modalities: 'X-Ray · US · CT' },
+              ].map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => loginAsUser(u.id)}
+                  className="group flex flex-col gap-1.5 p-2.5 bg-navy-50 border border-navy-200 hover:bg-navy-100 hover:border-navy-400 rounded-xl transition-all duration-150 text-left"
+                >
+                  <div className="w-7 h-7 bg-navy-600 rounded-lg flex items-center justify-center">
+                    <Radio className="w-3.5 h-3.5 text-white" />
                   </div>
-                  <span className="text-[9px] text-surface-400">{u.deploymentLocationId || 'Unassigned'}</span>
+                  <div>
+                    <p className="text-xs font-semibold text-navy-800 leading-tight truncate">{u.name}</p>
+                    <p className="text-[10px] text-navy-600 font-medium truncate">{u.clinic}</p>
+                    <p className="text-[9px] text-surface-400 mt-0.5 truncate">{u.modalities}</p>
+                  </div>
+                  <span className="text-[10px] text-navy-600 font-medium group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                    Login <ArrowRight className="w-2.5 h-2.5" />
+                  </span>
                 </button>
               ))}
             </div>
-          </details>
+
+
+            {/* ── Other Roles ── */}
+            <details>
+              <summary className="text-[10px] text-surface-400 cursor-pointer hover:text-navy-600 select-none font-medium">
+                Other accounts (Dept Staff · Radiologist · Admin)
+              </summary>
+              <div className="mt-2 space-y-2">
+                {(['Radiology Department', 'Radiologist', 'Administrator'] as const).map((role) => {
+                  const roleLabel: Record<string, string> = {
+                    'Radiology Department': '🏥 Dept. Staff',
+                    'Radiologist': '🔬 Radiologist',
+                    'Administrator': '🛡 Administrator',
+                  };
+                  const roleUsers = mockUsers.filter((u) => u.role === role && u.status === 'active');
+                  if (!roleUsers.length) return null;
+                  return (
+                    <div key={role} className="p-2.5 bg-surface-100 border border-surface-200 rounded-lg">
+                      <p className="text-[10px] font-semibold text-surface-500 mb-1.5">{roleLabel[role]}</p>
+                      <div className="space-y-1">
+                        {roleUsers.map((u) => (
+                          <button key={u.id} onClick={() => loginAsUser(u.id)} className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white border border-transparent hover:border-surface-300 transition-colors text-left">
+                            <div>
+                              <p className="text-xs font-medium text-surface-800">{u.name}</p>
+                              <p className="text-[10px] text-surface-400">{u.email}</p>
+                            </div>
+                            <ArrowRight className="w-3 h-3 text-surface-400" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between text-[11px] text-surface-400">
+            <span>Need help? <button className="text-purple-500 hover:text-purple-600 font-medium">Contact Support</button></span>
+            <span>&copy; 2026 Theta Edge Berhad. All rights reserved.</span>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+

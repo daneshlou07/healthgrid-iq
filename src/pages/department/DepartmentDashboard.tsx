@@ -17,6 +17,9 @@ export default function DepartmentDashboard() {
   const finalized = cases.filter((c) => c.status === 'FINALIZED');
   const recentCases = [...cases].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
 
+  // Cases that are CREATED (no scheduling) or SCHEDULED but with no radiographer assigned
+  const unassigned = cases.filter((c) => (c.status === 'CREATED') || (c.status === 'SCHEDULED' && !c.radiographerId));
+
   // Overdue: CREATED cases older than 24h without scheduling
   const now = new Date();
   const overdue = pending.filter((c) => {
@@ -39,6 +42,20 @@ export default function DepartmentDashboard() {
         <StatsCard title="Report Finalized" value={finalized.length} icon={<CheckCircle className="w-5 h-5" />} color="emerald" />
         <StatsCard title="Total Cases" value={cases.length} icon={<FileText className="w-5 h-5" />} color="navy" />
       </div>
+
+      {/* Unassigned Cases Alert */}
+      {unassigned.length > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">{unassigned.length} case(s) need a radiographer assigned</p>
+              <p className="text-xs text-amber-600">Go to Case Scheduling to assign radiographers.</p>
+            </div>
+          </div>
+          <Link to="/scheduling" className="btn-primary text-xs">Open Scheduling</Link>
+        </div>
+      )}
 
       {/* Overdue Alert */}
       {overdue.length > 0 && (
@@ -101,13 +118,13 @@ export default function DepartmentDashboard() {
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Register New Case</h3>
           <p className="text-xs text-surface-500 mt-1">Record the patient's indication or symptom and imaging study</p>
         </Link>
+        <Link to="/scheduling" className="card-hover group">
+          <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Case Scheduling</h3>
+          <p className="text-xs text-surface-500 mt-1">Assign radiographers to pending cases and set scan slots</p>
+        </Link>
         <Link to="/track-status" className="card-hover group">
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Track Status</h3>
           <p className="text-xs text-surface-500 mt-1">Monitor case pipeline — flag delays and bottlenecks</p>
-        </Link>
-        <Link to="/cases" className="card-hover group">
-          <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">All Cases</h3>
-          <p className="text-xs text-surface-500 mt-1">Full case list with filtering and search</p>
         </Link>
       </div>
     </div>

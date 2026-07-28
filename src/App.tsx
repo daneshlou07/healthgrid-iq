@@ -12,37 +12,59 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import DashboardRouter from './pages/DashboardRouter';
 import PageLoader from './components/ux/PageLoader';
+import DevAccountSwitcher from './components/ux/DevAccountSwitcher';
+
+// Helper for resilient lazy loading across new deployments
+function safeLazy<T extends React.ComponentType<any>>(importFn: () => Promise<{ default: T }>) {
+  return lazy(async () => {
+    try {
+      return await importFn();
+    } catch (error: any) {
+      console.warn('Chunk load error (new deployment detected):', error);
+      const hasReloaded = sessionStorage.getItem('chunk_reload_retry');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk_reload_retry', 'true');
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {});
+      }
+      sessionStorage.removeItem('chunk_reload_retry');
+      throw error;
+    }
+  });
+}
 
 // Lazy-loaded pages (code splitting per workspace)
-const PatientsList = lazy(() => import('./pages/department/PatientsList'));
-const PatientRegistration = lazy(() => import('./pages/department/PatientRegistration'));
-const NewCaseRegistration = lazy(() => import('./pages/department/NewCaseRegistration'));
-const DepartmentReports = lazy(() => import('./pages/department/DepartmentReports'));
-const PatientRequests = lazy(() => import('./pages/department/PatientRequests'));
-const ScanQueue = lazy(() => import('./pages/radiographer/ScanQueue'));
-const ScheduleView = lazy(() => import('./pages/radiographer/ScheduleView'));
-const UploadScans = lazy(() => import('./pages/radiographer/UploadScans'));
-const ReviewQueue = lazy(() => import('./pages/radiologist/ReviewQueue'));
-const Reporting = lazy(() => import('./pages/radiologist/Reporting'));
-const RadiologistOnboarding = lazy(() => import('./pages/radiologist/Onboarding'));
-const RadiogrOnboarding = lazy(() => import('./pages/radiographer/Onboarding'));
-const AllCases = lazy(() => import('./pages/department/AllCases'));
-const TrackStatus = lazy(() => import('./pages/department/TrackStatus'));
-const CaseDetail = lazy(() => import('./pages/shared/CaseDetail'));
-const PatientDetail = lazy(() => import('./pages/shared/PatientDetail'));
-const FleetManagement = lazy(() => import('./pages/admin/FleetManagement'));
-const UsersManagement = lazy(() => import('./pages/admin/UsersManagement'));
-const ClinicsManagement = lazy(() => import('./pages/department/ClinicsManagement'));
-const PatientRequestsReview = lazy(() => import('./pages/department/PatientRequestsReview'));
-const AuditLogs = lazy(() => import('./pages/admin/AuditLogs'));
-const AISchedulerMap = lazy(() => import('./pages/department/AISchedulerMap'));
-const Settings = lazy(() => import('./pages/admin/Settings'));
-const Analytics = lazy(() => import('./pages/admin/Analytics'));
-const Announcements = lazy(() => import('./pages/admin/Announcements'));
-const TechStack = lazy(() => import('./pages/admin/TechStack'));
-const PatientRegistry = lazy(() => import('./pages/admin/PatientRegistry'));
-const RecycleBin = lazy(() => import('./pages/admin/RecycleBin'));
-const NotFound = lazy(() => import('./pages/shared/NotFound'));
+const PatientsList = safeLazy(() => import('./pages/department/PatientsList'));
+const PatientRegistration = safeLazy(() => import('./pages/department/PatientRegistration'));
+const NewCaseRegistration = safeLazy(() => import('./pages/department/NewCaseRegistration'));
+const DepartmentReports = safeLazy(() => import('./pages/department/DepartmentReports'));
+const PatientRequests = safeLazy(() => import('./pages/department/PatientRequests'));
+const Scheduling = safeLazy(() => import('./pages/department/Scheduling'));
+const ScanQueue = safeLazy(() => import('./pages/radiographer/ScanQueue'));
+const ScheduleView = safeLazy(() => import('./pages/radiographer/ScheduleView'));
+const UploadScans = safeLazy(() => import('./pages/radiographer/UploadScans'));
+const ReviewQueue = safeLazy(() => import('./pages/radiologist/ReviewQueue'));
+const Reporting = safeLazy(() => import('./pages/radiologist/Reporting'));
+const RadiologistOnboarding = safeLazy(() => import('./pages/radiologist/Onboarding'));
+const RadiogrOnboarding = safeLazy(() => import('./pages/radiographer/Onboarding'));
+const AllCases = safeLazy(() => import('./pages/department/AllCases'));
+const TrackStatus = safeLazy(() => import('./pages/department/TrackStatus'));
+const CaseDetail = safeLazy(() => import('./pages/shared/CaseDetail'));
+const PatientDetail = safeLazy(() => import('./pages/shared/PatientDetail'));
+const FleetManagement = safeLazy(() => import('./pages/admin/FleetManagement'));
+const UsersManagement = safeLazy(() => import('./pages/admin/UsersManagement'));
+const ClinicsManagement = safeLazy(() => import('./pages/department/ClinicsManagement'));
+const PatientRequestsReview = safeLazy(() => import('./pages/department/PatientRequestsReview'));
+const AuditLogs = safeLazy(() => import('./pages/admin/AuditLogs'));
+const AISchedulerMap = safeLazy(() => import('./pages/department/AISchedulerMap'));
+const Settings = safeLazy(() => import('./pages/admin/Settings'));
+const Analytics = safeLazy(() => import('./pages/admin/Analytics'));
+const Announcements = safeLazy(() => import('./pages/admin/Announcements'));
+const TechStack = safeLazy(() => import('./pages/admin/TechStack'));
+const PatientRegistry = safeLazy(() => import('./pages/admin/PatientRegistry'));
+const RecycleBin = safeLazy(() => import('./pages/admin/RecycleBin'));
+const NotFound = safeLazy(() => import('./pages/shared/NotFound'));
+
 
 
 function OnboardingRouter() {
@@ -81,6 +103,7 @@ function AppRoutes() {
         <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department']}><NewCaseRegistration /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Radiologist']}><DepartmentReports /></ProtectedRoute>} />
         <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientRequests /></ProtectedRoute>} />
+        <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Administrator']}><Scheduling /></ProtectedRoute>} />
 
         {/* Radiographer routes */}
         <Route path="/scan-queue" element={<ProtectedRoute allowedRoles={['Radiographer']}><ScanQueue /></ProtectedRoute>} />
@@ -130,6 +153,7 @@ export default function App() {
                 <ConfirmProvider>
                   <AppRoutes />
                   <KeyboardShortcutsOverlay />
+                  <DevAccountSwitcher />
                 </ConfirmProvider>
               </SearchPaletteProvider>
             </ToastProvider>

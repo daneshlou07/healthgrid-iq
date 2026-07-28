@@ -11,7 +11,7 @@ export const mockUsers: User[] = [
     createdAt: '2025-02-01T08:00:00Z',
     shift: 'Day',
     leaveStatus: 'Active',
-    supportedModalities: ['X-Ray', 'CT', 'MRI'],
+    supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
     mobilePacsAssignment: 'van-001',
     deploymentLocationId: 'clinic-001',
   },
@@ -24,7 +24,7 @@ export const mockUsers: User[] = [
     createdAt: '2025-03-10T08:00:00Z',
     shift: 'Day',
     leaveStatus: 'Active',
-    supportedModalities: ['X-Ray', 'MRI', 'Ultrasound'],
+    supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
     deploymentLocationId: 'clinic-002',
   },
   {
@@ -36,7 +36,7 @@ export const mockUsers: User[] = [
     createdAt: '2025-04-05T08:00:00Z',
     shift: 'Day',
     leaveStatus: 'Active',
-    supportedModalities: ['CT', 'X-Ray'],
+    supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
     deploymentLocationId: 'clinic-003',
   },
   {
@@ -96,9 +96,10 @@ export const mockUsers: User[] = [
     createdAt: '2025-08-01T08:00:00Z',
     shift: 'Day',
     leaveStatus: 'Active',
-    supportedModalities: ['X-Ray', 'Ultrasound', 'CT'],
+    supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
     deploymentLocationId: 'clinic-005',
   },
+
   {
     id: 'rad-009',
     name: 'Tan Li Wen',
@@ -1169,17 +1170,17 @@ export const mockRadioSchedules: RadioScheduleProfile[] = [
     deployedClinicName: 'Klinik Kesihatan Putrajaya',
     supportedModalities: ['X-Ray', 'CT', 'MRI'],
     currentCaseload: 3,
-    maxDailyCaseload: 6,
+    maxDailyCaseload: 8,
     leaveStatus: 'Active',
     shift: 'Day (08:00–17:00)',
     schedule: generateScheduleSlots([
-      { date: '2026-07-15', time: '09:00', caseId: 'case-004' },
-      { date: '2026-07-15', time: '10:00', caseId: 'case-003' },
-      { date: '2026-07-15', time: '14:00', caseId: 'existing-1' },
-      { date: '2026-07-16', time: '09:00', caseId: 'case-004' },
-      { date: '2026-07-16', time: '11:00', caseId: 'existing-2' },
+      { date: '2026-07-29', time: '09:00', caseId: 'existing-1' },
+      { date: '2026-07-29', time: '10:00', caseId: 'existing-2' },
+      { date: '2026-07-30', time: '09:00', caseId: 'existing-3' },
     ]),
   },
+
+
   {
     userId: 'rad-002',
     userName: 'Lim Mei Ling',

@@ -50,6 +50,7 @@ function getNavGroups(role: UserRole, pendingRequests: number): NavGroup[] {
           { label: 'Register Patient', path: '/patients/register', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
           { label: 'Register New Case', path: '/cases/new', icon: <FileText className="w-[18px] h-[18px]" /> },
           { label: 'Cases', path: '/cases', icon: <FolderOpen className="w-[18px] h-[18px]" /> },
+          { label: 'Case Scheduling', path: '/scheduling', icon: <Calendar className="w-[18px] h-[18px]" /> },
           { label: 'Diagnostic Reports', path: '/reports', icon: <FileText className="w-[18px] h-[18px]" /> },
           { label: 'Patient Record Requests', path: '/requests', icon: <CheckSquare className="w-[18px] h-[18px]" /> },
           { label: 'Track Status', path: '/track-status', icon: <Search className="w-[18px] h-[18px]" /> },

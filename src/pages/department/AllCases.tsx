@@ -53,6 +53,7 @@ export default function AllCases() {
                 <th className="table-header">Indication / Symptom</th>
                 <th className="table-header">Body Region</th>
                 <th className="table-header">Imaging Modality</th>
+                <th className="table-header">Assigned To</th>
                 <th className="table-header">Severity</th>
                 <th className="table-header">Status</th>
                 <th className="table-header">Date</th>
@@ -66,6 +67,13 @@ export default function AllCases() {
                   <td className="table-cell text-xs text-surface-600">{getCaseIndication(c) || '—'}</td>
                   <td className="table-cell text-xs text-surface-600">{c.bodyRegion || '—'}</td>
                   <td className="table-cell text-surface-600">{c.scanType}</td>
+                  <td className="table-cell text-xs">
+                    {c.radiographerName ? (
+                      <span className="text-emerald-700 font-medium">{c.radiographerName}</span>
+                    ) : (
+                      <span className="text-amber-500">Unassigned</span>
+                    )}
+                  </td>
                   <td className="table-cell"><SeverityBadge severity={c.severity} /></td>
                   <td className="table-cell"><StatusBadge status={c.status} /></td>
                   <td className="table-cell text-surface-500 text-xs">{new Date(c.createdAt).toLocaleDateString()}</td>

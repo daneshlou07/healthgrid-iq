@@ -20,7 +20,7 @@ import type { User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, Mob
 const STORAGE_KEY = 'healthgrid_data';
 // Bump this version whenever seed data changes (e.g. new demo images).
 // Any cached data from a previous version will be discarded and reloaded from mock.
-const STORAGE_VERSION = '3'; // v3: radiology-owned case registration and symptom-based intake
+const STORAGE_VERSION = '6'; // v6: 5 Healthcare Centre radiographer test accounts updated
 
 interface PersistedData {
   users: User[];
