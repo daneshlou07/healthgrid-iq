@@ -285,6 +285,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
       )
     );
 
+    // Missing real-time listeners — patients, clinics, and patient_requests were
+    // only loaded once on startup. Without these, changes from other users/devices
+    // never reach modules that rely on these collections.
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, 'patients'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
+            setPatients((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('Patients listener warning:', error)
+      )
+    );
+
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, 'clinics'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Clinic));
+            setClinics((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('Clinics listener warning:', error)
+      )
+    );
+
+    unsubscribers.push(
+      onSnapshot(
+        query(collection(db, 'patient_requests'), orderBy('dateSubmitted', 'desc')),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as PatientRequest));
+            setPatientRequests((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('PatientRequests listener warning:', error)
+      )
+    );
+
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
@@ -436,7 +478,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.warn('apiClient.createPatientRequest failed, attempting Firestore:', err);
       try {
         const db = getFirestoreDb();
-        if (db) await setDoc(doc(db, 'patientRequests', id), newReq);
+        // Use 'patient_requests' to match dataService.ts and the live listener above
+        if (db) await setDoc(doc(db, 'patient_requests', id), newReq);
       } catch (fErr) { console.warn('Firestore setDoc failed:', fErr); }
     }
     return newReq;
@@ -451,7 +494,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.warn('apiClient.updatePatientRequest failed, attempting Firestore:', err);
       try {
         const db = getFirestoreDb();
-        if (db) await updateDoc(doc(db, 'patientRequests', id), updates);
+        // Use 'patient_requests' to match dataService.ts and the live listener above
+        if (db) await updateDoc(doc(db, 'patient_requests', id), updates);
       } catch (fErr) { console.warn('Firestore updateDoc failed:', fErr); }
     }
   };
