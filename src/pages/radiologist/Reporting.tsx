@@ -7,6 +7,7 @@ import { CheckCircle, Image, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getCaseRegistrar } from '../../utils/caseDisplay';
 import { loadImages } from '../../services/imageStorage';
+import PacsImageViewer from '../../components/ui/PacsImageViewer';
 
 /** Loads and displays images from IndexedDB keys stored on the case */
 function CaseImageViewer({ imageKeys }: { imageKeys?: string[] }) {
@@ -47,6 +48,8 @@ export default function Reporting() {
   const [findings, setFindings] = useState('');
   const [impression, setImpression] = useState('');
   const [suggestions, setSuggestions] = useState('');
+  const [isCriticalFinding, setIsCriticalFinding] = useState(false);
+  const [criticalFindingNote, setCriticalFindingNote] = useState('');
   const [saving, setSaving] = useState(false);
 
   const scannedCases = cases.filter((c) => c.status === 'SCANNED');
@@ -65,6 +68,8 @@ export default function Reporting() {
       caseId: selectedCase.id, caseNumber: selectedCase.caseNumber, patientName: selectedCase.patientName,
       radiologistId: currentUser.id, radiologistName: currentUser.name, signedByRole: signedRole,
       findings, impression,
+      isCriticalFinding: isCriticalFinding || undefined,
+      criticalFindingNote: isCriticalFinding ? criticalFindingNote : undefined,
       suggestions: suggestions || undefined, status: 'Verified / Signed Off',
       createdAt: new Date().toISOString(), signedAt: new Date().toISOString(),
       imageKeys: selectedCase.images && selectedCase.images.length > 0 ? selectedCase.images : undefined,
@@ -72,6 +77,8 @@ export default function Reporting() {
 
     await editCase(selectedCase.id, {
       status: 'FINALIZED', radiologistId: currentUser.id, radiologistName: currentUser.name, finalizedAt: new Date().toISOString(),
+      isCriticalFinding: isCriticalFinding || undefined,
+      criticalFindingNote: isCriticalFinding ? criticalFindingNote : undefined,
     });
 
     await addAuditLog({
@@ -173,9 +180,9 @@ export default function Reporting() {
               </div>
             )}
           </div>
-          <div className="card">
-            <h3 className="text-xs font-semibold text-surface-500 uppercase mb-3">Medical Images</h3>
-            <CaseImageViewer imageKeys={selectedCase.images} />
+          <div className="card p-0 border-0 bg-transparent">
+            <h3 className="text-xs font-semibold text-surface-500 uppercase mb-2">PACS Diagnostic Viewer</h3>
+            <PacsImageViewer imageKeys={selectedCase.images} heightClass="h-[380px]" />
           </div>
         </div>
 
@@ -191,6 +198,29 @@ export default function Reporting() {
               >
                 ⚠️ Escalate to Radiologist
               </button>
+            )}
+          </div>
+
+          {/* Critical Red Flag Alert Toggle */}
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-red-900">
+              <input
+                type="checkbox"
+                checked={isCriticalFinding}
+                onChange={(e) => setIsCriticalFinding(e.target.checked)}
+                className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+              />
+              🚨 Flag as Critical Finding (Emergency Red Flag Alert)
+            </label>
+            {isCriticalFinding && (
+              <input
+                type="text"
+                value={criticalFindingNote}
+                onChange={(e) => setCriticalFindingNote(e.target.value)}
+                placeholder="Specify critical finding (e.g., Tension pneumothorax, Intracranial hemorrhage)..."
+                className="input-field text-xs border-red-300 bg-white"
+                required
+              />
             )}
           </div>
           <div>

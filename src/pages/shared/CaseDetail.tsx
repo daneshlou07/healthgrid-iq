@@ -9,6 +9,8 @@ import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 import RadiologyWorksheet from './RadiologyWorksheet';
 import DownloadMohFormButton from '../../components/ui/PrintRadiologyForm';
+import PacsImageViewer from '../../components/ui/PacsImageViewer';
+import PatientSmsModal from '../../components/ui/PatientSmsModal';
 
 /** Loads images from IndexedDB by key and renders them */
 function CaseImages({ imageKeys }: { imageKeys?: string[] }) {
@@ -54,6 +56,8 @@ export default function CaseDetail() {
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
+
+  const [showSmsModal, setShowSmsModal] = useState(false);
 
   const caseItem = cases.find((c) => c.id === caseId);
   if (!caseItem) return <div className="text-center py-20 text-surface-400">Case not found.</div>;
@@ -174,6 +178,13 @@ export default function CaseDetail() {
               >
                 <Calendar className="w-3.5 h-3.5" />
                 Reschedule
+              </button>
+              <button
+                onClick={() => setShowSmsModal(true)}
+                className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold flex items-center gap-1 border border-purple-200 transition-colors"
+                title="Send automated SMS / WhatsApp appointment alert to patient"
+              >
+                📱 Send Patient SMS
               </button>
               <button
                 onClick={() => setShowNoShowModal(true)}
@@ -306,11 +317,13 @@ export default function CaseDetail() {
             </div>
           )}
 
-          {/* Scan images for cases without a report yet (SCANNED status) */}
-          {!report && caseItem.images && caseItem.images.length > 0 && (
-            <div className="card">
-              <h2 className="section-title mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-navy-600" /> Scan Images</h2>
-              <CaseImages imageKeys={caseItem.images} />
+          {/* Scan images for cases (SCANNED status) */}
+          {caseItem.images && caseItem.images.length > 0 && (
+            <div className="card p-0 border-0 bg-transparent">
+              <h2 className="section-title mb-2 flex items-center gap-2 text-slate-800">
+                <FileText className="w-4 h-4 text-purple-600" /> Interactive PACS Viewer
+              </h2>
+              <PacsImageViewer imageKeys={caseItem.images} heightClass="h-96" />
             </div>
           )}
 
@@ -568,6 +581,15 @@ export default function CaseDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── MODAL: Patient SMS / WhatsApp Reminder Simulator ── */}
+      {showSmsModal && (
+        <PatientSmsModal
+          caseItem={caseItem}
+          patient={patient}
+          onClose={() => setShowSmsModal(false)}
+        />
       )}
     </div>
   );

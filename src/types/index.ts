@@ -230,6 +230,10 @@ export interface Case {
   escalatedBy?: string;
   escalatedAt?: string;
 
+  /** Critical Finding Emergency Alert (Red Flag) */
+  isCriticalFinding?: boolean;
+  criticalFindingNote?: string;
+
   /** @deprecated Read-only support for cases created before the symptom workflow. */
   disease?: string;
   /** @deprecated Read-only support for cases created before radiology registration. */
@@ -252,6 +256,8 @@ export interface Report {
   findings: string;
   impression: string;
   suggestions?: string;
+  isCriticalFinding?: boolean;
+  criticalFindingNote?: string;
   status: ReportStatus;
   /** ISO 8601 */
   createdAt: string;

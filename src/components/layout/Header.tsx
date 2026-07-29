@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useData } from '../../context/DataContext';
 import { useNotifications } from '../../context/NotificationContext';
+import type { Case } from '../../types';
 import { useSearchPalette } from '../ux/SearchPalette';
 import { useToast } from '../ux/Toast';
 import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info } from 'lucide-react';
@@ -26,12 +28,15 @@ function categorizeNotification(type: string): NotifCategory {
 export default function Header() {
   const { currentUser, logout } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { cases } = useData();
   const { open: openSearch } = useSearchPalette();
   const toast = useToast();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  const criticalCases = cases.filter((c: Case) => c.isCriticalFinding);
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [editablePhone, setEditablePhone] = useState('');
   const [editableEmail, setEditableEmail] = useState('');
@@ -117,6 +122,14 @@ export default function Header() {
             <kbd className="hidden sm:inline-flex px-1.5 py-0.5 bg-white border border-surface-300 rounded text-[9px] font-mono text-surface-400">Ctrl+K</kbd>
           </button>
         </div>
+
+        {/* Emergency Critical Findings Banner */}
+        {criticalCases.length > 0 && (
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-bold animate-pulse shadow-md">
+            <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
+            <span>🚨 {criticalCases.length} CRITICAL RED FLAG FINDING(S)!</span>
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-1">
           {/* Notifications */}
