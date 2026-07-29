@@ -162,6 +162,25 @@ export async function updateCase(id: string, updates: Partial<Case>): Promise<vo
   await updateDoc(doc(db, 'cases', id), updates as Record<string, unknown>);
 }
 
+/**
+ * Partial update for MOH worksheet fields (Dose, Office-Use, Image Counts, Contrast, Komen).
+ * Semantically distinct from updateCase to make intent clear at call sites.
+ */
+export async function updateCaseWorksheet(
+  id: string,
+  worksheet: Pick<
+    Case,
+    | 'doseKvp' | 'doseMas' | 'dosRadiasi'
+    | 'bilanganFilem' | 'bilanganCdDvd'
+    | 'komen'
+    | 'officeWaktuTerima' | 'officeWaktuSelesai' | 'officeJuruXRay'
+    | 'officeTarikhPemeriksaan' | 'officeTarikhAppointment' | 'officeMasaAppointment'
+    | 'contrastMediaName' | 'contrastMediaVolumeMl'
+  >
+): Promise<void> {
+  return updateCase(id, worksheet);
+}
+
 // ==================== REPORTS ====================
 export async function getReports(): Promise<Report[]> {
   if (useMock()) return [...mockReports];

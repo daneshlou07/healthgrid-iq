@@ -94,7 +94,10 @@ export default function PatientRegistration() {
     medicalHistory: '',
     emergencyContact: '',
     preferredClinicId: '',
+    ethnicity: '',
   });
+
+  const ETHNICITY_OPTIONS = ['Melayu', 'Cina', 'India', 'Bumiputera Sabah', 'Bumiputera Sarawak', 'Lain-lain'];
 
   // Parse NRIC on every change
   const nricResult = useMemo<NricParseResult | null>(() => {
@@ -138,6 +141,7 @@ export default function PatientRegistration() {
         address: form.address,
         nric: nricValue,
         mrn: mrnGenerated,
+        ethnicity: form.ethnicity || undefined,
         medicalHistory: form.medicalHistory.split(',').map((s) => s.trim()).filter(Boolean),
         emergencyContact: form.emergencyContact || undefined,
         preferredClinicId: form.preferredClinicId || undefined,
@@ -155,7 +159,7 @@ export default function PatientRegistration() {
       });
 
       toast.success(`${form.name} registered successfully — MRN: ${mrnGenerated}`);
-      setForm({ name: '', idNumber: '', dob: '', gender: 'Male', phone: '', email: '', address: '', medicalHistory: '', emergencyContact: '', preferredClinicId: '' });
+      setForm({ name: '', idNumber: '', dob: '', gender: 'Male', phone: '', email: '', address: '', medicalHistory: '', emergencyContact: '', preferredClinicId: '', ethnicity: '' });
     } catch (err: any) {
       console.error('Patient registration error:', err);
       toast.error(err?.message || 'Failed to register patient. Please check NRIC and required fields.');
@@ -302,6 +306,19 @@ export default function PatientRegistration() {
             <div>
               <label className="block text-sm font-medium text-surface-700 mb-1">Phone *</label>
               <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input-field" placeholder="+60 12-345-6789" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-700 mb-1">Etnik (Ethnicity)</label>
+              <select
+                value={form.ethnicity}
+                onChange={(e) => setForm({ ...form, ethnicity: e.target.value })}
+                className="select-field"
+              >
+                <option value="">— Pilih Etnik / Select Ethnicity —</option>
+                {ETHNICITY_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-surface-700 mb-1">Email</label>

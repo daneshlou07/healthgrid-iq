@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
-import type { SeverityLevel, ExaminationRequest, ExaminationSide } from '../../types';
+import type { SeverityLevel, ExaminationRequest, ExaminationSide, MohYaTidak, MohPaymentCategory } from '../../types';
 import {
   getModalityRef,
   MODALITY_REFERENCE_DATASET,
   getSideOptions,
 } from '../../data/modalityReference';
-import { Info, Plus, Trash2, Layers, Check } from 'lucide-react';
+import { Info, Plus, Trash2, Layers, Check, ChevronDown, AlertTriangle } from 'lucide-react';
 
 const MODALITIES = Object.keys(MODALITY_REFERENCE_DATASET);
 
@@ -55,16 +55,52 @@ export default function NewCaseRegistration() {
   const [preferredClinicId, setPreferredClinicId] = useState('');
   const [notes, setNotes] = useState('');
 
+  // ── MOH Clinical Screening State ─────────────────────────────────────
+  const [lmp, setLmp] = useState('');
+  const [isPregnant, setIsPregnant] = useState<MohYaTidak | ''>('');
+  const [hasAllergy, setHasAllergy] = useState<MohYaTidak | ''>('');
+  const [allergyDetails, setAllergyDetails] = useState('');
+  const [hasMobileDevice, setHasMobileDevice] = useState<MohYaTidak | ''>('');
+  const [isWarganegara, setIsWarganegara] = useState<MohYaTidak | ''>('');
+  const [isPenjawatAwam, setIsPenjawatAwam] = useState<MohYaTidak | ''>('');
+  const [isFpp, setIsFpp] = useState<MohYaTidak | ''>('');
+  const [paymentCategory, setPaymentCategory] = useState<MohPaymentCategory | ''>('');
+  const [renalFunctionDate, setRenalFunctionDate] = useState('');
+  const [creatinine, setCreatinine] = useState('');
+  const [egfr, setEgfr] = useState('');
+  const [contrastMediaRequired, setContrastMediaRequired] = useState(false);
+  const [contrastMediaName, setContrastMediaName] = useState('');
+  const [contrastMediaVolumeMl, setContrastMediaVolumeMl] = useState('');
+  const [bahagianPemeriksaan, setBahagianPemeriksaan] = useState('');
+  const [ringkasanKlinikal, setRingkasanKlinikal] = useState('');
+
   // Repeatable Examination Cards State
   const [examCards, setExamCards] = useState<FormExamCard[]>([createBlankExamCard(1)]);
 
   const selectedPatient = patients.find((p) => p.id === patientId);
   const modalityRef = useMemo(() => getModalityRef(modality), [modality]);
+  const isFemalePatient = selectedPatient?.gender === 'Female';
+  const requiresRenal = contrastMediaRequired; // enforce renal when contrast is needed
+
+  // MOH validation: required fields
+  const mohScreeningValid = useMemo(() => {
+    if (!patientId) return true; // Don't block before patient is selected
+    if (isFemalePatient && !isPregnant) return false;
+    if (!hasAllergy) return false;
+    if (hasAllergy === 'Ya' && !allergyDetails.trim()) return false;
+    if (requiresRenal && (!renalFunctionDate || !creatinine || !egfr)) return false;
+    if (contrastMediaRequired && !contrastMediaName.trim()) return false;
+    return true;
+  }, [patientId, isFemalePatient, isPregnant, hasAllergy, allergyDetails, requiresRenal, renalFunctionDate, creatinine, egfr, contrastMediaRequired, contrastMediaName]);
 
   // Handle Modality Change — reset all examination cards to match new modality
   const handleModalityChange = (newModality: string) => {
     setModality(newModality);
     setExamCards([createBlankExamCard(1)]);
+    // If switching away from contrast-compatible modalities, clear contrast fields
+    if (!['CT', 'MRI', 'Fluoro', 'Angio'].includes(newModality)) {
+      setContrastMediaRequired(false);
+    }
   };
 
   // Add Examination Card
@@ -123,12 +159,13 @@ export default function NewCaseRegistration() {
   const isValid = useMemo(() => {
     if (!currentUser || !patientId || !indication.trim() || !modality) return false;
     if (examCards.length === 0) return false;
+    if (!mohScreeningValid) return false;
     return examCards.every((card) => {
       const partValid = card.bodyPart === 'Other' ? Boolean(card.customBodyPart.trim()) : Boolean(card.bodyPart);
       const optsValid = card.viewsOrProtocol.length > 0;
       return partValid && optsValid;
     });
-  }, [currentUser, patientId, indication, modality, examCards]);
+  }, [currentUser, patientId, indication, modality, examCards, mohScreeningValid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +225,26 @@ export default function NewCaseRegistration() {
         notes,
         status: 'CREATED',
         createdAt: new Date().toISOString(),
+        // ── MOH Clinical Screening fields ──
+        lmp: lmp || undefined,
+        isPregnant: isPregnant || undefined,
+        hasAllergy: hasAllergy || undefined,
+        allergyDetails: allergyDetails.trim() || undefined,
+        hasMobileDevice: hasMobileDevice || undefined,
+        isWarganegara: isWarganegara || undefined,
+        isPenjawatAwam: isPenjawatAwam || undefined,
+        isFpp: isFpp || undefined,
+        paymentCategory: paymentCategory || undefined,
+        renalFunctionDate: renalFunctionDate || undefined,
+        creatinine: creatinine || undefined,
+        egfr: egfr || undefined,
+        contrastMediaRequired: contrastMediaRequired || undefined,
+        contrastMediaName: contrastMediaName.trim() || undefined,
+        contrastMediaVolumeMl: contrastMediaVolumeMl ? Number(contrastMediaVolumeMl) : undefined,
+        bahagianPemeriksaan: bahagianPemeriksaan.trim() || undefined,
+        ringkasanKlinikal: ringkasanKlinikal.trim() || undefined,
+        // Default office No. Pemeriksaan = caseNumber
+        officeNoPemeriksaan: caseNumber,
       });
 
       await addAuditLog({
@@ -210,6 +267,12 @@ export default function NewCaseRegistration() {
       setPreferredClinicId('');
       setNotes('');
       setExamCards([createBlankExamCard(1)]);
+      // Reset MOH fields
+      setLmp(''); setIsPregnant(''); setHasAllergy(''); setAllergyDetails('');
+      setHasMobileDevice(''); setIsWarganegara(''); setIsPenjawatAwam(''); setIsFpp('');
+      setPaymentCategory(''); setRenalFunctionDate(''); setCreatinine(''); setEgfr('');
+      setContrastMediaRequired(false); setContrastMediaName(''); setContrastMediaVolumeMl('');
+      setBahagianPemeriksaan(''); setRingkasanKlinikal('');
     } catch {
       toast.error('Failed to create case.');
     }
@@ -586,6 +649,256 @@ export default function NewCaseRegistration() {
               </div>
             </div>
           </details>
+        </div>
+
+        {/* ── MOH PER.SS-RA301 Clinical Screening ── */}
+        <div className="pt-4 border-t-2 border-dashed border-blue-200">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-[10px] font-bold">MOH</span>
+            </div>
+            <h3 className="text-sm font-bold text-blue-800">Borang PER.SS-RA301 — Clinical Screening</h3>
+            <span className="text-[10px] text-blue-500 font-medium bg-blue-50 px-2 py-0.5 rounded-full">Fields 12–17 + Sections 18 &amp; 22</span>
+          </div>
+
+          {!mohScreeningValid && patientId && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+              <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">Complete the required MOH screening fields below before submitting.</p>
+            </div>
+          )}
+
+          <div className="space-y-5">
+            {/* Row 1: LMP + Pregnancy */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* LMP — only relevant for female patients */}
+              {isFemalePatient && (
+                <div>
+                  <label className="block text-xs font-medium text-surface-700 mb-1">
+                    12. LMP (Last Menstrual Period)
+                    <span className="text-surface-400 font-normal ml-1">Jika berkaitan</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={lmp}
+                    onChange={(e) => setLmp(e.target.value)}
+                    className="input-field text-xs"
+                  />
+                </div>
+              )}
+
+              {/* Pregnancy */}
+              {isFemalePatient && (
+                <div>
+                  <label className="block text-xs font-medium text-surface-700 mb-1.5">
+                    *13. Mengandung (Pregnancy) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    {(['Ya', 'Tidak'] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setIsPregnant(opt)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                          isPregnant === opt
+                            ? opt === 'Ya' ? 'bg-red-600 text-white border-red-600' : 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                  {!isPregnant && <p className="text-[10px] text-red-500 mt-1">Required for female patients</p>}
+                </div>
+              )}
+            </div>
+
+            {/* Row 2: Allergy */}
+            <div>
+              <label className="block text-xs font-medium text-surface-700 mb-1.5">
+                14. Asma / Alergi / Reaksi Media Kontras <span className="text-red-500">*</span>
+                <span className="text-surface-400 font-normal ml-1">(Nyatakan)</span>
+              </label>
+              <div className="flex gap-2 mb-2">
+                {(['Ya', 'Tidak'] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setHasAllergy(opt)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                      hasAllergy === opt
+                        ? opt === 'Ya' ? 'bg-amber-500 text-white border-amber-500' : 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              {!hasAllergy && <p className="text-[10px] text-red-500 mt-1">Required — select Ya or Tidak</p>}
+              {hasAllergy === 'Ya' && (
+                <input
+                  required
+                  value={allergyDetails}
+                  onChange={(e) => setAllergyDetails(e.target.value)}
+                  className="input-field text-xs mt-2"
+                  placeholder="Specify allergy / reaction details... *"
+                />
+              )}
+            </div>
+
+            {/* Row 3: Mobile */}
+            <div>
+              <label className="block text-xs font-medium text-surface-700 mb-1.5">
+                15. Mobile
+              </label>
+              <div className="flex gap-2">
+                {(['Ya', 'Tidak'] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setHasMobileDevice(opt)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                      hasMobileDevice === opt
+                        ? 'bg-navy-700 text-white border-navy-700'
+                        : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 4: Status Bayaran — Warganegara / Penjawat Awam / FPP */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-surface-700 mb-1.5">16. Status Bayaran</label>
+                <select
+                  value={paymentCategory}
+                  onChange={(e) => setPaymentCategory(e.target.value as any)}
+                  className="select-field text-xs"
+                >
+                  <option value="">— Pilih —</option>
+                  <option value="Kerajaan">Kerajaan</option>
+                  <option value="Swasta">Swasta</option>
+                  <option value="Bayar Sendiri">Bayar Sendiri</option>
+                  <option value="Lain-lain">Lain-lain</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-surface-700 mb-1.5">Warganegara / Penjawat Awam / FPP</label>
+                <div className="flex gap-1.5">
+                  {(['Ya', 'Tidak'] as const).map((opt) => (
+                    <button key={`wn-${opt}`} type="button" onClick={() => setIsWarganegara(opt)}
+                      className={`flex-1 py-1.5 rounded text-[11px] font-medium border transition-all ${isWarganegara === opt ? 'bg-navy-700 text-white border-navy-700' : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}>
+                      WN {opt}
+                    </button>
+                  ))}
+                  {(['Ya', 'Tidak'] as const).map((opt) => (
+                    <button key={`pa-${opt}`} type="button" onClick={() => setIsPenjawatAwam(opt)}
+                      className={`flex-1 py-1.5 rounded text-[11px] font-medium border transition-all ${isPenjawatAwam === opt ? 'bg-navy-700 text-white border-navy-700' : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}>
+                      PA {opt}
+                    </button>
+                  ))}
+                  {(['Ya', 'Tidak'] as const).map((opt) => (
+                    <button key={`fpp-${opt}`} type="button" onClick={() => setIsFpp(opt)}
+                      className={`flex-1 py-1.5 rounded text-[11px] font-medium border transition-all ${isFpp === opt ? 'bg-navy-700 text-white border-navy-700' : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}>
+                      FPP {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 5: Contrast Media Toggle */}
+            <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-purple-800">*22. Media Kontras (Contrast Media) — Nyatakan Jika Berkaitan</label>
+                <button
+                  type="button"
+                  onClick={() => setContrastMediaRequired(!contrastMediaRequired)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${contrastMediaRequired ? 'bg-purple-600' : 'bg-surface-300'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${contrastMediaRequired ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              {contrastMediaRequired && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-purple-700 mb-1">Jenama (Brand) <span className="text-red-500">*</span></label>
+                    <input
+                      required
+                      value={contrastMediaName}
+                      onChange={(e) => setContrastMediaName(e.target.value)}
+                      className="input-field text-xs border-purple-300 focus:ring-purple-200"
+                      placeholder="e.g., Omnipaque, Visipaque..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-purple-700 mb-1">Isipadu (ml)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={contrastMediaVolumeMl}
+                      onChange={(e) => setContrastMediaVolumeMl(e.target.value)}
+                      className="input-field text-xs border-purple-300 focus:ring-purple-200"
+                      placeholder="e.g., 100"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Row 6: Renal Function — shown when contrast required */}
+            {requiresRenal && (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
+                <p className="text-xs font-bold text-orange-800">17. Renal Function <span className="text-red-500">*</span> <span className="font-normal">(Required when contrast is used)</span></p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-orange-700 mb-1">Tarikh <span className="text-red-500">*</span></label>
+                    <input type="date" value={renalFunctionDate} onChange={(e) => setRenalFunctionDate(e.target.value)} className="input-field text-xs border-orange-300" required={requiresRenal} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-orange-700 mb-1">Creatinine <span className="text-red-500">*</span></label>
+                    <input value={creatinine} onChange={(e) => setCreatinine(e.target.value)} className="input-field text-xs border-orange-300" placeholder="μmol/L" required={requiresRenal} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-orange-700 mb-1">eGFR <span className="text-red-500">*</span></label>
+                    <input value={egfr} onChange={(e) => setEgfr(e.target.value)} className="input-field text-xs border-orange-300" placeholder="mL/min/1.73m²" required={requiresRenal} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Row 7: Bahagian Pemeriksaan */}
+            <div>
+              <label className="block text-xs font-medium text-surface-700 mb-1">18. Bahagian Pemeriksaan</label>
+              <input
+                value={bahagianPemeriksaan}
+                onChange={(e) => setBahagianPemeriksaan(e.target.value)}
+                className="input-field text-xs"
+                placeholder="Specify examination area / section..."
+              />
+            </div>
+
+            {/* Row 8: Ringkasan Klinikal */}
+            <div>
+              <label className="block text-xs font-medium text-surface-700 mb-1">
+                Ringkasan Klinikal
+                <span className="text-surface-400 font-normal ml-2">(Clinical Summary — doctor's referral notes, history, and diagnosis)</span>
+              </label>
+              <textarea
+                rows={4}
+                value={ringkasanKlinikal}
+                onChange={(e) => setRingkasanKlinikal(e.target.value)}
+                className="input-field resize-none text-xs"
+                placeholder="Provide a full clinical summary: presenting complaint, history, examination findings, provisional diagnosis, and reason for referral..."
+              />
+              <p className="text-[10px] text-surface-400 mt-1">This field corresponds to the Ringkasan Klinikal block at the bottom of MOH form PER.SS-RA301.</p>
+            </div>
+          </div>
         </div>
 
         {/* Form Submission Footer */}

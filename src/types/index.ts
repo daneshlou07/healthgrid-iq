@@ -76,6 +76,8 @@ export interface Patient {
   preferredClinicName?: string;
   clinicId?: string;
   clinicName?: string;
+  /** MOH Form — Field 7 Etnik */
+  ethnicity?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,6 +94,12 @@ export interface ExaminationRequest {
   viewsOrProtocol: string[];
   notes?: string;
 }
+
+// ---------------------------------------------------------------------------
+// MOH Borang Permohonan Pemeriksaan Radiologi (PER.SS-RA301) — field types
+// ---------------------------------------------------------------------------
+export type MohYaTidak = 'Ya' | 'Tidak';
+export type MohPaymentCategory = 'Kerajaan' | 'Swasta' | 'Bayar Sendiri' | 'Lain-lain';
 
 export interface Case {
   id: string;
@@ -124,6 +132,86 @@ export interface Case {
   reportedAt?: string;
   finalizedAt?: string;
   images?: string[];
+
+  // ── MOH Form § Clinical Screening (Fields 12–17) ──────────────────────────
+  /** Field 12 — LMP date (ISO 8601 date string) */
+  lmp?: string;
+  /** Field 13 — *Mengandung (pregnancy status) — REQUIRED when patient is female */
+  isPregnant?: MohYaTidak;
+  /** Field 14 — Asma / Alergi / Reaksi Media Kontras */
+  hasAllergy?: MohYaTidak;
+  /** Free-text allergy / reaction details (shown when hasAllergy === 'Ya') */
+  allergyDetails?: string;
+  /** Field 15 — Mobile */
+  hasMobileDevice?: MohYaTidak;
+  /** Field 16 — Warganegara */
+  isWarganegara?: MohYaTidak;
+  /** Field 16 — Penjawat Awam */
+  isPenjawatAwam?: MohYaTidak;
+  /** Field 16 — FPP */
+  isFpp?: MohYaTidak;
+  /** Field 16 — Status Bayaran */
+  paymentCategory?: MohPaymentCategory;
+  /** Field 17 — Renal Function date (ISO 8601) */
+  renalFunctionDate?: string;
+  /** Field 17 — Creatinine value */
+  creatinine?: string;
+  /** Field 17 — eGFR value */
+  egfr?: string;
+
+  // ── MOH Form § Perkhidmatan / Service (Section 18) ───────────────────────
+  /** Free-text Bahagian Pemeriksaan field beneath the service checkboxes */
+  bahagianPemeriksaan?: string;
+
+  // ── MOH Form § Ringkasan Klinikal (Clinical Summary) ─────────────────────
+  /** Full clinical summary block at the bottom of Page 1 */
+  ringkasanKlinikal?: string;
+
+  // ── MOH Form § Contrast Media (Section *22) ──────────────────────────────
+  /** Whether contrast media is required for this examination */
+  contrastMediaRequired?: boolean;
+  /** Jenama (brand/name) of contrast media */
+  contrastMediaName?: string;
+  /** Isipadu Media Kontras in ml */
+  contrastMediaVolumeMl?: number;
+
+  // ── MOH Form § Paparan Imej (Section 19) ─────────────────────────────────
+  /** Number of film images produced */
+  bilanganFilem?: number;
+  /** Number of CD/DVD copies produced */
+  bilanganCdDvd?: number;
+
+  // ── MOH Form § Faktor Dedahan — Radiation Dose (Section 20) ──────────────
+  /** Peak kilovoltage */
+  doseKvp?: number;
+  /** Milliampere-seconds */
+  doseMas?: number;
+  /** Dose Radiasi (mSv) */
+  dosRadiasi?: number;
+
+  // ── MOH Form § Radiographer Comments ─────────────────────────────────────
+  /** Komen — radiographer's operational comments */
+  komen?: string;
+
+  // ── MOH Form § Kegunaan Pejabat — Office Use (Admin fills) ───────────────
+  /** ISO 8601 — Waktu Terima (time received) */
+  officeWaktuTerima?: string;
+  /** ISO 8601 — Waktu Selesai (time completed) */
+  officeWaktuSelesai?: string;
+  /** Juru X-Ray — name of X-Ray technologist */
+  officeJuruXRay?: string;
+  /** Tarikh Pemeriksaan — exam date (ISO 8601 date string) */
+  officeTarikhPemeriksaan?: string;
+  /**
+   * No. Pemeriksaan — maps to caseNumber for now.
+   * May be overridden by individual healthcare centres.
+   */
+  officeNoPemeriksaan?: string;
+  /** ISO 8601 — Tarikh Pemeriksaan (appointment date stored separately) */
+  officeTarikhAppointment?: string;
+  /** Masa temujanji */
+  officeMasaAppointment?: string;
+
   /** @deprecated Read-only support for cases created before the symptom workflow. */
   disease?: string;
   /** @deprecated Read-only support for cases created before radiology registration. */

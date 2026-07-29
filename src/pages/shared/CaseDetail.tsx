@@ -4,9 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList } from 'lucide-react';
 import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
+import RadiologyWorksheet from './RadiologyWorksheet';
+import DownloadMohFormButton from '../../components/ui/PrintRadiologyForm';
 
 /** Loads images from IndexedDB by key and renders them */
 function CaseImages({ imageKeys }: { imageKeys?: string[] }) {
@@ -40,6 +42,7 @@ export default function CaseDetail() {
   const { cases, patients, reports, getCommentsForCase, addComment, addRecentItem } = useData();
   const [newMessage, setNewMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'worksheet'>('overview');
 
   const caseItem = cases.find((c) => c.id === caseId);
   if (!caseItem) return <div className="text-center py-20 text-surface-400">Case not found.</div>;
@@ -94,11 +97,46 @@ export default function CaseDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
           <SeverityBadge severity={caseItem.severity} />
           <StatusBadge status={caseItem.status} />
         </div>
       </div>
 
+      {/* Tab navigation */}
+      <div className="flex gap-1 p-1 bg-surface-100 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === 'overview'
+              ? 'bg-white text-navy-800 shadow-sm'
+              : 'text-surface-500 hover:text-surface-700'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          Case Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('worksheet')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === 'worksheet'
+              ? 'bg-white text-navy-800 shadow-sm'
+              : 'text-surface-500 hover:text-surface-700'
+          }`}
+        >
+          <ClipboardList className="w-3.5 h-3.5" />
+          MOH Worksheet
+          <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold ml-0.5">PER.SS-RA301</span>
+        </button>
+      </div>
+
+      {/* Tab: MOH Worksheet */}
+      {activeTab === 'worksheet' && (
+        <RadiologyWorksheet caseItem={caseItem} />
+      )}
+
+      {/* Tab: Case Overview */}
+      {activeTab === 'overview' && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
@@ -258,6 +296,7 @@ export default function CaseDetail() {
           <SLAIndicator caseItem={caseItem} />
         </div>
       </div>
+      )}
     </div>
   );
 }
