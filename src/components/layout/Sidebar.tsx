@@ -29,6 +29,21 @@ function getNavGroups(role: UserRole, pendingRequests: number): NavGroup[] {
           { label: 'Onboarding', path: '/onboarding', icon: <UserCheck className="w-[18px] h-[18px]" /> },
         ]},
       ];
+    case 'Medical Officer':
+      return [
+        { title: 'MAIN', items: [
+          { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
+          { label: 'Cases to Review', path: '/review-queue', icon: <Eye className="w-[18px] h-[18px]" /> },
+        ]},
+        { title: 'PATIENTS & REPORTS', items: [
+          { label: 'Patient Registry', path: '/patients', icon: <Users className="w-[18px] h-[18px]" /> },
+          { label: 'Diagnostic Reports', path: '/reports', icon: <FileText className="w-[18px] h-[18px]" /> },
+          { label: 'Track Status', path: '/track-status', icon: <Search className="w-[18px] h-[18px]" /> },
+        ]},
+        { title: 'ACCOUNT', items: [
+          { label: 'Onboarding', path: '/onboarding', icon: <UserCheck className="w-[18px] h-[18px]" /> },
+        ]},
+      ];
     case 'Radiologist':
       return [
         { title: 'MAIN', items: [

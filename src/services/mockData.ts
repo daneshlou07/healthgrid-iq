@@ -136,6 +136,17 @@ export const mockUsers: User[] = [
     leaveStatus: 'Active',
   },
   {
+    id: 'mo-001',
+    name: 'Dr. Ahmad Razali',
+    email: 'mo@healthgrid.com',
+    role: 'Medical Officer',
+    specialty: 'General Medicine / Clinical Screening',
+    status: 'active',
+    createdAt: '2025-02-15T08:00:00Z',
+    shift: 'Day',
+    leaveStatus: 'Active',
+  },
+  {
     id: 'dept-001',
     name: 'Nurul Aisyah',
     email: 'nurul.aisyah@healthgrid.my',

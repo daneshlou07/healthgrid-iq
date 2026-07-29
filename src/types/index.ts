@@ -1,7 +1,7 @@
 // HealthGrid IQ — Domain Entity Types
 // All timestamp fields use ISO 8601 strings (e.g. "2026-07-27T14:00:00Z").
 
-export type UserRole = 'Radiographer' | 'Radiologist' | 'Radiology Department' | 'Administrator';
+export type UserRole = 'Radiographer' | 'Radiologist' | 'Medical Officer' | 'Radiology Department' | 'Administrator';
 
 export type CaseStatus = 'CREATED' | 'SCHEDULED' | 'SCANNED' | 'REPORTED' | 'FINALIZED' | 'NO_SHOW' | 'CANCELLED';
 
@@ -224,11 +224,17 @@ export interface Case {
     updatedByName?: string;
   }>;
 
+  /** Escalation tracking from MO to Specialist Radiologist */
+  isEscalated?: boolean;
+  escalationReason?: string;
+  escalatedBy?: string;
+  escalatedAt?: string;
+
   /** @deprecated Read-only support for cases created before the symptom workflow. */
   disease?: string;
   /** @deprecated Read-only support for cases created before radiology registration. */
   doctorId?: string;
-  /** @deprecated Read-only support for cases created before radiology registration. */
+  /** @deprecated */
   doctorName?: string;
 }
 
@@ -242,6 +248,7 @@ export interface Report {
   patientName: string;
   radiologistId: string;
   radiologistName: string;
+  signedByRole?: UserRole;
   findings: string;
   impression: string;
   suggestions?: string;

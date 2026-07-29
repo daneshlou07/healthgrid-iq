@@ -51,13 +51,20 @@ export default function Reporting() {
 
   const scannedCases = cases.filter((c) => c.status === 'SCANNED');
 
+  const isMO = currentUser?.role === 'Medical Officer';
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [escalateReason, setEscalateReason] = useState('Suspected Abnormality / Requires Specialist Opinion');
+
   const handleSignOff = async () => {
     if (!currentUser || !selectedCase || !findings || !impression) return;
     setSaving(true);
 
+    const signedRole = currentUser.role;
+
     await addReport({
       caseId: selectedCase.id, caseNumber: selectedCase.caseNumber, patientName: selectedCase.patientName,
-      radiologistId: currentUser.id, radiologistName: currentUser.name, findings, impression,
+      radiologistId: currentUser.id, radiologistName: currentUser.name, signedByRole: signedRole,
+      findings, impression,
       suggestions: suggestions || undefined, status: 'Verified / Signed Off',
       createdAt: new Date().toISOString(), signedAt: new Date().toISOString(),
       imageKeys: selectedCase.images && selectedCase.images.length > 0 ? selectedCase.images : undefined,
@@ -70,13 +77,37 @@ export default function Reporting() {
     await addAuditLog({
       userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
       action: 'REPORT_SIGNED', target: `cases/${selectedCase.id}`,
-      details: `Signed off report for ${selectedCase.caseNumber}`,
+      details: `Signed off report (${signedRole}) for ${selectedCase.caseNumber}`,
       timestamp: new Date().toISOString(),
     });
 
-    toast.success(`Report signed for ${selectedCase.caseNumber}`);
+    toast.success(`Report finalized by ${currentUser.name} (${signedRole}) for ${selectedCase.caseNumber}`);
     setSaving(false);
     setSelectedCase(null); setFindings(''); setImpression(''); setSuggestions('');
+  };
+
+  const handleConfirmEscalate = async () => {
+    if (!currentUser || !selectedCase) return;
+    setSaving(true);
+
+    await editCase(selectedCase.id, {
+      isEscalated: true,
+      escalationReason: escalateReason,
+      escalatedBy: currentUser.name,
+      escalatedAt: new Date().toISOString(),
+    });
+
+    await addAuditLog({
+      userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
+      action: 'CASE_ESCALATED', target: `cases/${selectedCase.id}`,
+      details: `Escalated case ${selectedCase.caseNumber} to Specialist Radiologist: ${escalateReason}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    toast.info(`Case ${selectedCase.caseNumber} escalated to Specialist Radiologist`);
+    setSaving(false);
+    setShowEscalateModal(false);
+    setSelectedCase(null);
   };
 
   if (!selectedCase) {
@@ -84,14 +115,21 @@ export default function Reporting() {
       <div className="space-y-6">
         <div>
           <h1 className="page-title">Clinical Reporting</h1>
-          <p className="page-subtitle">Select a case to write a diagnostic report</p>
+          <p className="page-subtitle">Select a case to write a diagnostic report {isMO ? '(Medical Officer View)' : '(Specialist Radiologist View)'}</p>
         </div>
         <div className="space-y-2">
           {scannedCases.map((c) => (
             <button key={c.id} onClick={() => setSelectedCase(c)} className="w-full card-hover text-left">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-navy-700">{c.caseNumber} — {c.patientName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-navy-700">{c.caseNumber} — {c.patientName}</p>
+                    {c.isEscalated && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full">
+                        ESCALATED TO RADIOLOGIST
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-surface-500">{c.scanType} &middot; {c.clinicName}</p>
                 </div>
                 <StatusBadge status={c.status} />
@@ -128,6 +166,12 @@ export default function Reporting() {
                 <p className="text-sm text-surface-700">{selectedCase.notes}</p>
               </div>
             )}
+            {selectedCase.isEscalated && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs space-y-1">
+                <p className="font-bold text-red-900">⚠️ Escalated by {selectedCase.escalatedBy || 'Medical Officer'}</p>
+                <p className="text-red-700">Reason: {selectedCase.escalationReason}</p>
+              </div>
+            )}
           </div>
           <div className="card">
             <h3 className="text-xs font-semibold text-surface-500 uppercase mb-3">Medical Images</h3>
@@ -137,7 +181,18 @@ export default function Reporting() {
 
         {/* Right: Editor */}
         <div className="card space-y-4">
-          <h3 className="text-xs font-semibold text-surface-500 uppercase">Diagnostic Report</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-surface-500 uppercase">Diagnostic Report</h3>
+            {isMO && (
+              <button
+                type="button"
+                onClick={() => setShowEscalateModal(true)}
+                className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-bold transition-colors"
+              >
+                ⚠️ Escalate to Radiologist
+              </button>
+            )}
+          </div>
           <div>
             <label className="block text-sm font-medium text-surface-700 mb-1">Findings *</label>
             <textarea rows={5} value={findings} onChange={(e) => setFindings(e.target.value)} className="input-field resize-none text-sm" placeholder="Detailed radiological findings..." />
@@ -153,11 +208,43 @@ export default function Reporting() {
           <div className="flex items-center justify-between pt-3 border-t border-surface-200">
             <button onClick={() => setSelectedCase(null)} className="btn-secondary text-sm">Back</button>
             <button onClick={handleSignOff} disabled={saving || !findings || !impression} className="btn-success disabled:opacity-50">
-              {saving ? 'Signing...' : 'Sign Off & Finalize'}
+              {saving ? 'Signing...' : isMO ? 'Finalize Report (MO Approved)' : 'Sign Off & Finalize'}
             </button>
           </div>
         </div>
       </div>
+
+      {/* ── MODAL: Escalate to Radiologist ── */}
+      {showEscalateModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              ⚠️ Escalate to Specialist Radiologist
+            </h3>
+            <p className="text-xs text-slate-500">
+              This will route the case to the Specialist Radiologist queue for complex analysis.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Escalation Rationale</label>
+              <select
+                value={escalateReason}
+                onChange={(e) => setEscalateReason(e.target.value)}
+                className="input-field text-xs mb-2"
+              >
+                <option value="Suspected Abnormality / Requires Specialist Opinion">Suspected Abnormality / Requires Specialist Opinion</option>
+                <option value="Complex CT / MRI Modality Interpretation">Complex CT / MRI Modality Interpretation</option>
+                <option value="Possible Tumor or Oncology Pathology">Possible Tumor or Oncology Pathology</option>
+                <option value="Equivocal / Inconclusive Preliminary Finding">Equivocal / Inconclusive Preliminary Finding</option>
+                <option value="High Risk Patient / Medico-Legal Request">High Risk Patient / Medico-Legal Request</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowEscalateModal(false)} className="btn-secondary text-xs px-4 py-2">Cancel</button>
+              <button onClick={handleConfirmEscalate} className="btn-danger text-xs px-4 py-2">Confirm Escalation</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

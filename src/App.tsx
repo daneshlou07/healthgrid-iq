@@ -97,11 +97,11 @@ function AppRoutes() {
         <Route path="/patient/:patientId" element={<PatientDetail />} />
 
         {/* Radiology Department registration and case-management routes */}
-        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientsList /></ProtectedRoute>} />
+        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><PatientsList /></ProtectedRoute>} />
         <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientRegistration /></ProtectedRoute>} />
         <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Administrator']}><AllCases /></ProtectedRoute>} />
         <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department']}><NewCaseRegistration /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Radiologist']}><DepartmentReports /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Radiologist']}><DepartmentReports /></ProtectedRoute>} />
         <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientRequests /></ProtectedRoute>} />
         <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
 
@@ -110,15 +110,15 @@ function AppRoutes() {
         <Route path="/schedule" element={<ProtectedRoute allowedRoles={['Radiographer']}><ScheduleView /></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute allowedRoles={['Radiographer']}><UploadScans /></ProtectedRoute>} />
 
-        {/* Radiologist routes */}
-        <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist']}><ReviewQueue /></ProtectedRoute>} />
-        <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist']}><Reporting /></ProtectedRoute>} />
+        {/* Radiologist & Medical Officer review and reporting routes */}
+        <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><ReviewQueue /></ProtectedRoute>} />
+        <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><Reporting /></ProtectedRoute>} />
 
         {/* Onboarding routes */}
-        <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
+        <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
 
         {/* Radiology Department routes */}
-        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Radiology Department']}><TrackStatus /></ProtectedRoute>} />
+        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><TrackStatus /></ProtectedRoute>} />
 
         {/* Administrator routes (full CRUD access) */}
         <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />

@@ -41,9 +41,15 @@ const roleCards: RoleCard[] = [
     icon: <Radio className="w-5 h-5" />,
   },
   {
+    role: 'Medical Officer',
+    label: 'Medical Officer',
+    sublabel: 'MO Review & Direct Finalize',
+    icon: <UserCheck className="w-5 h-5" />,
+  },
+  {
     role: 'Radiologist',
     label: 'Radiologist',
-    sublabel: 'AI & Diagnostics',
+    sublabel: 'AI & Specialist Review',
     icon: <FileText className="w-5 h-5" />,
   },
   {
@@ -449,12 +455,13 @@ export default function LoginPage() {
 
             <details>
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-purple-600 select-none font-medium">
-                View other roles (Dept Staff · Radiologist · Admin)
+                View other roles (Dept Staff · MO · Radiologist · Admin)
               </summary>
               <div className="mt-2 space-y-2">
-                {(['Radiology Department', 'Radiologist', 'Administrator'] as const).map((role) => {
+                {(['Radiology Department', 'Medical Officer', 'Radiologist', 'Administrator'] as const).map((role) => {
                   const roleLabel: Record<string, string> = {
                     'Radiology Department': '🏥 Dept. Staff',
+                    'Medical Officer': '🩺 Medical Officer (MO)',
                     'Radiologist': '🔬 Radiologist',
                     'Administrator': '🛡 Administrator',
                   };
