@@ -59,7 +59,7 @@ function createBlankExamCard(idSuffix: number): FormExamCard {
 const STEPS = [
   { id: 1, title: 'Patient & Indication', subtitle: 'Select patient & symptom' },
   { id: 2, title: 'Modality & Exams', subtitle: 'Body parts & views' },
-  { id: 3, title: 'MOH Screening', subtitle: 'Borang PER.SS-RA301' },
+  { id: 3, title: 'Clinical Screening', subtitle: 'Safety & MOH PER.SS-RA301' },
   { id: 4, title: 'Review & Submit', subtitle: 'Final verification' },
 ];
 
@@ -80,7 +80,7 @@ export default function NewCaseRegistration() {
   const [modality, setModality] = useState('X-Ray');
   const [examCards, setExamCards] = useState<FormExamCard[]>([createBlankExamCard(1)]);
 
-  // ── Step 3 State (MOH Screening) ──────────────────────────────────────
+  // ── Step 3 State (Clinical Screening & Notes) ─────────────────────────
   const [lmp, setLmp] = useState('');
   const [isPregnant, setIsPregnant] = useState<MohYaTidak | ''>('');
   const [hasAllergy, setHasAllergy] = useState<MohYaTidak | ''>('');
@@ -96,12 +96,10 @@ export default function NewCaseRegistration() {
   const [contrastMediaRequired, setContrastMediaRequired] = useState(false);
   const [contrastMediaName, setContrastMediaName] = useState('');
   const [contrastMediaVolumeMl, setContrastMediaVolumeMl] = useState('');
-  const [bahagianPemeriksaan, setBahagianPemeriksaan] = useState('');
-  const [ringkasanKlinikal, setRingkasanKlinikal] = useState('');
+  const [clinicalNotes, setClinicalNotes] = useState('');
 
   // ── Step 4 State ─────────────────────────────────────────────────────
   const [preferredClinicId, setPreferredClinicId] = useState('');
-  const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const selectedPatient = patients.find((p) => p.id === patientId);
@@ -122,12 +120,12 @@ export default function NewCaseRegistration() {
     });
   }, [modality, examCards]);
 
-  // Step 3 Validation (MOH Screening)
+  // Step 3 Validation (Clinical Screening)
   const step3Valid = useMemo(() => {
     if (!patientId) return true;
     if (isFemalePatient && !isPregnant) return false;
     if (!hasAllergy) return false;
-    if (hasAllergy === 'Ya' && !allergyDetails.trim()) return false;
+    if ((hasAllergy === 'Yes' || hasAllergy === 'Ya') && !allergyDetails.trim()) return false;
     if (requiresRenal && (!renalFunctionDate || !creatinine || !egfr)) return false;
     if (contrastMediaRequired && !contrastMediaName.trim()) return false;
     return true;
@@ -236,7 +234,7 @@ export default function NewCaseRegistration() {
         bodyRegion: uniqueRegions || 'General',
         severity,
         incubationPeriod: incubationPeriod || undefined,
-        notes,
+        notes: clinicalNotes.trim(),
         status: 'CREATED',
         createdAt: new Date().toISOString(),
         lmp: lmp || undefined,
@@ -254,8 +252,7 @@ export default function NewCaseRegistration() {
         contrastMediaRequired: contrastMediaRequired || undefined,
         contrastMediaName: contrastMediaName.trim() || undefined,
         contrastMediaVolumeMl: contrastMediaVolumeMl ? Number(contrastMediaVolumeMl) : undefined,
-        bahagianPemeriksaan: bahagianPemeriksaan.trim() || undefined,
-        ringkasanKlinikal: ringkasanKlinikal.trim() || undefined,
+        ringkasanKlinikal: clinicalNotes.trim() || undefined,
         officeNoPemeriksaan: caseNumber,
       });
 
@@ -273,12 +270,11 @@ export default function NewCaseRegistration() {
 
       // Reset form
       setPatientId(''); setIndication(''); setSeverity('Moderate'); setIncubationPeriod('');
-      setPreferredClinicId(''); setNotes(''); setExamCards([createBlankExamCard(1)]);
+      setPreferredClinicId(''); setClinicalNotes(''); setExamCards([createBlankExamCard(1)]);
       setLmp(''); setIsPregnant(''); setHasAllergy(''); setAllergyDetails('');
       setHasMobileDevice(''); setIsWarganegara(''); setIsPenjawatAwam(''); setIsFpp('');
       setPaymentCategory(''); setRenalFunctionDate(''); setCreatinine(''); setEgfr('');
       setContrastMediaRequired(false); setContrastMediaName(''); setContrastMediaVolumeMl('');
-      setBahagianPemeriksaan(''); setRingkasanKlinikal('');
       setCurrentStep(1);
     } catch {
       toast.error('Failed to create case.');
@@ -689,27 +685,27 @@ export default function NewCaseRegistration() {
                 disabled={!step2Valid}
                 className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next: MOH Screening <ChevronRight className="w-4 h-4" />
+                Next: Clinical Screening <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* ── STEP 3: MOH PER.SS-RA301 CLINICAL SCREENING ───────────────────────── */}
+        {/* ── STEP 3: CLINICAL SCREENING & NOTES ────────────────────────────────── */}
         {currentStep === 3 && (
           <div className="card space-y-6">
             <div className="flex items-center gap-2 border-b border-surface-200 pb-3">
               <FileCheck2 className="w-5 h-5 text-blue-600" />
               <div>
-                <h2 className="text-base font-bold text-navy-900">Step 3: MOH PER.SS-RA301 Clinical Screening</h2>
-                <p className="text-xs text-surface-500">Official Ministry of Health screening questions (Fields 12–17 &amp; 22)</p>
+                <h2 className="text-base font-bold text-navy-900">Step 3: Radiology Request Screening (MOH PER.SS-RA301)</h2>
+                <p className="text-xs text-surface-500">Clinical screening questions (Fields 12–17 &amp; 22)</p>
               </div>
             </div>
 
             {!step3Valid && patientId && (
               <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700">Please complete all required MOH screening fields (pregnancy for female patients, allergy details, renal function if contrast media is required) before proceeding.</p>
+                <p className="text-xs text-amber-700">Please complete all required screening fields (pregnancy for female patients, allergy details, renal function if contrast media is required) before proceeding.</p>
               </div>
             )}
 
@@ -719,7 +715,7 @@ export default function NewCaseRegistration() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-surface-50 rounded-xl border border-surface-200">
                   <div>
                     <label className="block text-xs font-semibold text-surface-700 mb-1">
-                      12. LMP (Last Menstrual Period) <span className="text-surface-400 font-normal">(Jika berkaitan)</span>
+                      12. LMP (Last Menstrual Period Date) <span className="text-surface-400 font-normal">(If applicable)</span>
                     </label>
                     <input
                       type="date"
@@ -731,17 +727,17 @@ export default function NewCaseRegistration() {
 
                   <div>
                     <label className="block text-xs font-semibold text-surface-700 mb-1.5">
-                      *13. Mengandung (Pregnancy Status) <span className="text-red-500">*</span>
+                      13. Pregnant Status <span className="text-red-500">*</span>
                     </label>
                     <div className="flex gap-2">
-                      {(['Ya', 'Tidak'] as const).map((opt) => (
+                      {(['Yes', 'No'] as const).map((opt) => (
                         <button
                           key={opt}
                           type="button"
                           onClick={() => setIsPregnant(opt)}
                           className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${
-                            isPregnant === opt
-                              ? opt === 'Ya' ? 'bg-red-600 text-white border-red-600' : 'bg-emerald-600 text-white border-emerald-600'
+                            isPregnant === opt || (isPregnant === 'Ya' && opt === 'Yes') || (isPregnant === 'Tidak' && opt === 'No')
+                              ? opt === 'Yes' ? 'bg-red-600 text-white border-red-600' : 'bg-emerald-600 text-white border-emerald-600'
                               : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
                           }`}
                         >
@@ -757,17 +753,17 @@ export default function NewCaseRegistration() {
               {/* Row 2: Allergy */}
               <div className="p-4 bg-surface-50 rounded-xl border border-surface-200 space-y-3">
                 <label className="block text-xs font-semibold text-surface-700">
-                  14. Asma / Alergi / Reaksi Media Kontras <span className="text-red-500">*</span>
+                  14. Asthma / Allergy / Contrast Media Reaction <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-2">
-                  {(['Ya', 'Tidak'] as const).map((opt) => (
+                  {(['Yes', 'No'] as const).map((opt) => (
                     <button
                       key={opt}
                       type="button"
                       onClick={() => setHasAllergy(opt)}
                       className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${
-                        hasAllergy === opt
-                          ? opt === 'Ya' ? 'bg-amber-500 text-white border-amber-500' : 'bg-emerald-600 text-white border-emerald-600'
+                        hasAllergy === opt || (hasAllergy === 'Ya' && opt === 'Yes') || (hasAllergy === 'Tidak' && opt === 'No')
+                          ? opt === 'Yes' ? 'bg-amber-500 text-white border-amber-500' : 'bg-emerald-600 text-white border-emerald-600'
                           : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
                       }`}
                     >
@@ -775,8 +771,8 @@ export default function NewCaseRegistration() {
                     </button>
                   ))}
                 </div>
-                {!hasAllergy && <p className="text-[10px] text-red-500 font-medium">Required — select Ya or Tidak</p>}
-                {hasAllergy === 'Ya' && (
+                {!hasAllergy && <p className="text-[10px] text-red-500 font-medium">Required — select Yes or No</p>}
+                {(hasAllergy === 'Yes' || hasAllergy === 'Ya') && (
                   <input
                     required
                     value={allergyDetails}
@@ -790,15 +786,15 @@ export default function NewCaseRegistration() {
               {/* Row 3: Mobile & Payment status */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-surface-50 rounded-xl border border-surface-200">
-                  <label className="block text-xs font-semibold text-surface-700 mb-1.5">15. Mobile Equipment Required</label>
+                  <label className="block text-xs font-semibold text-surface-700 mb-1.5">15. Mobile Scanning Required</label>
                   <div className="flex gap-2">
-                    {(['Ya', 'Tidak'] as const).map((opt) => (
+                    {(['Yes', 'No'] as const).map((opt) => (
                       <button
                         key={opt}
                         type="button"
                         onClick={() => setHasMobileDevice(opt)}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          hasMobileDevice === opt
+                          hasMobileDevice === opt || (hasMobileDevice === 'Ya' && opt === 'Yes') || (hasMobileDevice === 'Tidak' && opt === 'No')
                             ? 'bg-navy-800 text-white border-navy-800'
                             : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
                         }`}
@@ -810,42 +806,42 @@ export default function NewCaseRegistration() {
                 </div>
 
                 <div className="p-4 bg-surface-50 rounded-xl border border-surface-200">
-                  <label className="block text-xs font-semibold text-surface-700 mb-1.5">16. Status Bayaran</label>
+                  <label className="block text-xs font-semibold text-surface-700 mb-1.5">16. Payment Category</label>
                   <select
                     value={paymentCategory}
                     onChange={(e) => setPaymentCategory(e.target.value as any)}
                     className="select-field text-xs"
                   >
-                    <option value="">— Pilih —</option>
-                    <option value="Kerajaan">Kerajaan</option>
-                    <option value="Swasta">Swasta</option>
-                    <option value="Bayar Sendiri">Bayar Sendiri</option>
-                    <option value="Lain-lain">Lain-lain</option>
+                    <option value="">— Select Category —</option>
+                    <option value="Government">Government</option>
+                    <option value="Private">Private</option>
+                    <option value="Self-Pay">Self-Pay</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
               </div>
 
-              {/* Row 4: Warganegara / Penjawat Awam / FPP */}
+              {/* Row 4: Citizen / Civil Servant / FPP */}
               <div className="p-4 bg-surface-50 rounded-xl border border-surface-200 space-y-2">
                 <label className="block text-xs font-semibold text-surface-700">Classification Toggles</label>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-surface-600">Warganegara</span>
+                    <span className="text-[10px] font-bold text-surface-600">Malaysian Citizen</span>
                     <div className="flex gap-1">
-                      {(['Ya', 'Tidak'] as const).map((opt) => (
+                      {(['Yes', 'No'] as const).map((opt) => (
                         <button key={`wn-${opt}`} type="button" onClick={() => setIsWarganegara(opt)}
-                          className={`flex-1 py-1 rounded text-[11px] font-bold border ${isWarganegara === opt ? 'bg-navy-800 text-white border-navy-800' : 'bg-white border-surface-300 text-surface-600'}`}>
+                          className={`flex-1 py-1 rounded text-[11px] font-bold border ${isWarganegara === opt || (isWarganegara === 'Ya' && opt === 'Yes') ? 'bg-navy-800 text-white border-navy-800' : 'bg-white border-surface-300 text-surface-600'}`}>
                           {opt}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-surface-600">Penjawat Awam</span>
+                    <span className="text-[10px] font-bold text-surface-600">Civil Servant</span>
                     <div className="flex gap-1">
-                      {(['Ya', 'Tidak'] as const).map((opt) => (
+                      {(['Yes', 'No'] as const).map((opt) => (
                         <button key={`pa-${opt}`} type="button" onClick={() => setIsPenjawatAwam(opt)}
-                          className={`flex-1 py-1 rounded text-[11px] font-bold border ${isPenjawatAwam === opt ? 'bg-navy-800 text-white border-navy-800' : 'bg-white border-surface-300 text-surface-600'}`}>
+                          className={`flex-1 py-1 rounded text-[11px] font-bold border ${isPenjawatAwam === opt || (isPenjawatAwam === 'Ya' && opt === 'Yes') ? 'bg-navy-800 text-white border-navy-800' : 'bg-white border-surface-300 text-surface-600'}`}>
                           {opt}
                         </button>
                       ))}
@@ -854,9 +850,9 @@ export default function NewCaseRegistration() {
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-surface-600">FPP</span>
                     <div className="flex gap-1">
-                      {(['Ya', 'Tidak'] as const).map((opt) => (
+                      {(['Yes', 'No'] as const).map((opt) => (
                         <button key={`fpp-${opt}`} type="button" onClick={() => setIsFpp(opt)}
-                          className={`flex-1 py-1 rounded text-[11px] font-bold border ${isFpp === opt ? 'bg-navy-800 text-white border-navy-800' : 'bg-white border-surface-300 text-surface-600'}`}>
+                          className={`flex-1 py-1 rounded text-[11px] font-bold border ${isFpp === opt || (isFpp === 'Ya' && opt === 'Yes') ? 'bg-navy-800 text-white border-navy-800' : 'bg-white border-surface-300 text-surface-600'}`}>
                           {opt}
                         </button>
                       ))}
@@ -868,7 +864,7 @@ export default function NewCaseRegistration() {
               {/* Row 5: Contrast Media Toggle */}
               <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-purple-900">*22. Media Kontras (Contrast Media)</label>
+                  <label className="text-xs font-bold text-purple-900">22. Contrast Media Required</label>
                   <button
                     type="button"
                     onClick={() => setContrastMediaRequired(!contrastMediaRequired)}
@@ -880,7 +876,7 @@ export default function NewCaseRegistration() {
                 {contrastMediaRequired && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-purple-800 mb-1">Jenama (Brand) *</label>
+                      <label className="block text-xs font-semibold text-purple-800 mb-1">Brand / Name *</label>
                       <input
                         required
                         value={contrastMediaName}
@@ -890,7 +886,7 @@ export default function NewCaseRegistration() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-purple-800 mb-1">Isipadu (ml)</label>
+                      <label className="block text-xs font-semibold text-purple-800 mb-1">Volume (ml)</label>
                       <input
                         type="number"
                         min="0"
@@ -907,10 +903,10 @@ export default function NewCaseRegistration() {
               {/* Row 6: Renal Function */}
               {requiresRenal && (
                 <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
-                  <p className="text-xs font-bold text-orange-900">17. Renal Function * <span className="font-normal text-orange-700">(Required when contrast is used)</span></p>
+                  <p className="text-xs font-bold text-orange-900">17. Renal Function Test * <span className="font-normal text-orange-700">(Required when contrast media is used)</span></p>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-orange-800 mb-1">Tarikh *</label>
+                      <label className="block text-xs font-semibold text-orange-800 mb-1">Test Date *</label>
                       <input type="date" value={renalFunctionDate} onChange={(e) => setRenalFunctionDate(e.target.value)} className="input-field text-xs border-orange-300" required />
                     </div>
                     <div>
@@ -925,27 +921,18 @@ export default function NewCaseRegistration() {
                 </div>
               )}
 
-              {/* Row 7: Bahagian Pemeriksaan & Ringkasan Klinikal */}
-              <div>
-                <label className="block text-xs font-semibold text-surface-700 mb-1">18. Bahagian Pemeriksaan</label>
-                <input
-                  value={bahagianPemeriksaan}
-                  onChange={(e) => setBahagianPemeriksaan(e.target.value)}
-                  className="input-field text-xs"
-                  placeholder="Specify examination area / section..."
-                />
-              </div>
-
+              {/* Row 7: Clinical Notes */}
               <div>
                 <label className="block text-xs font-semibold text-surface-700 mb-1">
-                  Ringkasan Klinikal <span className="text-surface-400 font-normal">(Clinical Summary — patient history, clinical diagnosis)</span>
+                  Clinical Notes
+                  <span className="text-surface-400 font-normal ml-2">(Patient presentation history, clinical diagnosis, and referral notes)</span>
                 </label>
                 <textarea
-                  rows={3}
-                  value={ringkasanKlinikal}
-                  onChange={(e) => setRingkasanKlinikal(e.target.value)}
+                  rows={4}
+                  value={clinicalNotes}
+                  onChange={(e) => setClinicalNotes(e.target.value)}
                   className="input-field resize-none text-xs"
-                  placeholder="Provide full clinical summary: presenting complaint, history, clinical diagnosis, and reason for referral..."
+                  placeholder="Provide full clinical notes: presenting complaint, history, provisional diagnosis, and reason for referral..."
                 />
               </div>
             </div>
@@ -988,7 +975,7 @@ export default function NewCaseRegistration() {
                 <p className="text-[10px] font-bold text-navy-700 uppercase tracking-wider">Patient Summary</p>
                 <p className="text-sm font-bold text-navy-900">{selectedPatient?.name}</p>
                 <p className="text-navy-700">MRN: <span className="font-mono font-semibold">{selectedPatient?.mrn}</span> &middot; NRIC: <span className="font-mono font-semibold">{selectedPatient?.nric}</span></p>
-                <p className="text-navy-600">Gender: {selectedPatient?.gender} &middot; DOB: {selectedPatient?.dob} &middot; Etnik: {selectedPatient?.ethnicity || '—'}</p>
+                <p className="text-navy-600">Gender: {selectedPatient?.gender} &middot; DOB: {selectedPatient?.dob} &middot; Ethnicity: {selectedPatient?.ethnicity || '—'}</p>
               </div>
 
               {/* Referral Badge */}
@@ -1017,29 +1004,26 @@ export default function NewCaseRegistration() {
 
               {/* MOH Flags Summary */}
               <div className="md:col-span-2 p-3.5 bg-blue-50 rounded-xl border border-blue-200 space-y-1.5">
-                <p className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">MOH PER.SS-RA301 Screening Summary</p>
+                <p className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">Clinical Screening Summary (MOH PER.SS-RA301)</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                  <div><span className="text-blue-600 font-medium">Pregnancy:</span> <strong className="text-blue-900">{isPregnant || 'N/A'}</strong></div>
+                  <div><span className="text-blue-600 font-medium">Pregnant:</span> <strong className="text-blue-900">{isPregnant || 'N/A'}</strong></div>
                   <div><span className="text-blue-600 font-medium">Allergy:</span> <strong className="text-blue-900">{hasAllergy || 'N/A'}</strong></div>
                   <div><span className="text-blue-600 font-medium">Contrast:</span> <strong className="text-blue-900">{contrastMediaRequired ? `${contrastMediaName} (${contrastMediaVolumeMl}ml)` : 'No'}</strong></div>
                   <div><span className="text-blue-600 font-medium">Payment:</span> <strong className="text-blue-900">{paymentCategory || '—'}</strong></div>
                 </div>
               </div>
+
+              {/* Clinical Notes Summary Preview */}
+              {clinicalNotes && (
+                <div className="md:col-span-2 p-3.5 bg-surface-100 rounded-xl border border-surface-200 space-y-1">
+                  <p className="text-[10px] font-bold text-surface-600 uppercase tracking-wider">Clinical Notes</p>
+                  <p className="text-surface-800 text-xs whitespace-pre-line">{clinicalNotes}</p>
+                </div>
+              )}
             </div>
 
-            {/* Advanced & Notes */}
+            {/* Advanced Preferences */}
             <div className="space-y-3 pt-2 border-t border-surface-200">
-              <div>
-                <label className="block text-xs font-semibold text-surface-700 mb-1">General Clinical Notes</label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="input-field resize-none text-xs"
-                  placeholder="Additional referral history, clinical notes..."
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-surface-700 mb-1">Preferred Healthcare Centre <span className="text-surface-400 font-normal">(optional)</span></label>
                 <select
@@ -1061,7 +1045,7 @@ export default function NewCaseRegistration() {
                 onClick={() => setCurrentStep(3)}
                 className="btn-secondary text-xs flex items-center gap-1.5"
               >
-                <ChevronLeft className="w-4 h-4" /> Back: MOH Screening
+                <ChevronLeft className="w-4 h-4" /> Back: Clinical Screening
               </button>
 
               <button

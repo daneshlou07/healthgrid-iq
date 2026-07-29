@@ -8,7 +8,6 @@ interface Props {
   report?: Report;
 }
 
-// ─── Inline styles for the print layout (matches MOH PER.SS-RA301 structure) ──
 const styles: Record<string, React.CSSProperties> = {
   page: {
     fontFamily: '"Times New Roman", Times, serif',
@@ -37,9 +36,7 @@ const styles: Record<string, React.CSSProperties> = {
   field: { display: 'flex', gap: '4px', marginBottom: '3px', alignItems: 'flex-start' },
   label: { fontWeight: 'bold', whiteSpace: 'nowrap' as const, fontSize: '10px', minWidth: '90px' },
   value: { borderBottom: '1px solid #555', flex: 1, minHeight: '14px', fontSize: '10px', paddingLeft: '2px' },
-  smallBox: { display: 'inline-block', border: '1px solid #000', padding: '1px 4px', minWidth: '30px', textAlign: 'center' as const, fontSize: '10px' },
   checkRow: { display: 'flex', gap: '8px', alignItems: 'center', fontSize: '10px' },
-  checkbox: { display: 'inline-block', border: '1px solid #000', width: '12px', height: '12px', marginRight: '3px' },
   circle: { display: 'inline-block', border: '1px solid #000', borderRadius: '50%', width: '12px', height: '12px', marginRight: '3px', backgroundColor: 'transparent' },
   pageBreak: { pageBreakAfter: 'always' as const },
   signatureBlock: { marginTop: '20px', borderTop: '1px solid #000', paddingTop: '8px' },
@@ -55,88 +52,91 @@ function Field({ label, value }: { label: string; value?: string | number | null
   );
 }
 
-function YaTidak({ label, value }: { label: string; value?: string }) {
+function YesNo({ label, value }: { label: string; value?: string }) {
+  const isYes = value === 'Yes' || value === 'Ya';
+  const isNo = value === 'No' || value === 'Tidak';
+
   return (
     <div style={styles.checkRow}>
       <span style={{ fontWeight: 'bold', fontSize: '10px', marginRight: '4px' }}>{label}</span>
-      <span style={{ ...styles.circle, backgroundColor: value === 'Ya' ? '#000' : 'transparent' }} />Ya
-      <span style={{ ...styles.circle, backgroundColor: value === 'Tidak' ? '#000' : 'transparent', marginLeft: '6px' }} />Tidak
+      <span style={{ ...styles.circle, backgroundColor: isYes ? '#000' : 'transparent' }} />Yes
+      <span style={{ ...styles.circle, backgroundColor: isNo ? '#000' : 'transparent', marginLeft: '6px' }} />No
     </div>
   );
 }
 
-/** Renders a hidden pixel-perfect replica of PER.SS-RA301 for PDF generation */
+/** Renders a hidden pixel-perfect replica of PER.SS-RA301 in English for PDF generation */
 export function MOHFormPrintView({ caseItem, patient, report }: Props) {
   const examDate = caseItem.officeTarikhPemeriksaan
-    ? new Date(caseItem.officeTarikhPemeriksaan).toLocaleDateString('ms-MY')
+    ? new Date(caseItem.officeTarikhPemeriksaan).toLocaleDateString('en-GB')
     : caseItem.scannedAt
-    ? new Date(caseItem.scannedAt).toLocaleDateString('ms-MY')
+    ? new Date(caseItem.scannedAt).toLocaleDateString('en-GB')
     : '';
 
   return (
     <div style={styles.page}>
       {/* ── Header ─────────────────────────────────────────── */}
       <div style={styles.header}>
-        <div style={styles.formRef}>PER.SS-RA301<br />(Pind1/2018)</div>
-        <div style={styles.h1}>KEMENTERIAN KESIHATAN MALAYSIA</div>
-        <div style={styles.h2}>BORANG PERMOHONAN PEMERIKSAAN RADIOLOGI</div>
+        <div style={styles.formRef}>MOH PER.SS-RA301<br />(Rev1/2018)</div>
+        <div style={styles.h1}>MINISTRY OF HEALTH MALAYSIA</div>
+        <div style={styles.h2}>RADIOLOGY EXAMINATION REQUEST FORM</div>
         <div style={{ ...styles.field, justifyContent: 'center', marginTop: '4px' }}>
-          <span style={styles.label}>HOSPITAL / KLINIK:</span>
+          <span style={styles.label}>HOSPITAL / CLINIC:</span>
           <span style={styles.value}>{caseItem.clinicName ?? ''}</span>
         </div>
       </div>
 
-      {/* ── Two-column: Maklumat Pesakit + Kegunaan Pejabat ─ */}
+      {/* ── Two-column: Patient Information + Office Use ───── */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '6px', marginBottom: '4px' }}>
-        {/* LEFT: Maklumat Pesakit */}
+        {/* LEFT: Patient Information */}
         <div style={styles.section}>
-          <div style={styles.sectionTitle}>Maklumat Pesakit</div>
-          <Field label="1. Nama Penuh" value={patient?.name ?? caseItem.patientName} />
-          <Field label="2. No. Kad Pengenalan / Pasport" value={patient?.nric} />
-          <Field label="3. Alamat Kediaman" value={patient?.address} />
+          <div style={styles.sectionTitle}>Patient Information</div>
+          <Field label="1. Full Name" value={patient?.name ?? caseItem.patientName} />
+          <Field label="2. NRIC / Passport No." value={patient?.nric} />
+          <Field label="3. Residential Address" value={patient?.address} />
           <div style={styles.grid3}>
-            <div style={styles.field}><span style={styles.label}>4. Tarikh Lahir:</span><span style={styles.value}>{patient?.dob}</span></div>
-            <div style={styles.field}><span style={styles.label}>5. Jantina:</span><span style={styles.value}>{patient?.gender === 'Female' ? 'P' : patient?.gender === 'Male' ? 'L' : ''}</span></div>
-            <div style={styles.field}><span style={styles.label}>8. Umur:</span><span style={styles.value}>{patient?.dob ? String(new Date().getFullYear() - new Date(patient.dob).getFullYear()) : ''}</span></div>
+            <div style={styles.field}><span style={styles.label}>4. DOB:</span><span style={styles.value}>{patient?.dob}</span></div>
+            <div style={styles.field}><span style={styles.label}>5. Gender:</span><span style={styles.value}>{patient?.gender}</span></div>
+            <div style={styles.field}><span style={styles.label}>8. Age:</span><span style={styles.value}>{patient?.dob ? String(new Date().getFullYear() - new Date(patient.dob).getFullYear()) : ''}</span></div>
           </div>
           <div style={styles.grid3}>
-            <div style={styles.field}><span style={styles.label}>6. No. Telefon:</span><span style={styles.value}>{patient?.phone}</span></div>
-            <div style={styles.field}><span style={styles.label}>7. Etnik:</span><span style={styles.value}>{patient?.ethnicity}</span></div>
-            <div style={styles.field}><span style={styles.label}>9. No. Daftar Pesakit:</span><span style={styles.value}>{patient?.mrn}</span></div>
+            <div style={styles.field}><span style={styles.label}>6. Phone No.:</span><span style={styles.value}>{patient?.phone}</span></div>
+            <div style={styles.field}><span style={styles.label}>7. Ethnicity:</span><span style={styles.value}>{patient?.ethnicity}</span></div>
+            <div style={styles.field}><span style={styles.label}>9. Patient MRN:</span><span style={styles.value}>{patient?.mrn}</span></div>
           </div>
           <div style={styles.grid2}>
-            <div style={styles.field}><span style={styles.label}>10. Wad/Klinik/A&amp;E/RH:</span><span style={styles.value}>{caseItem.clinicName}</span></div>
-            <div style={styles.field}><span style={styles.label}>11. Disiplin:</span><span style={styles.value}>{caseItem.modality}</span></div>
+            <div style={styles.field}><span style={styles.label}>10. Ward/Clinic:</span><span style={styles.value}>{caseItem.clinicName}</span></div>
+            <div style={styles.field}><span style={styles.label}>11. Modality:</span><span style={styles.value}>{caseItem.modality}</span></div>
           </div>
           <div style={{ ...styles.field, marginTop: '4px' }}>
-            <span style={styles.label}>12. LMP:</span>
+            <span style={styles.label}>12. LMP Date:</span>
             <span style={styles.value}>{caseItem.lmp ?? ''}</span>
-            <span style={{ ...styles.label, marginLeft: '8px' }}>*13. Mengandung:</span>
-            <YaTidak label="" value={caseItem.isPregnant} />
+            <span style={{ ...styles.label, marginLeft: '8px' }}>13. Pregnant Status:</span>
+            <YesNo label="" value={caseItem.isPregnant} />
           </div>
           <div style={{ ...styles.field }}>
-            <span style={styles.label}>14. Asma/Alergi/Reaksi Media Kontras:</span>
-            <YaTidak label="" value={caseItem.hasAllergy} />
+            <span style={styles.label}>14. Asthma / Allergy / Reaction:</span>
+            <YesNo label="" value={caseItem.hasAllergy} />
             {caseItem.allergyDetails && <span style={{ fontSize: '10px', marginLeft: '4px' }}>({caseItem.allergyDetails})</span>}
           </div>
           <div style={styles.field}>
-            <span style={styles.label}>15. Mobile:</span>
-            <YaTidak label="" value={caseItem.hasMobileDevice} />
+            <span style={styles.label}>15. Mobile Scanning:</span>
+            <YesNo label="" value={caseItem.hasMobileDevice} />
           </div>
           <div style={{ ...styles.checkRow, gap: '12px', marginBottom: '3px' }}>
-            <span style={{ fontWeight: 'bold', fontSize: '10px' }}>16. Warganegara:</span>
-            <YaTidak label="" value={caseItem.isWarganegara} />
-            <span style={{ fontWeight: 'bold', fontSize: '10px', marginLeft: '8px' }}>Penjawat Awam:</span>
-            <YaTidak label="" value={caseItem.isPenjawatAwam} />
+            <span style={{ fontWeight: 'bold', fontSize: '10px' }}>16. Citizen:</span>
+            <YesNo label="" value={caseItem.isWarganegara} />
+            <span style={{ fontWeight: 'bold', fontSize: '10px', marginLeft: '8px' }}>Civil Servant:</span>
+            <YesNo label="" value={caseItem.isPenjawatAwam} />
             <span style={{ fontWeight: 'bold', fontSize: '10px', marginLeft: '8px' }}>FPP:</span>
-            <YaTidak label="" value={caseItem.isFpp} />
+            <YesNo label="" value={caseItem.isFpp} />
           </div>
           <div style={styles.field}>
-            <span style={styles.label}>Status Bayaran:</span>
+            <span style={styles.label}>Payment Category:</span>
             <span style={styles.value}>{caseItem.paymentCategory ?? ''}</span>
           </div>
           <div style={{ ...styles.field }}>
-            <span style={styles.label}>17. Renal Function Tarikh:</span>
+            <span style={styles.label}>17. Renal Test Date:</span>
             <span style={styles.value}>{caseItem.renalFunctionDate ?? ''}</span>
             <span style={{ ...styles.label, marginLeft: '4px' }}>Creatinine:</span>
             <span style={styles.value}>{caseItem.creatinine ?? ''}</span>
@@ -145,107 +145,105 @@ export function MOHFormPrintView({ caseItem, patient, report }: Props) {
           </div>
         </div>
 
-        {/* RIGHT: Kegunaan Pejabat + Paparan Imej + Faktor Dedahan */}
+        {/* RIGHT: Office Use + Image Output + Radiation Exposure */}
         <div>
           <div style={styles.section}>
-            <div style={styles.sectionTitle}>Kegunaan Pejabat</div>
-            <Field label="Waktu Terima" value={caseItem.officeWaktuTerima ? new Date(caseItem.officeWaktuTerima).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }) : ''} />
-            <Field label="Waktu Selesai" value={caseItem.officeWaktuSelesai ? new Date(caseItem.officeWaktuSelesai).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }) : ''} />
-            <Field label="Juru X-Ray" value={caseItem.officeJuruXRay} />
-            <Field label="Tarikh Pemeriksaan" value={examDate} />
-            <Field label="No. Pemeriksaan" value={caseItem.officeNoPemeriksaan ?? caseItem.caseNumber} />
+            <div style={styles.sectionTitle}>Administration &amp; Office Use</div>
+            <Field label="Reception Time" value={caseItem.officeWaktuTerima ? new Date(caseItem.officeWaktuTerima).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''} />
+            <Field label="Completion Time" value={caseItem.officeWaktuSelesai ? new Date(caseItem.officeWaktuSelesai).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''} />
+            <Field label="Technologist" value={caseItem.officeJuruXRay} />
+            <Field label="Examination Date" value={examDate} />
+            <Field label="Exam Ref No." value={caseItem.officeNoPemeriksaan ?? caseItem.caseNumber} />
           </div>
           <div style={styles.section}>
-            <div style={styles.sectionTitle}>19. Paparan Imej</div>
-            <Field label="Bilangan Filem" value={caseItem.bilanganFilem} />
-            <Field label="Bilangan CD/DVD" value={caseItem.bilanganCdDvd} />
+            <div style={styles.sectionTitle}>19. Image Exposure Output</div>
+            <Field label="Film Count" value={caseItem.bilanganFilem} />
+            <Field label="CD / DVD Count" value={caseItem.bilanganCdDvd} />
           </div>
           <div style={styles.section}>
-            <div style={styles.sectionTitle}>20. Faktor Dedahan</div>
+            <div style={styles.sectionTitle}>20. Radiation Exposure</div>
             <Field label="kVp" value={caseItem.doseKvp} />
             <Field label="mAs" value={caseItem.doseMas} />
-            <Field label="Dos Radiasi" value={caseItem.dosRadiasi} />
+            <Field label="Radiation Dose" value={caseItem.dosRadiasi ? `${caseItem.dosRadiasi} mSv` : ''} />
           </div>
           <div style={{ ...styles.section, backgroundColor: '#f8f8f8' }}>
-            <div style={styles.sectionTitle}>21. Temujanji Pemeriksaan</div>
-            <Field label="Tarikh" value={caseItem.officeTarikhAppointment ?? ''} />
-            <Field label="Masa" value={caseItem.officeMasaAppointment ?? ''} />
+            <div style={styles.sectionTitle}>21. Examination Appointment</div>
+            <Field label="Date" value={caseItem.officeTarikhAppointment ?? ''} />
+            <Field label="Time" value={caseItem.officeMasaAppointment ?? ''} />
           </div>
         </div>
       </div>
 
-      {/* ── Section 18: Perkhidmatan ─────────────────────────── */}
+      {/* ── Section 18: Requested Service ────────────────────── */}
       <div style={styles.section}>
-        <div style={styles.sectionTitle}>18. Perkhidmatan</div>
+        <div style={styles.sectionTitle}>18. Requested Service</div>
         <div style={styles.checkRow}>
-          {['X-Ray Am', 'CT', 'MRI', 'US', 'Fluoro', 'Angio', 'IR', '*MMG', 'BMD', '*Media Imej', '*Digitize Image', '*Pelaporan'].map((m) => (
+          {['General X-Ray', 'CT', 'MRI', 'US', 'Fluoro', 'Angio', 'IR', 'MMG', 'BMD', 'Image Media', 'Digitize Image', 'Reporting'].map((m) => (
             <span key={m} style={{ marginRight: '8px', fontSize: '10px' }}>
               <span style={{ ...styles.circle, backgroundColor: caseItem.modality === m || caseItem.scanType?.includes(m) ? '#000' : 'transparent' }} />{m}
             </span>
           ))}
         </div>
-        {caseItem.bahagianPemeriksaan && (
-          <div style={{ ...styles.field, marginTop: '4px' }}>
-            <span style={styles.label}>Bahagian Pemeriksaan:</span>
-            <span style={styles.value}>{caseItem.bahagianPemeriksaan}</span>
-          </div>
-        )}
+        <div style={{ ...styles.field, marginTop: '4px' }}>
+          <span style={styles.label}>Requested Exams:</span>
+          <span style={styles.value}>{caseItem.scanType}</span>
+        </div>
       </div>
 
-      {/* ── Section 22: Media Kontras ────────────────────────── */}
+      {/* ── Section 22: Contrast Media ────────────────────────── */}
       {caseItem.contrastMediaRequired && (
         <div style={styles.section}>
-          <div style={styles.sectionTitle}>*22. Media Kontras (Nyatakan Jika Berkaitan)</div>
+          <div style={styles.sectionTitle}>22. Contrast Media Details</div>
           <div style={styles.grid2}>
-            <Field label="Jenama" value={caseItem.contrastMediaName} />
-            <Field label="Isipadu (ml)" value={caseItem.contrastMediaVolumeMl} />
+            <Field label="Brand / Name" value={caseItem.contrastMediaName} />
+            <Field label="Volume (ml)" value={caseItem.contrastMediaVolumeMl} />
           </div>
         </div>
       )}
 
-      {/* ── Ringkasan Klinikal ────────────────────────────────── */}
+      {/* ── Clinical Notes ────────────────────────────────────── */}
       <div style={styles.section}>
-        <div style={styles.sectionTitle}>Ringkasan Klinikal</div>
+        <div style={styles.sectionTitle}>Clinical Notes</div>
         <div style={styles.textarea}>
           {caseItem.ringkasanKlinikal ?? caseItem.notes ?? ''}
         </div>
         <div style={styles.signatureBlock}>
           <div style={styles.grid2}>
-            <Field label="Tandatangan dan Cop Pakar / Pegawai Perubatan" value="" />
-            <Field label="Tarikh / Masa" value={new Date(caseItem.createdAt).toLocaleString('ms-MY')} />
+            <Field label="Referring Medical Officer Signature &amp; Stamp" value="" />
+            <Field label="Date / Time" value={new Date(caseItem.createdAt).toLocaleString('en-GB')} />
           </div>
         </div>
       </div>
 
-      {/* ── Komen ──────────────────────────────────────────────── */}
+      {/* ── Operational Comments ──────────────────────────────── */}
       {caseItem.komen && (
         <div style={styles.section}>
-          <div style={styles.sectionTitle}>Komen</div>
+          <div style={styles.sectionTitle}>Radiographer Operational Comments</div>
           <p style={{ fontSize: '10px' }}>{caseItem.komen}</p>
         </div>
       )}
 
-      {/* ── PAGE 2: Laporan Radiologi ─────────────────────────── */}
+      {/* ── PAGE 2: Radiology Report ─────────────────────────── */}
       <div style={styles.pageBreak} />
       <div style={styles.page}>
         <div style={{ ...styles.sectionTitle, fontSize: '13px', textAlign: 'center', backgroundColor: '#000', color: '#fff', padding: '4px' }}>
-          LAPORAN RADIOLOGI
+          RADIOLOGY REPORT
         </div>
         <div style={styles.grid2}>
-          <Field label="Nama Pesakit" value={patient?.name ?? caseItem.patientName} />
-          <Field label="No. Pemeriksaan" value={caseItem.officeNoPemeriksaan ?? caseItem.caseNumber} />
+          <Field label="Patient Name" value={patient?.name ?? caseItem.patientName} />
+          <Field label="Exam Ref No." value={caseItem.officeNoPemeriksaan ?? caseItem.caseNumber} />
         </div>
         <div style={styles.grid2}>
-          <Field label="Jenis Pemeriksaan" value={caseItem.scanType} />
-          <Field label="Tarikh Pemeriksaan" value={examDate} />
+          <Field label="Examination Type" value={caseItem.scanType} />
+          <Field label="Examination Date" value={examDate} />
         </div>
         <div style={{ ...styles.textarea, minHeight: '200px', marginTop: '8px' }}>
-          {report ? `FINDINGS:\n${report.findings}\n\nIMPRESSION:\n${report.impression}${report.suggestions ? `\n\nSUGGESTIONS:\n${report.suggestions}` : ''}` : ''}
+          {report ? `FINDINGS:\n${report.findings}\n\nIMPRESSION:\n${report.impression}${report.suggestions ? `\n\nSUGGESTIONS:\n${report.suggestions}` : ''}` : 'Report pending.'}
         </div>
         <div style={styles.signatureBlock}>
           <div style={styles.grid2}>
-            <Field label="Tandatangan dan Cop Pakar / Pegawai Perubatan" value="" />
-            <Field label="Tarikh" value={report?.signedAt ? new Date(report.signedAt).toLocaleDateString('ms-MY') : ''} />
+            <Field label="Radiologist Signature &amp; Stamp" value="" />
+            <Field label="Date Signed" value={report?.signedAt ? new Date(report.signedAt).toLocaleDateString('en-GB') : ''} />
           </div>
         </div>
       </div>
@@ -276,7 +274,6 @@ export default function DownloadMohFormButton({ caseItem, patient, report }: Pro
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      // Split into A4 pages if content exceeds one page
       const pageHeight = pdf.internal.pageSize.getHeight();
       let heightLeft = pdfHeight;
       let position = 0;
@@ -290,7 +287,7 @@ export default function DownloadMohFormButton({ caseItem, patient, report }: Pro
         heightLeft -= pageHeight;
       }
 
-      pdf.save(`MOH_PER-SS-RA301_${caseItem.caseNumber}.pdf`);
+      pdf.save(`MOH_Radiology_Request_${caseItem.caseNumber}.pdf`);
     } catch (err) {
       console.error('PDF generation failed:', err);
     } finally {
@@ -304,13 +301,12 @@ export default function DownloadMohFormButton({ caseItem, patient, report }: Pro
         onClick={handleDownload}
         disabled={loading}
         className="btn-secondary text-xs flex items-center gap-1.5 disabled:opacity-50"
-        title="Download MOH Radiology Form PER.SS-RA301 as PDF"
+        title="Download Radiology Request Form (MOH PER.SS-RA301) as PDF"
       >
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
         {loading ? 'Generating PDF…' : 'Download MOH Form'}
       </button>
 
-      {/* Hidden render surface for html2canvas */}
       <div
         ref={printRef}
         style={{ position: 'fixed', top: '-9999px', left: '-9999px', zIndex: -1 }}

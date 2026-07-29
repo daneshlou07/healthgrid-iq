@@ -97,7 +97,7 @@ export default function PatientRegistration() {
     ethnicity: '',
   });
 
-  const ETHNICITY_OPTIONS = ['Melayu', 'Cina', 'India', 'Bumiputera Sabah', 'Bumiputera Sarawak', 'Lain-lain'];
+  const ETHNICITY_OPTIONS = ['Malay', 'Chinese', 'Indian', 'Bumiputera (Sabah)', 'Bumiputera (Sarawak)', 'Others'];
 
   // Parse NRIC on every change
   const nricResult = useMemo<NricParseResult | null>(() => {
@@ -308,13 +308,13 @@ export default function PatientRegistration() {
               <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input-field" placeholder="+60 12-345-6789" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Etnik (Ethnicity)</label>
+              <label className="block text-sm font-medium text-surface-700 mb-1">Ethnicity</label>
               <select
                 value={form.ethnicity}
                 onChange={(e) => setForm({ ...form, ethnicity: e.target.value })}
                 className="select-field"
               >
-                <option value="">— Pilih Etnik / Select Ethnicity —</option>
+                <option value="">— Select Ethnicity —</option>
                 {ETHNICITY_OPTIONS.map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}

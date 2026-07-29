@@ -98,8 +98,8 @@ export interface ExaminationRequest {
 // ---------------------------------------------------------------------------
 // MOH Borang Permohonan Pemeriksaan Radiologi (PER.SS-RA301) — field types
 // ---------------------------------------------------------------------------
-export type MohYaTidak = 'Ya' | 'Tidak';
-export type MohPaymentCategory = 'Kerajaan' | 'Swasta' | 'Bayar Sendiri' | 'Lain-lain';
+export type MohYaTidak = 'Yes' | 'No' | 'Ya' | 'Tidak';
+export type MohPaymentCategory = 'Government' | 'Private' | 'Self-Pay' | 'Other' | 'Kerajaan' | 'Swasta' | 'Bayar Sendiri' | 'Lain-lain';
 
 export interface Case {
   id: string;
@@ -136,35 +136,31 @@ export interface Case {
   // ── MOH Form § Clinical Screening (Fields 12–17) ──────────────────────────
   /** Field 12 — LMP date (ISO 8601 date string) */
   lmp?: string;
-  /** Field 13 — *Mengandung (pregnancy status) — REQUIRED when patient is female */
+  /** Field 13 — Pregnant Status — REQUIRED when patient is female */
   isPregnant?: MohYaTidak;
-  /** Field 14 — Asma / Alergi / Reaksi Media Kontras */
+  /** Field 14 — Asthma / Allergy / Contrast Media Reaction */
   hasAllergy?: MohYaTidak;
-  /** Free-text allergy / reaction details (shown when hasAllergy === 'Ya') */
+  /** Free-text allergy / reaction details (shown when hasAllergy === 'Yes' or 'Ya') */
   allergyDetails?: string;
-  /** Field 15 — Mobile */
+  /** Field 15 — Mobile scanning required */
   hasMobileDevice?: MohYaTidak;
-  /** Field 16 — Warganegara */
+  /** Field 16 — Malaysian Citizen */
   isWarganegara?: MohYaTidak;
-  /** Field 16 — Penjawat Awam */
+  /** Field 16 — Civil Servant */
   isPenjawatAwam?: MohYaTidak;
-  /** Field 16 — FPP */
+  /** Field 16 — Full Patient Paying (FPP) */
   isFpp?: MohYaTidak;
-  /** Field 16 — Status Bayaran */
+  /** Field 16 — Payment Category */
   paymentCategory?: MohPaymentCategory;
-  /** Field 17 — Renal Function date (ISO 8601) */
+  /** Field 17 — Renal Function test date (ISO 8601) */
   renalFunctionDate?: string;
   /** Field 17 — Creatinine value */
   creatinine?: string;
   /** Field 17 — eGFR value */
   egfr?: string;
 
-  // ── MOH Form § Perkhidmatan / Service (Section 18) ───────────────────────
-  /** Free-text Bahagian Pemeriksaan field beneath the service checkboxes */
-  bahagianPemeriksaan?: string;
-
-  // ── MOH Form § Ringkasan Klinikal (Clinical Summary) ─────────────────────
-  /** Full clinical summary block at the bottom of Page 1 */
+  // ── MOH Form § Clinical Notes ─────────────────────────────────────────────
+  /** Clinical Notes block capturing patient presentation, history, and notes */
   ringkasanKlinikal?: string;
 
   // ── MOH Form § Contrast Media (Section *22) ──────────────────────────────
