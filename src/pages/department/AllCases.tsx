@@ -3,9 +3,12 @@ import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import TabFilter from '../../components/ui/TabFilter';
+import BulkActionBar from '../../components/ui/BulkActionBar';
 import { Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getCaseIndication } from '../../utils/caseDisplay';
+import { exportToCSV } from '../../utils/exportUtils';
+import { useToast } from '../../components/ux/Toast';
 
 const TABS = ['All', 'Pending', 'Scheduled', 'In Progress', 'Imaging Completed', 'Report Pending', 'Report Ready'];
 const TAB_STATUS_MAP: Record<string, string | undefined> = {
@@ -15,8 +18,10 @@ const TAB_STATUS_MAP: Record<string, string | undefined> = {
 
 export default function AllCases() {
   const { cases } = useData();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('All');
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const filtered = cases.filter((c) => {
     const statusMatch = activeTab === 'All' || c.status === TAB_STATUS_MAP[activeTab];
@@ -29,11 +34,33 @@ export default function AllCases() {
   const counts: Record<string, number> = {};
   TABS.forEach((t) => { counts[t] = t === 'All' ? cases.length : cases.filter((c) => c.status === TAB_STATUS_MAP[t]).length; });
 
+  const isAllSelected = filtered.length > 0 && selectedIds.length === filtered.length;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filtered.map((c) => c.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkExport = () => {
+    const selectedCases = cases.filter((c) => selectedIds.includes(c.id));
+    exportToCSV(selectedCases, `Batch_Cases_Export_${new Date().toISOString().slice(0,10)}.csv`);
+    toast.success(`Exported ${selectedCases.length} cases to CSV`);
+  };
+
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="page-title">Cases</h1>
-        <p className="page-subtitle">{cases.length} cases total</p>
+        <h1 className="page-title">Cases Queue</h1>
+        <p className="page-subtitle">{cases.length} cases total &middot; Multi-select enabled</p>
       </div>
 
       <TabFilter tabs={TABS} active={activeTab} onChange={setActiveTab} counts={counts} />
@@ -48,6 +75,14 @@ export default function AllCases() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-surface-200">
+                <th className="px-4 py-3 text-left w-10">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 cursor-pointer"
+                  />
+                </th>
                 <th className="table-header">Case #</th>
                 <th className="table-header">Patient</th>
                 <th className="table-header">Indication / Symptom</th>
@@ -60,30 +95,48 @@ export default function AllCases() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-200">
-              {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-surface-100 transition-colors">
-                  <td className="table-cell font-mono text-navy-600 font-medium text-xs"><Link to={`/case/${c.id}`} className="hover:underline">{c.caseNumber}</Link></td>
-                  <td className="table-cell"><Link to={`/patient/${c.patientId}`} className="font-medium text-surface-800 hover:text-navy-700 hover:underline">{c.patientName}</Link></td>
-                  <td className="table-cell text-xs text-surface-600">{getCaseIndication(c) || '—'}</td>
-                  <td className="table-cell text-xs text-surface-600">{c.bodyRegion || '—'}</td>
-                  <td className="table-cell text-surface-600">{c.scanType}</td>
-                  <td className="table-cell text-xs">
-                    {c.radiographerName ? (
-                      <span className="text-emerald-700 font-medium">{c.radiographerName}</span>
-                    ) : (
-                      <span className="text-amber-500">Unassigned</span>
-                    )}
-                  </td>
-                  <td className="table-cell"><SeverityBadge severity={c.severity} /></td>
-                  <td className="table-cell"><StatusBadge status={c.status} /></td>
-                  <td className="table-cell text-surface-500 text-xs">{new Date(c.createdAt).toLocaleDateString()}</td>
-                </tr>
-              ))}
+              {filtered.map((c) => {
+                const isSelected = selectedIds.includes(c.id);
+                return (
+                  <tr key={c.id} className={`hover:bg-surface-100 transition-colors ${isSelected ? 'bg-purple-50/40' : ''}`}>
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(c.id)}
+                        className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 cursor-pointer"
+                      />
+                    </td>
+                    <td className="table-cell font-mono text-navy-600 font-medium text-xs"><Link to={`/case/${c.id}`} className="hover:underline">{c.caseNumber}</Link></td>
+                    <td className="table-cell"><Link to={`/patient/${c.patientId}`} className="font-medium text-surface-800 hover:text-navy-700 hover:underline">{c.patientName}</Link></td>
+                    <td className="table-cell text-xs text-surface-600">{getCaseIndication(c) || '—'}</td>
+                    <td className="table-cell text-xs text-surface-600">{c.bodyRegion || '—'}</td>
+                    <td className="table-cell text-surface-600">{c.scanType}</td>
+                    <td className="table-cell text-xs">
+                      {c.radiographerName ? (
+                        <span className="text-emerald-700 font-medium">{c.radiographerName}</span>
+                      ) : (
+                        <span className="text-amber-500">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="table-cell"><SeverityBadge severity={c.severity} /></td>
+                    <td className="table-cell"><StatusBadge status={c.status} /></td>
+                    <td className="table-cell text-surface-500 text-xs">{new Date(c.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
         {filtered.length === 0 && <div className="text-center py-10 text-surface-400 text-sm">No cases found.</div>}
       </div>
+
+      {/* Floating Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        onClear={() => setSelectedIds([])}
+        onBulkExport={handleBulkExport}
+      />
     </div>
   );
 }

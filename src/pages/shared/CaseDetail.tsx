@@ -11,6 +11,7 @@ import RadiologyWorksheet from './RadiologyWorksheet';
 import DownloadMohFormButton from '../../components/ui/PrintRadiologyForm';
 import PacsImageViewer from '../../components/ui/PacsImageViewer';
 import PatientSmsModal from '../../components/ui/PatientSmsModal';
+import { exportDossierPdf } from '../../utils/exportDossierPdf';
 
 /** Loads images from IndexedDB by key and renders them */
 function CaseImages({ imageKeys }: { imageKeys?: string[] }) {
@@ -196,6 +197,13 @@ export default function CaseDetail() {
               </button>
             </>
           )}
+          <button
+            onClick={() => exportDossierPdf(caseItem, patient, report)}
+            className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-all border border-slate-700"
+            title="Download full multi-page Clinical Dossier PDF Package"
+          >
+            📄 Clinical Dossier PDF
+          </button>
           <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
           <SeverityBadge severity={caseItem.severity} />
           <StatusBadge status={caseItem.status} />

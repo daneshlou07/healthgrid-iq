@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { getCaseRegistrar } from '../../utils/caseDisplay';
 import { loadImages } from '../../services/imageStorage';
 import PacsImageViewer from '../../components/ui/PacsImageViewer';
+import { generateAiReportDraft } from '../../services/aiReportingCopilot';
 
 /** Loads and displays images from IndexedDB keys stored on the case */
 function CaseImageViewer({ imageKeys }: { imageKeys?: string[] }) {
@@ -190,15 +191,32 @@ export default function Reporting() {
         <div className="card space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold text-surface-500 uppercase">Diagnostic Report</h3>
-            {isMO && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowEscalateModal(true)}
-                className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-bold transition-colors"
+                onClick={() => {
+                  if (!selectedCase) return;
+                  const draft = generateAiReportDraft(selectedCase);
+                  setFindings(draft.findings);
+                  setImpression(draft.impression);
+                  if (draft.suggestions) setSuggestions(draft.suggestions);
+                  toast.success(`AI Draft generated (${draft.confidenceScore}% confidence)`);
+                }}
+                className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border border-purple-300 shadow-sm"
+                title="1-Click AI Preliminary Impression Generator"
               >
-                ⚠️ Escalate to Radiologist
+                🪄 AI Copilot Draft
               </button>
-            )}
+              {isMO && (
+                <button
+                  type="button"
+                  onClick={() => setShowEscalateModal(true)}
+                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-bold transition-colors"
+                >
+                  ⚠️ Escalate
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Critical Red Flag Alert Toggle */}
