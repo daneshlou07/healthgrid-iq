@@ -111,8 +111,12 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96' }: Pro
     );
   }
 
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
+
   return (
-    <div className="bg-slate-950 text-white rounded-xl border border-slate-800 overflow-hidden shadow-2xl space-y-0">
+    <div className={`bg-slate-950 text-white rounded-xl border border-slate-800 overflow-hidden shadow-2xl space-y-0 ${
+      isTheaterMode ? 'fixed inset-0 z-50 rounded-none border-0 flex flex-col' : ''
+    }`}>
       {/* ── PACS TOOLBAR ──────────────────────────────────────────────────────── */}
       <div className="bg-slate-900 border-b border-slate-800 p-2 sm:p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-1">
@@ -126,6 +130,17 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96' }: Pro
 
         {/* Adjustments */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Fullscreen Theater Mode Button */}
+          <button
+            onClick={() => setIsTheaterMode(!isTheaterMode)}
+            className={`p-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1 ${
+              isTheaterMode ? 'bg-amber-600 text-white border-amber-500 ring-2 ring-amber-400/30' : 'bg-purple-900 text-purple-200 border-purple-700 hover:bg-purple-800'
+            }`}
+            title="Expand to Fullscreen Theater Mode"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            {isTheaterMode ? 'Exit Fullscreen' : 'Fullscreen PACS'}
+          </button>
           {/* Zoom controls */}
           <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
             <button
@@ -229,7 +244,7 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96' }: Pro
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        className={`relative ${heightClass} bg-black flex items-center justify-center overflow-hidden cursor-${isMeasuring ? 'crosshair' : 'grab'}`}
+        className={`relative ${isTheaterMode ? 'flex-1 min-h-0 min-h-[550px]' : heightClass} bg-black flex items-center justify-center overflow-hidden cursor-${isMeasuring ? 'crosshair' : 'grab'}`}
       >
         {currentUrl ? (
           <img
