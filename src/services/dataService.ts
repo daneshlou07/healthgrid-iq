@@ -140,8 +140,23 @@ export async function getCasesByRadiographer(radiographerId: string): Promise<Ca
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
 }
 
-export async function createCase(caseData: Omit<Case, 'id'>): Promise<Case> {
+// Data Validation Safeguards
+function validateCaseData(caseData: Omit<Case, 'id'>): void {
+  if (!caseData.caseNumber || !caseData.patientId || !caseData.modality || !caseData.scanType) {
+    throw new Error('Case validation failed: Missing required fields (caseNumber, patientId, modality, scanType)');
+  }
+}
+
+function validateReportData(reportData: Omit<Report, 'id'>): void {
+  if (!reportData.caseId || !reportData.findings || !reportData.impression) {
+    throw new Error('Report validation failed: Missing required fields (caseId, findings, impression)');
+  }
+}
+
+export async function createCase(c: Omit<Case, 'id'>): Promise<Case> {
+  validateCaseData(c);
   const id = generateId('case');
+  const caseData = { ...c };
   if (useMock()) {
     const newCase = { ...caseData, id };
     mockCases.push(newCase);
@@ -153,6 +168,7 @@ export async function createCase(caseData: Omit<Case, 'id'>): Promise<Case> {
 }
 
 export async function updateCase(id: string, updates: Partial<Case>): Promise<void> {
+  if (!id) throw new Error('Update case failed: Missing document ID');
   if (useMock()) {
     const idx = mockCases.findIndex((c) => c.id === id);
     if (idx !== -1) Object.assign(mockCases[idx], updates);
@@ -200,6 +216,7 @@ export async function getReportByCase(caseId: string): Promise<Report | null> {
 }
 
 export async function createReport(report: Omit<Report, 'id'>): Promise<Report> {
+  validateReportData(report);
   const id = generateId('report');
   if (useMock()) {
     const newReport = { ...report, id };
@@ -212,6 +229,7 @@ export async function createReport(report: Omit<Report, 'id'>): Promise<Report> 
 }
 
 export async function updateReport(id: string, updates: Partial<Report>): Promise<void> {
+  if (!id) throw new Error('Update report failed: Missing document ID');
   if (useMock()) {
     const idx = mockReports.findIndex((r) => r.id === id);
     if (idx !== -1) Object.assign(mockReports[idx], updates);
