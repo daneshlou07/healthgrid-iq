@@ -29,6 +29,7 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96' }: Pro
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [isInverted, setIsInverted] = useState(false);
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
 
   // Measurement tool state
   const [isMeasuring, setIsMeasuring] = useState(false);
@@ -110,8 +111,6 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96' }: Pro
       </div>
     );
   }
-
-  const [isTheaterMode, setIsTheaterMode] = useState(false);
 
   return (
     <div className={`bg-slate-950 text-white rounded-xl border border-slate-800 overflow-hidden shadow-2xl space-y-0 ${
