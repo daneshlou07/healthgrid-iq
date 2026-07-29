@@ -43,34 +43,6 @@ export default function DepartmentDashboard() {
         <StatsCard title="Total Cases" value={cases.length} icon={<FileText className="w-5 h-5" />} color="navy" />
       </div>
 
-      {/* Unassigned Cases Alert */}
-      {unassigned.length > 0 && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600" />
-            <div>
-              <p className="text-sm font-medium text-amber-800">{unassigned.length} case(s) need a radiographer assigned</p>
-              <p className="text-xs text-amber-600">Go to Case Scheduling to assign radiographers.</p>
-            </div>
-          </div>
-          <Link to="/scheduling" className="btn-primary text-xs">Open Scheduling</Link>
-        </div>
-      )}
-
-      {/* Overdue Alert */}
-      {overdue.length > 0 && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <div>
-              <p className="text-sm font-medium text-red-800">{overdue.length} case(s) overdue for scheduling</p>
-              <p className="text-xs text-red-600">These referrals have not been scheduled within the 24-hour SLA.</p>
-            </div>
-          </div>
-          <Link to="/track-status" className="btn-danger text-xs">View Overdue</Link>
-        </div>
-      )}
-
       {/* Recent Cases */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
@@ -109,7 +81,7 @@ export default function DepartmentDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link to="/patients/register" className="card-hover group">
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Register Patient</h3>
           <p className="text-xs text-surface-500 mt-1">Add a patient to the radiology patient registry</p>
@@ -117,10 +89,6 @@ export default function DepartmentDashboard() {
         <Link to="/cases/new" className="card-hover group">
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Register New Case</h3>
           <p className="text-xs text-surface-500 mt-1">Record the patient's indication or symptom and imaging study</p>
-        </Link>
-        <Link to="/scheduling" className="card-hover group">
-          <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Case Scheduling</h3>
-          <p className="text-xs text-surface-500 mt-1">Assign radiographers to pending cases and set scan slots</p>
         </Link>
         <Link to="/track-status" className="card-hover group">
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Track Status</h3>

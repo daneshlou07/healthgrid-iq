@@ -103,7 +103,7 @@ function AppRoutes() {
         <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department']}><NewCaseRegistration /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Radiologist']}><DepartmentReports /></ProtectedRoute>} />
         <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientRequests /></ProtectedRoute>} />
-        <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Administrator']}><Scheduling /></ProtectedRoute>} />
+        <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
 
         {/* Radiographer routes */}
         <Route path="/scan-queue" element={<ProtectedRoute allowedRoles={['Radiographer']}><ScanQueue /></ProtectedRoute>} />
