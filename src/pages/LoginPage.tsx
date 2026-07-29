@@ -252,133 +252,204 @@ export default function LoginPage() {
     );
   }
 
-  // Original Main Login UI
+  // Main Login UI with Clean Solid Aesthetic (No Gradients)
   return (
-    <div className="min-h-screen flex">
-      {/* Left Panel — Branding */}
-      <div className="hidden lg:flex lg:w-[45%] bg-navy-600 relative overflow-hidden flex-col justify-between p-12">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-navy-400 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3" />
-        </div>
-        <div className="relative z-10">
-          <div className="mb-16">
-            <p className="text-white/60 text-xs font-medium tracking-widest uppercase">Theta Edge Berhad</p>
-            <p className="text-white/40 text-xs mt-0.5">Technology & Telecommunication</p>
+    <div className="min-h-screen flex bg-surface-50 font-sans">
+      {/* Left Panel — Solid Corporate Branding (No Gradients) */}
+      <div className="hidden lg:flex lg:w-[42%] bg-[#0f172a] relative flex-col justify-between p-12 text-white">
+        <div>
+          {/* Official Theta Edge Logo Header Container */}
+          <div className="bg-white rounded-xl p-4 inline-block mb-10 shadow-sm">
+            <img 
+              src="/assets/theta-logo.png" 
+              alt="Theta Edge Berhad — Technology & Telecommunication" 
+              className="h-10 w-auto object-contain"
+            />
           </div>
-          <div>
-            <h1 className="text-4xl font-bold text-white leading-tight">HealthGrid <span className="text-emerald-400">IQ</span></h1>
-            <p className="text-lg text-white/70 mt-2">Clinical Imaging & Diagnostic Platform</p>
-            <div className="mt-8 space-y-2">
-              <p className="text-white/80 text-base">Smarter workflows.</p>
-              <p className="text-white/80 text-base">Sharper insights.</p>
-              <p className="text-white/80 text-base">Better patient outcomes.</p>
+
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-navy-800/80 border border-navy-700 rounded-full text-xs text-navy-200 font-medium">
+              <Building2 className="w-3.5 h-3.5 text-emerald-400" /> Enterprise Healthcare Suite
+            </div>
+            <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight">
+              HealthGrid <span className="text-emerald-400">IQ</span>
+            </h1>
+            <p className="text-base text-slate-300 font-medium">
+              Clinical Imaging &amp; Diagnostic Platform
+            </p>
+          </div>
+
+          <div className="mt-10 space-y-3 border-l-2 border-emerald-500/40 pl-4">
+            <p className="text-slate-200 text-sm font-medium">Smarter workflows.</p>
+            <p className="text-slate-200 text-sm font-medium">Sharper diagnostic insights.</p>
+            <p className="text-slate-200 text-sm font-medium">Better patient outcomes.</p>
+          </div>
+        </div>
+
+        {/* Feature Badges */}
+        <div className="grid grid-cols-3 gap-3 pt-8 border-t border-slate-800">
+          <div className="flex items-center gap-2 p-2.5 bg-slate-800/60 rounded-lg border border-slate-700/50">
+            <Shield className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div>
+              <p className="text-white text-xs font-semibold">Secure</p>
+              <p className="text-slate-400 text-[10px]">HIPAA Compliant</p>
             </div>
           </div>
-        </div>
-        <div className="relative z-10 flex items-center gap-8 pt-8">
-          <div className="flex items-center gap-2"><div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center"><Shield className="w-4 h-4 text-emerald-400" /></div><div><p className="text-white text-xs font-medium">Secure</p><p className="text-white/50 text-[10px]">HIPAA Compliant</p></div></div>
-          <div className="flex items-center gap-2"><div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center"><Brain className="w-4 h-4 text-purple-300" /></div><div><p className="text-white text-xs font-medium">Intelligent</p><p className="text-white/50 text-[10px]">AI-Powered</p></div></div>
-          <div className="flex items-center gap-2"><div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center"><Heart className="w-4 h-4 text-emerald-400" /></div><div><p className="text-white text-xs font-medium">Connected</p><p className="text-white/50 text-[10px]">Real-time</p></div></div>
+
+          <div className="flex items-center gap-2 p-2.5 bg-slate-800/60 rounded-lg border border-slate-700/50">
+            <Brain className="w-4 h-4 text-purple-400 shrink-0" />
+            <div>
+              <p className="text-white text-xs font-semibold">Intelligent</p>
+              <p className="text-slate-400 text-[10px]">AI Diagnostic</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 p-2.5 bg-slate-800/60 rounded-lg border border-slate-700/50">
+            <Heart className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div>
+              <p className="text-white text-xs font-semibold">Connected</p>
+              <p className="text-slate-400 text-[10px]">PACS &amp; RIS</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Right Panel — Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-md">
-          <div className="flex justify-end mb-6">
-            <span className="badge-success text-[10px]"><Shield className="w-3 h-3 mr-1" /> HIPAA Secure</span>
+      {/* Right Panel — Clean Sign-In Form */}
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12 bg-white">
+        <div className="w-full max-w-md space-y-6">
+          {/* Header Row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 lg:hidden">
+              <img src="/assets/theta-logo.png" alt="Theta Edge" className="h-7 w-auto" />
+            </div>
+            <div className="ml-auto">
+              <span className="badge-success text-[10px] inline-flex items-center gap-1">
+                <Shield className="w-3 h-3" /> HIPAA Secure
+              </span>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-navy-800 mb-1">Welcome back</h2>
-          <p className="text-surface-500 text-sm mb-8">Sign in to continue to your secure workspace.</p>
 
-          <form onSubmit={handleEmailLogin} className="space-y-5">
-            {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Welcome back</h2>
+            <p className="text-slate-500 text-sm mt-1">Sign in to access your secure clinical workspace.</p>
+          </div>
+
+          {/* Login Form */}
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1.5">Email Address</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field pl-10" placeholder="name@healthgrid.com" required />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="email" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  className="input-field pl-10" 
+                  placeholder="name@healthgrid.com" 
+                  required 
+                />
               </div>
             </div>
+
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-surface-700">Password</label>
-                <button type="button" onClick={openForgot} className="text-xs text-purple-500 hover:text-purple-600 font-medium">Forgot Password?</button>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-slate-700">Password</label>
+                <button 
+                  type="button" 
+                  onClick={openForgot} 
+                  className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                >
+                  Forgot Password?
+                </button>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="input-field pl-10 pr-10" placeholder="Enter your password" required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type={showPassword ? 'text' : 'password'} 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  className="input-field pl-10 pr-10" 
+                  placeholder="Enter your password" 
+                  required 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)} 
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-            <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-3">Sign In <ArrowRight className="w-4 h-4" /></button>
+
+            <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold">
+              Sign In <ArrowRight className="w-4 h-4" />
+            </button>
           </form>
 
-          <div className="mt-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 h-px bg-surface-300" />
-              <span className="text-xs text-surface-500 font-medium">Quick Access</span>
-              <div className="flex-1 h-px bg-surface-300" />
+          {/* Quick Access Roles */}
+          <div className="pt-2">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Quick Access Roles</span>
+              <div className="flex-1 h-px bg-slate-200" />
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {roleCards.map(({ role, label, sublabel, icon }) => (
-                <button key={role} onClick={() => loginAsRole(role)} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-surface-300 hover:border-navy-300 hover:bg-surface-100 transition-all duration-150 group">
-                  <div className="w-10 h-10 bg-surface-100 group-hover:bg-navy-50 rounded-lg flex items-center justify-center text-navy-600 transition-colors">{icon}</div>
-                  <div className="text-center">
-                    <p className="text-xs font-medium text-surface-800">{label}</p>
-                    <p className="text-[10px] text-surface-500">{sublabel}</p>
+                <button 
+                  key={role} 
+                  onClick={() => loginAsRole(role)} 
+                  className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-50 transition-all text-center group"
+                >
+                  <div className="w-8 h-8 bg-slate-100 group-hover:bg-purple-50 rounded-lg flex items-center justify-center text-slate-700 group-hover:text-purple-600 transition-colors">
+                    {icon}
                   </div>
-                  <ArrowRight className="w-3 h-3 text-surface-400 group-hover:text-navy-500 transition-colors" />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-800">{label}</p>
+                    <p className="text-[10px] text-slate-500 truncate max-w-[80px]">{sublabel}</p>
+                  </div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* ── Test / Demo Accounts ───────────────────────────── */}
-          <div className="mt-8 pt-6 border-t border-surface-200">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[10px] font-bold text-surface-400 uppercase tracking-widest">Demo Test Accounts</span>
-              <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">No password needed</span>
+          {/* Demo Test Accounts Grid */}
+          <div className="pt-4 border-t border-slate-200">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold text-slate-700">Demo Test Accounts</span>
+              <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-semibold">No password needed</span>
             </div>
 
-            {/* ── 5 Healthcare Center Radiographers ── */}
-            <p className="text-[10px] text-surface-500 mb-2 font-medium">🩻 Healthcare Centre Radiographers (1 per clinic)</p>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+            <p className="text-[11px] text-slate-500 mb-2 font-medium">🩻 Healthcare Centre Radiographers (1 per clinic)</p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mb-3">
               {[
-                { id: 'rad-001', name: 'Ahmad Razak',       clinic: 'Putrajaya',       modalities: 'X-Ray · CT · MRI' },
-                { id: 'rad-002', name: 'Lim Mei Ling',      clinic: 'Cyberjaya',       modalities: 'X-Ray · MRI · US' },
-                { id: 'rad-003', name: 'Kumaran Pillai',    clinic: 'Bangi',           modalities: 'CT · X-Ray · MRI' },
-                { id: 'rad-006', name: 'Zainal Abidin',     clinic: 'Tanjong Karang',  modalities: 'X-Ray · CT · MRI' },
-                { id: 'rad-008', name: 'Syed Farid Hassan', clinic: 'Ijok',            modalities: 'X-Ray · US · CT' },
+                { id: 'rad-001', name: 'Ahmad Razak',       clinic: 'Putrajaya' },
+                { id: 'rad-002', name: 'Lim Mei Ling',      clinic: 'Cyberjaya' },
+                { id: 'rad-003', name: 'Kumaran Pillai',    clinic: 'Bangi' },
+                { id: 'rad-006', name: 'Zainal Abidin',     clinic: 'Tanjong Karang' },
+                { id: 'rad-008', name: 'Syed Farid Hassan', clinic: 'Ijok' },
               ].map((u) => (
                 <button
                   key={u.id}
                   onClick={() => loginAsUser(u.id)}
-                  className="group flex flex-col gap-1.5 p-2.5 bg-navy-50 border border-navy-200 hover:bg-navy-100 hover:border-navy-400 rounded-xl transition-all duration-150 text-left"
+                  className="p-2 bg-slate-50 border border-slate-200 hover:bg-purple-50 hover:border-purple-300 rounded-lg transition-all text-left"
                 >
-                  <div className="w-7 h-7 bg-navy-600 rounded-lg flex items-center justify-center">
-                    <Radio className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-navy-800 leading-tight truncate">{u.name}</p>
-                    <p className="text-[10px] text-navy-600 font-medium truncate">{u.clinic}</p>
-                    <p className="text-[9px] text-surface-400 mt-0.5 truncate">{u.modalities}</p>
-                  </div>
-                  <span className="text-[10px] text-navy-600 font-medium group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                    Login <ArrowRight className="w-2.5 h-2.5" />
-                  </span>
+                  <p className="text-xs font-semibold text-slate-800 truncate">{u.name}</p>
+                  <p className="text-[10px] text-purple-700 font-medium truncate">{u.clinic}</p>
                 </button>
               ))}
             </div>
 
-
-            {/* ── Other Roles ── */}
             <details>
-              <summary className="text-[10px] text-surface-400 cursor-pointer hover:text-navy-600 select-none font-medium">
-                Other accounts (Dept Staff · Radiologist · Admin)
+              <summary className="text-xs text-slate-500 cursor-pointer hover:text-purple-600 select-none font-medium">
+                View other roles (Dept Staff · Radiologist · Admin)
               </summary>
               <div className="mt-2 space-y-2">
                 {(['Radiology Department', 'Radiologist', 'Administrator'] as const).map((role) => {
@@ -390,16 +461,20 @@ export default function LoginPage() {
                   const roleUsers = mockUsers.filter((u) => u.role === role && u.status === 'active');
                   if (!roleUsers.length) return null;
                   return (
-                    <div key={role} className="p-2.5 bg-surface-100 border border-surface-200 rounded-lg">
-                      <p className="text-[10px] font-semibold text-surface-500 mb-1.5">{roleLabel[role]}</p>
+                    <div key={role} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                      <p className="text-[10px] font-semibold text-slate-500 mb-1">{roleLabel[role]}</p>
                       <div className="space-y-1">
                         {roleUsers.map((u) => (
-                          <button key={u.id} onClick={() => loginAsUser(u.id)} className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white border border-transparent hover:border-surface-300 transition-colors text-left">
+                          <button 
+                            key={u.id} 
+                            onClick={() => loginAsUser(u.id)} 
+                            className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-white border border-transparent hover:border-slate-300 transition-colors text-left"
+                          >
                             <div>
-                              <p className="text-xs font-medium text-surface-800">{u.name}</p>
-                              <p className="text-[10px] text-surface-400">{u.email}</p>
+                              <p className="text-xs font-medium text-slate-800">{u.name}</p>
+                              <p className="text-[10px] text-slate-500">{u.email}</p>
                             </div>
-                            <ArrowRight className="w-3 h-3 text-surface-400" />
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                           </button>
                         ))}
                       </div>
@@ -410,9 +485,17 @@ export default function LoginPage() {
             </details>
           </div>
 
-          <div className="mt-6 flex items-center justify-between text-[11px] text-surface-400">
-            <span>Need help? <button className="text-purple-500 hover:text-purple-600 font-medium">Contact Support</button></span>
-            <span>&copy; 2026 Theta Edge Berhad. All rights reserved.</span>
+          {/* User Registration Architecture Notice */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
+            <p className="text-xs text-slate-600 font-medium">
+              Don't have an account? <span className="text-slate-800 font-semibold">Contact your System Administrator</span> to request account provisioning.
+            </p>
+          </div>
+
+          {/* Footer Branding */}
+          <div className="pt-2 flex items-center justify-between text-[11px] text-slate-400">
+            <span>&copy; 2026 Theta Edge Berhad</span>
+            <span>Technology &amp; Telecommunication</span>
           </div>
         </div>
       </div>
