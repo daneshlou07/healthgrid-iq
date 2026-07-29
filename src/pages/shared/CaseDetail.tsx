@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload } from 'lucide-react';
 import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 import RadiologyWorksheet from './RadiologyWorksheet';
@@ -151,6 +151,16 @@ export default function CaseDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {caseItem.status === 'SCHEDULED' && (
+            <Link
+              to={`/upload?caseId=${caseItem.id}`}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+              title="Upload medical scans for this case"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Upload Scan
+            </Link>
+          )}
           {caseItem.status !== 'FINALIZED' && caseItem.status !== 'CANCELLED' && caseItem.status !== 'NO_SHOW' && (
             <>
               <button

@@ -41,7 +41,7 @@ export default function ScanQueue() {
                   <Link to={`/case/${c.id}`} className="btn-secondary text-xs">
                     View Details
                   </Link>
-                  <Link to="/upload" className="btn-primary text-xs">Upload Scan</Link>
+                  <Link to={`/upload?caseId=${c.id}`} className="btn-primary text-xs">Upload Scan</Link>
                 </div>
               </div>
             </div>

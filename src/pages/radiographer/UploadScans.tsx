@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
@@ -6,15 +7,27 @@ import { Upload, Image, X } from 'lucide-react';
 import { saveImage } from '../../services/imageStorage';
 
 export default function UploadScans() {
+  const [searchParams] = useSearchParams();
+  const caseIdFromUrl = searchParams.get('caseId');
   const { currentUser } = useAuth();
   const { cases, editCase, addAuditLog } = useData();
   const toast = useToast();
-  const [selectedCaseId, setSelectedCaseId] = useState('');
+  const [selectedCaseId, setSelectedCaseId] = useState(caseIdFromUrl || '');
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  const myCases = cases.filter((c) => c.radiographerId === currentUser?.id && c.status === 'SCHEDULED');
+  // Synchronize selection if caseIdFromUrl is passed
+  useEffect(() => {
+    if (caseIdFromUrl) {
+      setSelectedCaseId(caseIdFromUrl);
+    }
+  }, [caseIdFromUrl]);
+
+  // Include assigned scheduled cases or the specifically requested case
+  const availableCases = cases.filter(
+    (c) => c.status === 'SCHEDULED' || c.id === caseIdFromUrl
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -35,7 +48,7 @@ export default function UploadScans() {
     e.preventDefault();
     if (!currentUser || !selectedCaseId || files.length === 0) return;
     setUploading(true);
-    const selectedCase = myCases.find((c) => c.id === selectedCaseId);
+    const selectedCase = availableCases.find((c) => c.id === selectedCaseId);
 
     // Save each image to IndexedDB and collect persistent keys
     const imageKeys: string[] = [];
@@ -74,9 +87,9 @@ export default function UploadScans() {
           <label className="block text-sm font-medium text-surface-700 mb-1">Select Case *</label>
           <select required value={selectedCaseId} onChange={(e) => setSelectedCaseId(e.target.value)} className="select-field">
             <option value="">Choose a scheduled case...</option>
-            {myCases.map((c) => <option key={c.id} value={c.id}>{c.caseNumber} — {c.patientName} ({c.scanType})</option>)}
+            {availableCases.map((c) => <option key={c.id} value={c.id}>{c.caseNumber} — {c.patientName} ({c.scanType})</option>)}
           </select>
-          {myCases.length === 0 && <p className="text-xs text-surface-400 mt-1">No scheduled cases available.</p>}
+          {availableCases.length === 0 && <p className="text-xs text-surface-400 mt-1">No scheduled cases available.</p>}
         </div>
 
         <div>
