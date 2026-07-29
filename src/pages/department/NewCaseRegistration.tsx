@@ -362,7 +362,7 @@ export default function NewCaseRegistration() {
               <div className="flex items-center gap-2.5">
                 <Info className="w-4 h-4 text-purple-700 shrink-0" />
                 <p className="text-xs text-purple-900 font-medium">
-                  <strong>Step 1 of 4:</strong> Select a patient from the registry and enter their main presenting clinical symptom to unlock Step 2.
+                  <strong>Step 1 of 4:</strong> Select a patient from the registry first, then enter their main presenting clinical symptom to unlock Step 2.
                 </p>
               </div>
               <span className="text-[10px] bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded-full uppercase shrink-0">
@@ -387,34 +387,7 @@ export default function NewCaseRegistration() {
                 />
               </div>
 
-              {/* Presenting indication */}
-              <div className="md:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-800">
-                    Presenting Indication / Symptom
-                  </label>
-                  <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">
-                    * Required
-                  </span>
-                </div>
-                <input
-                  required
-                  list="symptom-suggestions"
-                  value={indication}
-                  onChange={(e) => setIndication(e.target.value)}
-                  className={`input-field transition-all ${
-                    indication ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : 'focus:ring-2 focus:ring-purple-500/30'
-                  }`}
-                  placeholder="Type the patient's presenting symptom or clinical indication..."
-                />
-                <datalist id="symptom-suggestions">
-                  {SYMPTOM_SUGGESTIONS.map((symptom) => (
-                    <option key={symptom} value={symptom} />
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Patient Selection */}
+              {/* Patient Selection FIRST */}
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-slate-800">Select Patient</label>
@@ -439,6 +412,33 @@ export default function NewCaseRegistration() {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Presenting Indication / Symptom SECOND */}
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Presenting Indication / Symptom
+                  </label>
+                  <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">
+                    * Required
+                  </span>
+                </div>
+                <input
+                  required
+                  list="symptom-suggestions"
+                  value={indication}
+                  onChange={(e) => setIndication(e.target.value)}
+                  className={`input-field transition-all ${
+                    indication ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : 'focus:ring-2 focus:ring-purple-500/30'
+                  }`}
+                  placeholder="Type the patient's presenting symptom or clinical indication..."
+                />
+                <datalist id="symptom-suggestions">
+                  {SYMPTOM_SUGGESTIONS.map((symptom) => (
+                    <option key={symptom} value={symptom} />
+                  ))}
+                </datalist>
               </div>
 
               {/* Severity */}
