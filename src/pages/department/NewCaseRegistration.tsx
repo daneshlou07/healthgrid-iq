@@ -356,33 +356,55 @@ export default function NewCaseRegistration() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ── STEP 1: PATIENT & PRESENTING CLINICAL INDICATION ──────────────────── */}
         {currentStep === 1 && (
-          <div className="card space-y-6">
-            <div className="flex items-center gap-2 border-b border-surface-200 pb-3">
-              <User className="w-5 h-5 text-navy-600" />
-              <h2 className="text-base font-bold text-navy-900">Step 1: Patient &amp; Clinical Indication</h2>
+          <div className="card space-y-6 bg-white border border-slate-200 border-t-4 border-t-purple-600 shadow-md rounded-xl p-6">
+            {/* Step Guidance Banner */}
+            <div className="p-3 bg-purple-50/80 border border-purple-200 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Info className="w-4 h-4 text-purple-700 shrink-0" />
+                <p className="text-xs text-purple-900 font-medium">
+                  <strong>Step 1 of 4:</strong> Select a patient from the registry and enter their main presenting clinical symptom to unlock Step 2.
+                </p>
+              </div>
+              <span className="text-[10px] bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded-full uppercase shrink-0">
+                Action Required
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+              <User className="w-5 h-5 text-purple-700" />
+              <h2 className="text-base font-bold text-slate-900">Step 1: Patient &amp; Clinical Indication</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-surface-600 mb-1">Registered by</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Registered by <span className="text-slate-400 font-normal text-[10px]">(System User)</span>
+                </label>
                 <input
                   disabled
                   value={currentUser?.name || ''}
-                  className="input-field bg-surface-100 text-surface-600 cursor-not-allowed"
+                  className="input-field bg-slate-100 text-slate-600 cursor-not-allowed border-slate-200"
                 />
               </div>
 
               {/* Presenting indication */}
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-surface-700 mb-1">
-                  Presenting Indication / Symptom *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Presenting Indication / Symptom
+                  </label>
+                  <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">
+                    * Required
+                  </span>
+                </div>
                 <input
                   required
                   list="symptom-suggestions"
                   value={indication}
                   onChange={(e) => setIndication(e.target.value)}
-                  className="input-field"
+                  className={`input-field transition-all ${
+                    indication ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : 'focus:ring-2 focus:ring-purple-500/30'
+                  }`}
                   placeholder="Type the patient's presenting symptom or clinical indication..."
                 />
                 <datalist id="symptom-suggestions">
@@ -394,21 +416,26 @@ export default function NewCaseRegistration() {
 
               {/* Patient Selection */}
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-surface-700 mb-1">Select Patient *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-800">Select Patient</label>
+                  <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">
+                    * Required
+                  </span>
+                </div>
                 <PatientSearchSelect
                   patients={patients}
                   value={patientId}
                   onChange={(id) => setPatientId(id)}
                 />
                 {selectedPatient && (
-                  <div className="mt-2 p-3 bg-navy-50 rounded-lg border border-navy-200 text-xs space-y-1">
-                    <p className="font-bold text-navy-900">
+                  <div className="mt-2 p-3 bg-purple-50/60 rounded-xl border border-purple-200 text-xs space-y-1">
+                    <p className="font-bold text-purple-950">
                       {selectedPatient.name} — <span className="font-mono">{selectedPatient.mrn}</span> ({selectedPatient.nric})
                     </p>
-                    <p className="text-navy-700">Gender: <strong>{selectedPatient.gender}</strong> &middot; DOB: <strong>{selectedPatient.dob}</strong> &middot; Ethnicity: <strong>{selectedPatient.ethnicity || 'Not specified'}</strong></p>
-                    <p className="text-navy-600 text-[11px]">Address: {selectedPatient.address}</p>
+                    <p className="text-purple-900">Gender: <strong>{selectedPatient.gender}</strong> &middot; DOB: <strong>{selectedPatient.dob}</strong> &middot; Ethnicity: <strong>{selectedPatient.ethnicity || 'Not specified'}</strong></p>
+                    <p className="text-purple-800 text-[11px]">Address: {selectedPatient.address}</p>
                     {selectedPatient.medicalHistory.length > 0 && (
-                      <p className="text-navy-600 text-[11px]">Medical History: {selectedPatient.medicalHistory.join(', ')}</p>
+                      <p className="text-purple-800 text-[11px]">Medical History: {selectedPatient.medicalHistory.join(', ')}</p>
                     )}
                   </div>
                 )}
@@ -416,17 +443,22 @@ export default function NewCaseRegistration() {
 
               {/* Severity */}
               <div>
-                <label className="block text-xs font-semibold text-surface-700 mb-1.5">Severity *</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-800">Severity</label>
+                  <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">
+                    * Required
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   {SEVERITIES.map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => setSeverity(s)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                      className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
                         severity === s
-                          ? 'bg-navy-800 text-white border-navy-800 shadow-sm'
-                          : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                          ? 'bg-purple-900 text-white border-purple-900 shadow-sm ring-2 ring-purple-200'
+                          : 'bg-white border-slate-300 text-slate-700 hover:border-purple-300 hover:bg-slate-50'
                       }`}
                     >
                       {s}
@@ -437,24 +469,27 @@ export default function NewCaseRegistration() {
 
               {/* Incubation Period */}
               <div>
-                <label className="block text-xs font-semibold text-surface-700 mb-1">
-                  Incubation Period (days)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Incubation Period (days)
+                  </label>
+                  <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
+                </div>
                 <input
                   value={incubationPeriod}
                   onChange={(e) => setIncubationPeriod(e.target.value)}
-                  className="input-field"
+                  className={`input-field ${incubationPeriod ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : ''}`}
                   placeholder="Optional — e.g. 3"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-surface-200">
+            <div className="flex justify-end pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setCurrentStep(2)}
                 disabled={!step1Valid}
-                className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow-md flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next: Modality &amp; Exams <ChevronRight className="w-4 h-4" />
               </button>

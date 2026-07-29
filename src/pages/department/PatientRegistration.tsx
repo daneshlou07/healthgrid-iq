@@ -182,27 +182,45 @@ export default function PatientRegistration() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-5">
+      <form onSubmit={handleSubmit} className="card space-y-6 bg-white border border-slate-200 border-t-4 border-t-purple-600 shadow-md rounded-xl p-6">
         {/* Section: Identity */}
         <div>
-          <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Patient Identity</h3>
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Patient Identity &amp; Demographics</h3>
+            <span className="text-xs text-purple-700 bg-purple-50 font-bold px-2.5 py-1 rounded-full border border-purple-200">
+              Step 1 of 2
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1">Full Name *</label>
-              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" placeholder="Patient full name" />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-800">Full Name</label>
+                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">* Required</span>
+              </div>
+              <input
+                required
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={`input-field transition-all ${form.name ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : 'focus:ring-2 focus:ring-purple-500/30'}`}
+                placeholder="Patient full name as in MyKad / Passport"
+              />
             </div>
 
             {/* ID Type Selector */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1.5">Identification Type *</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-800">Identification Type</label>
+                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">* Required</span>
+              </div>
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => { setIdType('mykad'); setForm((f) => ({ ...f, dob: '', gender: 'Male' })); }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg border text-sm font-medium transition-all ${
+                  className={`flex-1 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
                     idType === 'mykad'
-                      ? 'bg-navy-50 border-navy-300 text-navy-700'
-                      : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                      ? 'bg-purple-900 text-white border-purple-900 shadow-md ring-2 ring-purple-200'
+                      : 'bg-white border-slate-300 text-slate-700 hover:border-purple-300 hover:bg-slate-50'
                   }`}
                 >
                   Malaysian MyKad (NRIC)
@@ -210,10 +228,10 @@ export default function PatientRegistration() {
                 <button
                   type="button"
                   onClick={() => { setIdType('passport'); setForm((f) => ({ ...f, dob: '', gender: 'Male' })); }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg border text-sm font-medium transition-all ${
+                  className={`flex-1 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
                     idType === 'passport'
-                      ? 'bg-navy-50 border-navy-300 text-navy-700'
-                      : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                      ? 'bg-purple-900 text-white border-purple-900 shadow-md ring-2 ring-purple-200'
+                      : 'bg-white border-slate-300 text-slate-700 hover:border-purple-300 hover:bg-slate-50'
                   }`}
                 >
                   Passport
@@ -223,14 +241,17 @@ export default function PatientRegistration() {
 
             {/* NRIC / Passport input */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1">
-                {idType === 'mykad' ? 'NRIC Number *' : 'Passport Number *'}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-800">
+                  {idType === 'mykad' ? 'NRIC Number' : 'Passport Number'}
+                </label>
+                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">* Required</span>
+              </div>
               <input
                 required
                 value={form.idNumber}
                 onChange={(e) => setForm({ ...form, idNumber: e.target.value })}
-                className={`input-field ${nricResult && !nricResult.valid && normalizeNric(form.idNumber).length >= 12 ? 'border-red-300 focus:ring-red-200' : ''} ${nricResult?.valid ? 'border-emerald-300 focus:ring-emerald-200' : ''}`}
+                className={`input-field ${nricResult && !nricResult.valid && normalizeNric(form.idNumber).length >= 12 ? 'border-red-400 focus:ring-red-200' : ''} ${nricResult?.valid ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : ''}`}
                 placeholder={idType === 'mykad' ? 'e.g., 850312-01-5678 or 850312015678' : 'e.g., A12345678'}
                 maxLength={idType === 'mykad' ? 14 : 20}
               />
@@ -238,51 +259,57 @@ export default function PatientRegistration() {
               {idType === 'mykad' && nricResult && (
                 <div className="mt-1.5">
                   {nricResult.valid ? (
-                    <div className="flex items-center gap-1.5 text-emerald-600">
+                    <div className="flex items-center gap-1.5 text-emerald-700">
                       <CheckCircle className="w-3.5 h-3.5" />
-                      <span className="text-xs font-medium">Valid — {nricResult.formatted}</span>
-                      <span className="text-[10px] text-surface-500 ml-2">DOB and Gender auto-extracted</span>
+                      <span className="text-xs font-bold">Valid — {nricResult.formatted}</span>
+                      <span className="text-[10px] text-slate-500 ml-2">DOB and Gender auto-extracted</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-red-500">
+                    <div className="flex items-center gap-1.5 text-red-600">
                       <AlertCircle className="w-3.5 h-3.5" />
-                      <span className="text-xs">{nricResult.error}</span>
+                      <span className="text-xs font-semibold">{nricResult.error}</span>
                     </div>
                   )}
                 </div>
               )}
               {idType === 'mykad' && (
-                <p className="text-[10px] text-surface-400 mt-1">Accepts format: YYMMDD-PB-####G or YYMMDDPB####G. DOB and Gender will be extracted automatically.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Accepts format: YYMMDD-PB-####G or YYMMDDPB####G. DOB and Gender will be extracted automatically.</p>
               )}
             </div>
 
             {/* Date of Birth */}
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">
-                Date of Birth *
-                {isNricLocked && <span className="text-emerald-600 text-[10px] ml-1.5 font-normal">Auto-extracted</span>}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-800">
+                  Date of Birth
+                  {isNricLocked && <span className="text-emerald-700 text-[10px] ml-1.5 font-bold">Auto-extracted</span>}
+                </label>
+                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">* Required</span>
+              </div>
               <input
                 required
                 type="date"
                 value={form.dob}
                 onChange={(e) => setForm({ ...form, dob: e.target.value })}
                 disabled={isNricLocked}
-                className={`input-field ${isNricLocked ? 'bg-emerald-50 border-emerald-200 text-surface-700 cursor-not-allowed' : ''}`}
+                className={`input-field ${isNricLocked ? 'bg-emerald-50 border-emerald-300 text-slate-800 font-medium cursor-not-allowed' : form.dob ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : ''}`}
               />
             </div>
 
             {/* Gender */}
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">
-                Gender *
-                {isNricLocked && <span className="text-emerald-600 text-[10px] ml-1.5 font-normal">Auto-extracted</span>}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-800">
+                  Gender
+                  {isNricLocked && <span className="text-emerald-700 text-[10px] ml-1.5 font-bold">Auto-extracted</span>}
+                </label>
+                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">* Required</span>
+              </div>
               <select
                 value={form.gender}
                 onChange={(e) => setForm({ ...form, gender: e.target.value as Gender })}
                 disabled={isNricLocked}
-                className={`select-field ${isNricLocked ? 'bg-emerald-50 border-emerald-200 text-surface-700 cursor-not-allowed' : ''}`}
+                className={`select-field ${isNricLocked ? 'bg-emerald-50 border-emerald-300 text-slate-800 font-medium cursor-not-allowed' : ''}`}
               >
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
@@ -292,9 +319,11 @@ export default function PatientRegistration() {
 
             {/* MRN */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1">MRN</label>
-              <input disabled value="Auto-generated on submission" className="input-field bg-surface-100 text-surface-500 cursor-not-allowed" />
-              <p className="text-[10px] text-surface-400 mt-1">Medical Record Number is generated automatically.</p>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                MRN <span className="text-slate-400 font-normal text-[10px]">(System Auto-Generated)</span>
+              </label>
+              <input disabled value="Auto-generated on submission" className="input-field bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200" />
+              <p className="text-[10px] text-slate-400 mt-1">Medical Record Number is generated automatically.</p>
             </div>
           </div>
         </div>
