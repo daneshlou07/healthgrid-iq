@@ -8,190 +8,11 @@ interface Props {
   report?: Report;
 }
 
-// ─── Inline styles for pixel-perfect A4 printing ─────────────────────────────
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    fontFamily: '"Times New Roman", Times, serif',
-    fontSize: '11px',
-    color: '#000',
-    backgroundColor: '#fff',
-    width: '210mm',
-    margin: '0 auto',
-    boxSizing: 'border-box',
-  },
-  page: {
-    width: '210mm',
-    minHeight: '290mm',
-    padding: '10mm 12mm',
-    boxSizing: 'border-box',
-    backgroundColor: '#fff',
-    position: 'relative',
-  },
-  header: {
-    textAlign: 'center',
-    borderBottom: '2px solid #000',
-    paddingBottom: '6px',
-    marginBottom: '8px',
-    position: 'relative',
-  },
-  h1: { fontSize: '14px', fontWeight: 'bold', margin: '0 0 2px 0', letterSpacing: '0.5px' },
-  h2: { fontSize: '11px', fontWeight: 'bold', margin: '0 0 4px 0' },
-  formRef: { position: 'absolute', top: '0', right: '0', fontSize: '9px', fontWeight: 'bold', textAlign: 'right' },
-  clinicRow: { display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '6px', marginTop: '4px' },
-  
-  // Field row with line UNDER the text (no strikethrough!)
-  fieldRow: {
-    display: 'flex',
-    alignItems: 'baseline',
-    marginBottom: '4px',
-    fontSize: '10.5px',
-    lineHeight: '1.3',
-  },
-  fieldLabel: {
-    fontWeight: 'bold',
-    whiteSpace: 'nowrap' as const,
-    marginRight: '6px',
-    fontSize: '10px',
-  },
-  fieldValue: {
-    flex: 1,
-    borderBottom: '1px solid #000',
-    paddingBottom: '1px',
-    minHeight: '13px',
-    fontSize: '10.5px',
-    paddingLeft: '4px',
-  },
-
-  // Boxed sections
-  section: {
-    border: '1px solid #000',
-    padding: '6px 8px',
-    marginBottom: '6px',
-    boxSizing: 'border-box' as const,
-  },
-  sectionTitle: {
-    fontSize: '10px',
-    fontWeight: 'bold',
-    backgroundColor: '#e6e6e6',
-    padding: '3px 6px',
-    marginBottom: '6px',
-    textTransform: 'uppercase' as const,
-    border: '1px solid #999',
-  },
-
-  // Layout columns
-  columns: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '6px',
-  },
-  leftCol: {
-    flex: '1 1 62%',
-    display: 'flex',
-    flexDirection: 'column' as const,
-  },
-  rightCol: {
-    flex: '1 1 38%',
-    display: 'flex',
-    flexDirection: 'column' as const,
-  },
-  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' },
-  grid3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' },
-
-  // Checkbox / Radio inline row
-  checkRow: {
-    display: 'flex',
-    flexWrap: 'wrap' as const,
-    alignItems: 'center',
-    gap: '10px',
-    fontSize: '10px',
-    lineHeight: '1.6',
-  },
-  radioItem: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    marginRight: '8px',
-    fontSize: '10px',
-  },
-  radioCircle: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '11px',
-    height: '11px',
-    border: '1px solid #000',
-    borderRadius: '50%',
-    marginRight: '4px',
-    verticalAlign: 'middle',
-    boxSizing: 'border-box' as const,
-  },
-  radioDot: {
-    width: '5px',
-    height: '5px',
-    backgroundColor: '#000',
-    borderRadius: '50%',
-  },
-
-  // Textarea box
-  textareaBox: {
-    border: '1px solid #000',
-    minHeight: '75px',
-    padding: '6px',
-    fontSize: '10.5px',
-    lineHeight: '1.4',
-    whiteSpace: 'pre-line' as const,
-    marginBottom: '8px',
-    boxSizing: 'border-box' as const,
-  },
-
-  // Signatures
-  signatureRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginTop: '16px',
-    paddingTop: '6px',
-    borderTop: '1px solid #000',
-    fontSize: '10px',
-  },
-};
-
-// ─── Helper Components ────────────────────────────────────────────────────────
-
-function FormField({ label, value, labelWidth }: { label: string; value?: string | number | null; labelWidth?: string }) {
-  return (
-    <div style={styles.fieldRow}>
-      <span style={{ ...styles.fieldLabel, width: labelWidth }}>{label}:</span>
-      <span style={styles.fieldValue}>{value !== undefined && value !== null && value !== '' ? String(value) : ''}</span>
-    </div>
-  );
-}
-
-function YesNoRadio({ label, value }: { label: string; value?: string }) {
-  const isYes = value === 'Yes' || value === 'Ya';
-  const isNo = value === 'No' || value === 'Tidak';
-
-  return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', fontSize: '10px', marginRight: '12px' }}>
-      {label && <span style={{ fontWeight: 'bold', marginRight: '6px' }}>{label}:</span>}
-      <span style={styles.radioItem}>
-        <span style={styles.radioCircle}>
-          {isYes && <span style={styles.radioDot} />}
-        </span>
-        Yes
-      </span>
-      <span style={styles.radioItem}>
-        <span style={styles.radioCircle}>
-          {isNo && <span style={styles.radioDot} />}
-        </span>
-        No
-      </span>
-    </div>
-  );
-}
-
-// ─── Main Printable View Component ───────────────────────────────────────────
-
+/**
+ * Bulletproof Table-Based HTML View for html2canvas PDF Export.
+ * Uses pure <table>, <tr>, <td> with border-collapse and system Arial fonts.
+ * Guarantees ZERO strikethroughs, PERFECT line alignments, and NO blank page spilling.
+ */
 export function MOHFormPrintView({ caseItem, patient, report }: Props) {
   const examDate = caseItem.officeTarikhPemeriksaan
     ? new Date(caseItem.officeTarikhPemeriksaan).toLocaleDateString('en-GB')
@@ -199,210 +20,414 @@ export function MOHFormPrintView({ caseItem, patient, report }: Props) {
     ? new Date(caseItem.scannedAt).toLocaleDateString('en-GB')
     : '';
 
+  const isYes = (val?: string) => val === 'Yes' || val === 'Ya';
+  const isNo = (val?: string) => val === 'No' || val === 'Tidak';
+
+  const formatCheck = (val?: string) => (isYes(val) ? '[ X ] Yes   [   ] No' : isNo(val) ? '[   ] Yes   [ X ] No' : '[   ] Yes   [   ] No');
+
   const modalitiesList = [
     'General X-Ray', 'CT', 'MRI', 'US', 'Fluoro', 'Angio', 'IR', 'MMG', 'BMD', 'Image Media', 'Digitize Image', 'Reporting'
   ];
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontSize: '11px',
+        color: '#000',
+        backgroundColor: '#fff',
+        width: '200mm',
+        margin: '0 auto',
+        padding: '0',
+        boxSizing: 'border-box',
+      }}
+    >
       {/* ════════════════════════════════════════════════════════════════════════
-          PAGE 1: RADIOLOGY EXAMINATION REQUEST FORM
+          PAGE 1: RADIOLOGY REQUEST FORM
          ════════════════════════════════════════════════════════════════════════ */}
-      <div style={styles.page}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.formRef}>MOH PER.SS-RA301<br />(Rev1/2018)</div>
-          <div style={styles.h1}>MINISTRY OF HEALTH MALAYSIA</div>
-          <div style={styles.h2}>RADIOLOGY EXAMINATION REQUEST FORM</div>
-          <div style={styles.clinicRow}>
-            <span style={{ fontWeight: 'bold', fontSize: '10.5px' }}>HOSPITAL / CLINIC:</span>
-            <span style={{ borderBottom: '1px solid #000', minWidth: '250px', display: 'inline-block', textAlign: 'center', fontWeight: 'bold' }}>
-              {caseItem.clinicName || 'HealthGrid IQ Radiology Centre'}
-            </span>
-          </div>
-        </div>
-
-        {/* 2-Column Split: Patient Info (Left) + Office Use (Right) */}
-        <div style={styles.columns}>
-          {/* LEFT COLUMN: Patient Information */}
-          <div style={styles.leftCol}>
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>Patient Information</div>
-              <FormField label="1. Full Name" value={patient?.name ?? caseItem.patientName} />
-              <FormField label="2. NRIC / Passport" value={patient?.nric} />
-              <FormField label="3. Address" value={patient?.address} />
-
-              <div style={styles.grid3}>
-                <FormField label="4. DOB" value={patient?.dob} />
-                <FormField label="5. Gender" value={patient?.gender} />
-                <FormField label="8. Age" value={patient?.dob ? String(new Date().getFullYear() - new Date(patient.dob).getFullYear()) : ''} />
-              </div>
-
-              <div style={styles.grid3}>
-                <FormField label="6. Phone" value={patient?.phone} />
-                <FormField label="7. Ethnicity" value={patient?.ethnicity} />
-                <FormField label="9. MRN" value={patient?.mrn} />
-              </div>
-
-              <div style={styles.grid2}>
-                <FormField label="10. Ward / Clinic" value={caseItem.clinicName} />
-                <FormField label="11. Modality" value={caseItem.modality} />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
-                <div style={{ flex: '1 1 45%' }}>
-                  <FormField label="12. LMP Date" value={caseItem.lmp} />
-                </div>
-                <div style={{ flex: '1 1 50%' }}>
-                  <YesNoRadio label="13. Pregnant" value={caseItem.isPregnant} />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '4px' }}>
-                <YesNoRadio label="14. Asthma / Allergy / Contrast Reaction" value={caseItem.hasAllergy} />
-                {caseItem.allergyDetails && (
-                  <span style={{ fontSize: '9.5px', fontStyle: 'italic', marginLeft: '4px' }}>
-                    ({caseItem.allergyDetails})
+      <div
+        style={{
+          width: '200mm',
+          padding: '8mm',
+          boxSizing: 'border-box',
+          backgroundColor: '#fff',
+        }}
+      >
+        {/* Document Header */}
+        <table style={{ width: '100%', marginBottom: '8px', borderCollapse: 'collapse' }}>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: 'center', width: '80%' }}>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.5px' }}>MINISTRY OF HEALTH MALAYSIA</div>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '2px' }}>RADIOLOGY EXAMINATION REQUEST FORM</div>
+                <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                  <strong>HOSPITAL / CLINIC:</strong>{' '}
+                  <span style={{ borderBottom: '1px solid #000', padding: '0 10px', fontWeight: 'bold' }}>
+                    {caseItem.clinicName || 'HealthGrid IQ Radiology Centre'}
                   </span>
-                )}
-              </div>
+                </div>
+              </td>
+              <td style={{ textAlign: 'right', verticalAlign: 'top', width: '20%', fontSize: '9px', fontWeight: 'bold' }}>
+                MOH PER.SS-RA301<br />(Rev1/2018)
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-              <div style={{ marginBottom: '4px' }}>
-                <YesNoRadio label="15. Mobile Scanning" value={caseItem.hasMobileDevice} />
-              </div>
+        {/* Outer Split Table: Patient Info (Left 65%) | Office Use (Right 35%) */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px' }}>
+          <tbody>
+            <tr>
+              {/* LEFT COLUMN: Patient Info */}
+              <td style={{ width: '65%', verticalAlign: 'top', border: '1px solid #000', padding: '4px', paddingRight: '8px' }}>
+                <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '6px', border: '1px solid #999' }}>
+                  PATIENT INFORMATION
+                </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
-                <YesNoRadio label="16. Citizen" value={caseItem.isWarganegara} />
-                <YesNoRadio label="Civil Servant" value={caseItem.isPenjawatAwam} />
-                <YesNoRadio label="FPP" value={caseItem.isFpp} />
-              </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '110px', fontWeight: 'bold', padding: '3px 0' }}>1. Full Name:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '3px 4px', fontWeight: 'bold' }}>{patient?.name ?? caseItem.patientName}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '3px 0' }}>2. NRIC / Passport:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '3px 4px' }}>{patient?.nric || '—'}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '3px 0' }}>3. Address:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '3px 4px' }}>{patient?.address || '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
 
-              <FormField label="Payment Category" value={caseItem.paymentCategory} />
+                {/* Sub-grid: DOB, Gender, Age */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', marginTop: '2px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '18%', fontWeight: 'bold' }}>4. DOB:</td>
+                      <td style={{ width: '25%', borderBottom: '1px solid #000', padding: '2px' }}>{patient?.dob || '—'}</td>
+                      <td style={{ width: '18%', fontWeight: 'bold', paddingLeft: '6px' }}>5. Gender:</td>
+                      <td style={{ width: '18%', borderBottom: '1px solid #000', padding: '2px' }}>{patient?.gender || '—'}</td>
+                      <td style={{ width: '12%', fontWeight: 'bold', paddingLeft: '6px' }}>8. Age:</td>
+                      <td style={{ width: '9%', borderBottom: '1px solid #000', padding: '2px' }}>{patient?.dob ? String(new Date().getFullYear() - new Date(patient.dob).getFullYear()) : '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
 
-              <div style={styles.grid3}>
-                <FormField label="17. Renal Test Date" value={caseItem.renalFunctionDate} />
-                <FormField label="Creatinine" value={caseItem.creatinine} />
-                <FormField label="eGFR" value={caseItem.egfr} />
-              </div>
-            </div>
+                {/* Sub-grid: Phone, Ethnicity, MRN */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', marginTop: '4px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '18%', fontWeight: 'bold' }}>6. Phone:</td>
+                      <td style={{ width: '25%', borderBottom: '1px solid #000', padding: '2px' }}>{patient?.phone || '—'}</td>
+                      <td style={{ width: '18%', fontWeight: 'bold', paddingLeft: '6px' }}>7. Ethnicity:</td>
+                      <td style={{ width: '18%', borderBottom: '1px solid #000', padding: '2px' }}>{patient?.ethnicity || '—'}</td>
+                      <td style={{ width: '12%', fontWeight: 'bold', paddingLeft: '6px' }}>9. MRN:</td>
+                      <td style={{ width: '9%', borderBottom: '1px solid #000', padding: '2px' }}>{patient?.mrn || '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Ward & Modality */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', marginTop: '4px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '110px', fontWeight: 'bold' }}>10. Ward / Clinic:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.clinicName || '—'}</td>
+                      <td style={{ width: '80px', fontWeight: 'bold', paddingLeft: '8px' }}>11. Modality:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>{caseItem.modality}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Screening questions */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginTop: '6px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '110px', fontWeight: 'bold' }}>12. LMP Date:</td>
+                      <td style={{ borderBottom: '1px solid #000', width: '90px' }}>{caseItem.lmp || '—'}</td>
+                      <td style={{ fontWeight: 'bold', paddingLeft: '8px' }}>13. Pregnant Status:</td>
+                      <td>{formatCheck(caseItem.isPregnant)}</td>
+                    </tr>
+                    <tr>
+                      <td colSpan={2} style={{ fontWeight: 'bold', paddingTop: '4px' }}>14. Asthma / Allergy / Reaction:</td>
+                      <td colSpan={2} style={{ paddingTop: '4px' }}>
+                        {formatCheck(caseItem.hasAllergy)}
+                        {caseItem.allergyDetails && <span style={{ fontStyle: 'italic', marginLeft: '6px' }}>({caseItem.allergyDetails})</span>}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan={2} style={{ fontWeight: 'bold', paddingTop: '4px' }}>15. Mobile Scanning:</td>
+                      <td colSpan={2} style={{ paddingTop: '4px' }}>{formatCheck(caseItem.hasMobileDevice)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Classification Toggles */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginTop: '4px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', width: '70px' }}>16. Citizen:</td>
+                      <td style={{ width: '90px' }}>{isYes(caseItem.isWarganegara) ? '[ X ] Yes' : '[   ] Yes'}</td>
+                      <td style={{ fontWeight: 'bold', width: '80px' }}>Civil Servant:</td>
+                      <td style={{ width: '90px' }}>{isYes(caseItem.isPenjawatAwam) ? '[ X ] Yes' : '[   ] Yes'}</td>
+                      <td style={{ fontWeight: 'bold', width: '40px' }}>FPP:</td>
+                      <td>{isYes(caseItem.isFpp) ? '[ X ] Yes' : '[   ] Yes'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Payment Category & Renal */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginTop: '4px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '110px', fontWeight: 'bold' }}>Payment Category:</td>
+                      <td style={{ borderBottom: '1px solid #000' }}>{caseItem.paymentCategory || '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginTop: '4px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', width: '110px' }}>17. Renal Test Date:</td>
+                      <td style={{ borderBottom: '1px solid #000', width: '70px' }}>{caseItem.renalFunctionDate || '—'}</td>
+                      <td style={{ fontWeight: 'bold', paddingLeft: '6px', width: '60px' }}>Creatinine:</td>
+                      <td style={{ borderBottom: '1px solid #000', width: '50px' }}>{caseItem.creatinine || '—'}</td>
+                      <td style={{ fontWeight: 'bold', paddingLeft: '6px', width: '40px' }}>eGFR:</td>
+                      <td style={{ borderBottom: '1px solid #000' }}>{caseItem.egfr || '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+
+              {/* RIGHT COLUMN: Office Use & Technical Data */}
+              <td style={{ width: '35%', verticalAlign: 'top', border: '1px solid #000', borderLeft: 'none', padding: '4px' }}>
+                <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '6px', border: '1px solid #999' }}>
+                  ADMINISTRATION &amp; OFFICE USE
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginBottom: '6px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', width: '90px', padding: '2px 0' }}>Reception Time:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.officeWaktuTerima ? new Date(caseItem.officeWaktuTerima).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '2px 0' }}>Completion Time:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.officeWaktuSelesai ? new Date(caseItem.officeWaktuSelesai).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '2px 0' }}>Technologist:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.officeJuruXRay || ''}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '2px 0' }}>Exam Date:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{examDate}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '2px 0' }}>Exam Ref No.:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>{caseItem.officeNoPemeriksaan ?? caseItem.caseNumber}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '4px', border: '1px solid #999' }}>
+                  19. IMAGE EXPOSURE OUTPUT
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginBottom: '6px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', width: '90px', padding: '2px 0' }}>Film Count:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.bilanganFilem ?? ''}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '2px 0' }}>CD / DVD Count:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.bilanganCdDvd ?? ''}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '4px', border: '1px solid #999' }}>
+                  20. RADIATION EXPOSURE
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginBottom: '6px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', width: '90px', padding: '2px 0' }}>kVp:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.doseKvp ?? ''}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '2px 0' }}>mAs:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.doseMas ?? ''}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '2px 0' }}>Radiation Dose:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.dosRadiasi ? `${caseItem.dosRadiasi} mSv` : ''}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '4px', border: '1px solid #999' }}>
+                  21. APPOINTMENT DETAILS
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', width: '50px', padding: '2px 0' }}>Date:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.officeTarikhAppointment || ''}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', padding: '2px 0' }}>Time:</td>
+                      <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.officeMasaAppointment || ''}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* SECTION 18: REQUESTED SERVICE */}
+        <div style={{ border: '1px solid #000', padding: '4px', marginBottom: '6px' }}>
+          <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '4px', border: '1px solid #999' }}>
+            18. REQUESTED SERVICE
           </div>
-
-          {/* RIGHT COLUMN: Office Use & Exposure */}
-          <div style={styles.rightCol}>
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>Administration &amp; Office Use</div>
-              <FormField label="Reception Time" value={caseItem.officeWaktuTerima ? new Date(caseItem.officeWaktuTerima).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''} />
-              <FormField label="Completion Time" value={caseItem.officeWaktuSelesai ? new Date(caseItem.officeWaktuSelesai).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''} />
-              <FormField label="Technologist" value={caseItem.officeJuruXRay} />
-              <FormField label="Exam Date" value={examDate} />
-              <FormField label="Exam Ref No." value={caseItem.officeNoPemeriksaan ?? caseItem.caseNumber} />
-            </div>
-
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>19. Image Exposure Output</div>
-              <FormField label="Film Count" value={caseItem.bilanganFilem} />
-              <FormField label="CD / DVD Count" value={caseItem.bilanganCdDvd} />
-            </div>
-
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>20. Radiation Exposure</div>
-              <FormField label="kVp" value={caseItem.doseKvp} />
-              <FormField label="mAs" value={caseItem.doseMas} />
-              <FormField label="Radiation Dose" value={caseItem.dosRadiasi ? `${caseItem.dosRadiasi} mSv` : ''} />
-            </div>
-
-            <div style={{ ...styles.section, backgroundColor: '#fcfcfc' }}>
-              <div style={styles.sectionTitle}>21. Appointment Details</div>
-              <FormField label="Date" value={caseItem.officeTarikhAppointment} />
-              <FormField label="Time" value={caseItem.officeMasaAppointment} />
-            </div>
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginBottom: '4px' }}>
+            <tbody>
+              <tr>
+                {modalitiesList.slice(0, 6).map((m) => {
+                  const isSelected = caseItem.modality === m || caseItem.scanType?.includes(m);
+                  return (
+                    <td key={m} style={{ padding: '2px 4px' }}>
+                      {isSelected ? '[ X ]' : '[   ]'} {m}
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                {modalitiesList.slice(6, 12).map((m) => {
+                  const isSelected = caseItem.modality === m || caseItem.scanType?.includes(m);
+                  return (
+                    <td key={m} style={{ padding: '2px 4px' }}>
+                      {isSelected ? '[ X ]' : '[   ]'} {m}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '130px', fontWeight: 'bold' }}>Requested Exams:</td>
+                <td style={{ borderBottom: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>{caseItem.scanType}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        {/* SECTION 18: Requested Service */}
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>18. Requested Service</div>
-          <div style={styles.checkRow}>
-            {modalitiesList.map((m) => {
-              const isSelected = caseItem.modality === m || caseItem.scanType?.includes(m);
-              return (
-                <span key={m} style={styles.radioItem}>
-                  <span style={styles.radioCircle}>
-                    {isSelected && <span style={styles.radioDot} />}
-                  </span>
-                  {m}
-                </span>
-              );
-            })}
-          </div>
-          <div style={{ marginTop: '6px' }}>
-            <FormField label="Requested Examinations" value={caseItem.scanType} />
-          </div>
-        </div>
-
-        {/* SECTION 22: Contrast Media Details (If required) */}
+        {/* SECTION 22: CONTRAST MEDIA DETAILS (If active) */}
         {caseItem.contrastMediaRequired && (
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>22. Contrast Media Details</div>
-            <div style={styles.grid2}>
-              <FormField label="Brand / Name" value={caseItem.contrastMediaName} />
-              <FormField label="Volume (ml)" value={caseItem.contrastMediaVolumeMl} />
+          <div style={{ border: '1px solid #000', padding: '4px', marginBottom: '6px' }}>
+            <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '4px', border: '1px solid #999' }}>
+              22. CONTRAST MEDIA DETAILS
             </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: '100px', fontWeight: 'bold' }}>Brand / Name:</td>
+                  <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.contrastMediaName}</td>
+                  <td style={{ width: '90px', fontWeight: 'bold', paddingLeft: '10px' }}>Volume (ml):</td>
+                  <td style={{ borderBottom: '1px solid #000', padding: '2px' }}>{caseItem.contrastMediaVolumeMl}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         )}
 
         {/* CLINICAL NOTES */}
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>Clinical Notes</div>
-          <div style={styles.textareaBox}>
+        <div style={{ border: '1px solid #000', padding: '4px', marginBottom: '6px' }}>
+          <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '4px', border: '1px solid #999' }}>
+            CLINICAL NOTES
+          </div>
+          <div style={{ minHeight: '65px', padding: '4px', fontSize: '10.5px', lineHeight: '1.4', whiteSpace: 'pre-line' }}>
             {caseItem.ringkasanKlinikal || caseItem.notes || 'No clinical notes provided.'}
           </div>
-
-          <div style={styles.signatureRow}>
-            <div style={{ flex: 1, marginRight: '16px' }}>
-              <FormField label="Referring Doctor Signature &amp; Stamp" value="" />
-            </div>
-            <div style={{ width: '220px' }}>
-              <FormField label="Date / Time" value={new Date(caseItem.createdAt).toLocaleString('en-GB')} />
-            </div>
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginTop: '10px' }}>
+            <tbody>
+              <tr>
+                <td style={{ fontWeight: 'bold', width: '220px' }}>Referring Doctor Signature &amp; Stamp:</td>
+                <td style={{ borderBottom: '1px solid #000' }}>&nbsp;</td>
+                <td style={{ fontWeight: 'bold', width: '80px', paddingLeft: '12px' }}>Date / Time:</td>
+                <td style={{ borderBottom: '1px solid #000', width: '130px' }}>{new Date(caseItem.createdAt).toLocaleString('en-GB')}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         {/* RADIOGRAPHER COMMENTS */}
         {caseItem.komen && (
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>Radiographer Operational Comments</div>
-            <p style={{ fontSize: '10px', margin: '2px 0' }}>{caseItem.komen}</p>
+          <div style={{ border: '1px solid #000', padding: '4px' }}>
+            <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '2px', border: '1px solid #999' }}>
+              RADIOGRAPHER OPERATIONAL COMMENTS
+            </div>
+            <div style={{ fontSize: '10px', padding: '2px 4px' }}>{caseItem.komen}</div>
           </div>
         )}
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          PAGE 2: RADIOLOGY REPORT (SEPARATE SIBLING DIV)
+          PAGE 2: RADIOLOGY REPORT
          ════════════════════════════════════════════════════════════════════════ */}
-      <div style={styles.page}>
-        <div style={{ ...styles.header, borderBottom: '3px solid #000' }}>
-          <div style={styles.formRef}>MOH PER.SS-RA301<br />(Page 2)</div>
-          <div style={styles.h1}>MINISTRY OF HEALTH MALAYSIA</div>
-          <div style={{ ...styles.h2, fontSize: '13px', letterSpacing: '1px', marginTop: '2px' }}>
-            RADIOLOGY REPORT / LAPORAN RADIOLOGI
-          </div>
+      <div
+        style={{
+          width: '200mm',
+          padding: '8mm',
+          boxSizing: 'border-box',
+          backgroundColor: '#fff',
+        }}
+      >
+        <table style={{ width: '100%', marginBottom: '10px', borderCollapse: 'collapse', borderBottom: '2px solid #000' }}>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: 'center', width: '80%', paddingBottom: '6px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>MINISTRY OF HEALTH MALAYSIA</div>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px', marginTop: '2px' }}>
+                  RADIOLOGY REPORT / LAPORAN RADIOLOGI
+                </div>
+              </td>
+              <td style={{ textAlign: 'right', verticalAlign: 'top', width: '20%', fontSize: '9px', fontWeight: 'bold' }}>
+                MOH PER.SS-RA301<br />(Page 2)
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style={{ border: '1px solid #000', padding: '6px', marginBottom: '10px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '100px', fontWeight: 'bold', padding: '3px 0' }}>Patient Name:</td>
+                <td style={{ borderBottom: '1px solid #000', padding: '3px', fontWeight: 'bold' }}>{patient?.name ?? caseItem.patientName}</td>
+                <td style={{ width: '100px', fontWeight: 'bold', paddingLeft: '12px' }}>Exam Ref No.:</td>
+                <td style={{ borderBottom: '1px solid #000', padding: '3px', fontWeight: 'bold' }}>{caseItem.officeNoPemeriksaan ?? caseItem.caseNumber}</td>
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 'bold', padding: '3px 0' }}>Examination:</td>
+                <td style={{ borderBottom: '1px solid #000', padding: '3px' }}>{caseItem.scanType}</td>
+                <td style={{ fontWeight: 'bold', paddingLeft: '12px' }}>Exam Date:</td>
+                <td style={{ borderBottom: '1px solid #000', padding: '3px' }}>{examDate}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <div style={{ ...styles.section, marginTop: '8px', marginBottom: '12px' }}>
-          <div style={styles.grid2}>
-            <FormField label="Patient Name" value={patient?.name ?? caseItem.patientName} />
-            <FormField label="Exam Ref No." value={caseItem.officeNoPemeriksaan ?? caseItem.caseNumber} />
+        <div style={{ border: '1px solid #000', padding: '6px', minHeight: '380px' }}>
+          <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '11px', padding: '4px 6px', marginBottom: '8px', border: '1px solid #999' }}>
+            DIAGNOSTIC REPORT FINDINGS &amp; IMPRESSION
           </div>
-          <div style={styles.grid2}>
-            <FormField label="Examination Type" value={caseItem.scanType} />
-            <FormField label="Examination Date" value={examDate} />
-          </div>
-        </div>
-
-        <div style={{ ...styles.section, minHeight: '380px' }}>
-          <div style={styles.sectionTitle}>Diagnostic Report Findings &amp; Impression</div>
-          <div style={{ ...styles.textareaBox, border: 'none', minHeight: '340px', fontSize: '11px', lineHeight: '1.5' }}>
+          <div style={{ minHeight: '340px', fontSize: '11px', lineHeight: '1.5', padding: '4px' }}>
             {report ? (
               <>
                 <div style={{ fontWeight: 'bold', marginBottom: '4px', textDecoration: 'underline' }}>FINDINGS:</div>
@@ -424,14 +449,20 @@ export function MOHFormPrintView({ caseItem, patient, report }: Props) {
           </div>
         </div>
 
-        <div style={{ ...styles.signatureRow, marginTop: '24px' }}>
-          <div style={{ flex: 1, marginRight: '20px' }}>
-            <FormField label="Radiologist Signature &amp; Stamp" value={report?.radiologistName ? `Dr. ${report.radiologistName}` : ''} />
-          </div>
-          <div style={{ width: '220px' }}>
-            <FormField label="Date Signed" value={report?.signedAt ? new Date(report.signedAt).toLocaleDateString('en-GB') : ''} />
-          </div>
-        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', marginTop: '24px' }}>
+          <tbody>
+            <tr>
+              <td style={{ fontWeight: 'bold', width: '180px' }}>Radiologist Signature &amp; Stamp:</td>
+              <td style={{ borderBottom: '1px solid #000' }}>
+                {report?.radiologistName ? `Dr. ${report.radiologistName}` : '&nbsp;'}
+              </td>
+              <td style={{ fontWeight: 'bold', width: '90px', paddingLeft: '16px' }}>Date Signed:</td>
+              <td style={{ borderBottom: '1px solid #000', width: '130px' }}>
+                {report?.signedAt ? new Date(report.signedAt).toLocaleDateString('en-GB') : ''}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
