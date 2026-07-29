@@ -37,7 +37,12 @@ export default function ScanQueue() {
                   <p className="text-xs text-surface-500">Registered by: {getCaseRegistrar(c)}</p>
                   {c.scheduledAt && <p className="text-xs text-emerald-600 mt-1">Scheduled: {new Date(c.scheduledAt).toLocaleString()}</p>}
                 </div>
-                <Link to="/upload" className="btn-primary text-xs">Upload Scan</Link>
+                <div className="flex items-center gap-2">
+                  <Link to={`/case/${c.id}`} className="btn-secondary text-xs">
+                    View Details
+                  </Link>
+                  <Link to="/upload" className="btn-primary text-xs">Upload Scan</Link>
+                </div>
               </div>
             </div>
           ))}

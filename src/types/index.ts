@@ -3,7 +3,7 @@
 
 export type UserRole = 'Radiographer' | 'Radiologist' | 'Radiology Department' | 'Administrator';
 
-export type CaseStatus = 'CREATED' | 'SCHEDULED' | 'SCANNED' | 'REPORTED' | 'FINALIZED';
+export type CaseStatus = 'CREATED' | 'SCHEDULED' | 'SCANNED' | 'REPORTED' | 'FINALIZED' | 'NO_SHOW' | 'CANCELLED';
 
 export type LeaveStatus = 'Active' | 'On Leave';
 
@@ -207,6 +207,22 @@ export interface Case {
   officeTarikhAppointment?: string;
   /** Masa temujanji */
   officeMasaAppointment?: string;
+
+  // ── No-Show, Cancellation & Reschedule Exception Tracking ──────────────
+  /** Reason category when patient does not attend or cancels */
+  noShowReason?: string;
+  cancellationReason?: string;
+  cancellationNotes?: string;
+  /** Audit history log of reschedule events */
+  rescheduleHistory?: Array<{
+    previousDate?: string;
+    previousTime?: string;
+    newDate?: string;
+    newTime?: string;
+    reason?: string;
+    updatedAt: string;
+    updatedByName?: string;
+  }>;
 
   /** @deprecated Read-only support for cases created before the symptom workflow. */
   disease?: string;

@@ -22,6 +22,9 @@ export default function StatusBadge({ status }: Props) {
       case 'final':
       case 'Verified / Signed Off':
         return 'badge-success';
+      case 'NO_SHOW':
+        return 'bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded-full text-[11px] font-semibold inline-flex items-center';
+      case 'CANCELLED':
       case 'Rejected':
         return 'badge-error';
       default:

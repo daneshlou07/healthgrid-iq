@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle } from 'lucide-react';
 import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 import RadiologyWorksheet from './RadiologyWorksheet';
@@ -44,6 +44,17 @@ export default function CaseDetail() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'worksheet'>('overview');
 
+  // No-Show & Reschedule modal state
+  const [showNoShowModal, setShowNoShowModal] = useState(false);
+  const [noShowType, setNoShowType] = useState<'NO_SHOW' | 'CANCELLED'>('NO_SHOW');
+  const [noShowReason, setNoShowReason] = useState('Patient Did Not Attend (DNA)');
+  const [noShowNotes, setNoShowNotes] = useState('');
+
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+
   const caseItem = cases.find((c) => c.id === caseId);
   if (!caseItem) return <div className="text-center py-20 text-surface-400">Case not found.</div>;
 
@@ -67,6 +78,49 @@ export default function CaseDetail() {
     if (!newMessage.trim() || !currentUser) return;
     addComment({ caseId: caseItem.id, userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, message: newMessage.trim() });
     setNewMessage('');
+  };
+
+  const handleConfirmNoShow = async () => {
+    try {
+      const { updateCase } = await import('../../services/dataService');
+      await updateCase(caseItem.id, {
+        status: noShowType,
+        noShowReason: noShowReason,
+        cancellationNotes: noShowNotes,
+      });
+      setShowNoShowModal(false);
+    } catch (err) {
+      console.error('Failed to update no-show status:', err);
+    }
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleDate) return;
+    try {
+      const { updateCase } = await import('../../services/dataService');
+      const newHistory = [
+        ...(caseItem.rescheduleHistory || []),
+        {
+          previousDate: caseItem.officeTarikhAppointment || caseItem.scheduledAt,
+          previousTime: caseItem.officeMasaAppointment,
+          newDate: rescheduleDate,
+          newTime: rescheduleTime,
+          reason: rescheduleReason,
+          updatedAt: new Date().toISOString(),
+          updatedByName: currentUser?.name,
+        },
+      ];
+
+      await updateCase(caseItem.id, {
+        officeTarikhAppointment: rescheduleDate,
+        officeMasaAppointment: rescheduleTime,
+        status: 'SCHEDULED',
+        rescheduleHistory: newHistory,
+      });
+      setShowRescheduleModal(false);
+    } catch (err) {
+      console.error('Failed to reschedule case:', err);
+    }
   };
 
   // Build timeline events
@@ -97,6 +151,30 @@ export default function CaseDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {caseItem.status !== 'FINALIZED' && caseItem.status !== 'CANCELLED' && caseItem.status !== 'NO_SHOW' && (
+            <>
+              <button
+                onClick={() => {
+                  setRescheduleDate(caseItem.officeTarikhAppointment || '');
+                  setRescheduleTime(caseItem.officeMasaAppointment || '');
+                  setShowRescheduleModal(true);
+                }}
+                className="btn-secondary text-xs flex items-center gap-1"
+                title="Change or update scan appointment"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Reschedule
+              </button>
+              <button
+                onClick={() => setShowNoShowModal(true)}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-300 transition-colors"
+                title="Flag patient no-show or cancel referral"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />
+                No-Show / Cancel
+              </button>
+            </>
+          )}
           <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
           <SeverityBadge severity={caseItem.severity} />
           <StatusBadge status={caseItem.status} />
@@ -294,8 +372,192 @@ export default function CaseDetail() {
 
           {/* SLA Indicator */}
           <SLAIndicator caseItem={caseItem} />
+
+          {/* Reschedule History Audit Box */}
+          {caseItem.rescheduleHistory && caseItem.rescheduleHistory.length > 0 && (
+            <div className="card">
+              <h2 className="section-title mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-purple-600" />
+                Reschedule History
+              </h2>
+              <div className="space-y-2">
+                {caseItem.rescheduleHistory.map((item, idx) => (
+                  <div key={idx} className="p-2.5 bg-purple-50/50 border border-purple-100 rounded-lg text-xs space-y-1">
+                    <div className="flex items-center justify-between text-purple-900 font-semibold">
+                      <span>Updated to: {item.newDate} {item.newTime ? `at ${item.newTime}` : ''}</span>
+                      <span className="text-[10px] text-purple-600 font-normal">{new Date(item.updatedAt).toLocaleDateString()}</span>
+                    </div>
+                    {item.previousDate && (
+                      <p className="text-[10px] text-surface-500">Previous: {item.previousDate} {item.previousTime || ''}</p>
+                    )}
+                    {item.reason && <p className="text-surface-600 font-medium">Reason: {item.reason}</p>}
+                    {item.updatedByName && <p className="text-[9px] text-surface-400">By: {item.updatedByName}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No-Show / Cancellation Banner */}
+          {(caseItem.status === 'NO_SHOW' || caseItem.status === 'CANCELLED') && (
+            <div className="card border-l-4 border-l-slate-600 bg-slate-50">
+              <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-slate-600" />
+                Case Exception Record ({caseItem.status})
+              </h2>
+              <p className="text-sm font-semibold text-slate-900">Reason: {caseItem.noShowReason || caseItem.cancellationReason || 'Not specified'}</p>
+              {caseItem.cancellationNotes && (
+                <p className="text-xs text-slate-600 mt-1 italic">"{caseItem.cancellationNotes}"</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
+      )}
+
+      {/* ── MODAL: Mark No-Show or Cancel Case ── */}
+      {showNoShowModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Flag Patient Exception
+            </h3>
+            <p className="text-xs text-slate-500">
+              Record a patient no-show (DNA) or cancel this referral order.
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Status Type</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="noShowType"
+                    checked={noShowType === 'NO_SHOW'}
+                    onChange={() => setNoShowType('NO_SHOW')}
+                  />
+                  <strong>NO_SHOW</strong> (Did Not Attend)
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="noShowType"
+                    checked={noShowType === 'CANCELLED'}
+                    onChange={() => setNoShowType('CANCELLED')}
+                  />
+                  <strong>CANCELLED</strong> (Referral Cancelled)
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Reason Category</label>
+              <select
+                value={noShowReason}
+                onChange={(e) => setNoShowReason(e.target.value)}
+                className="input-field text-xs"
+              >
+                <option value="Patient Did Not Attend (DNA)">Patient Did Not Attend (DNA)</option>
+                <option value="Patient Refused Examination">Patient Refused Examination</option>
+                <option value="Clinical Contraindication (Pregnancy/Renal)">Clinical Contraindication (Pregnancy/Renal)</option>
+                <option value="Inadequate Fasting / Patient Prep">Inadequate Fasting / Patient Prep</option>
+                <option value="Duplicate Referral Order">Duplicate Referral Order</option>
+                <option value="Other / Operational Reason">Other / Operational Reason</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Operational Notes (Optional)</label>
+              <textarea
+                value={noShowNotes}
+                onChange={(e) => setNoShowNotes(e.target.value)}
+                rows={3}
+                className="input-field text-xs"
+                placeholder="Enter additional details regarding patient absence or cancellation reason..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowNoShowModal(false)}
+                className="btn-secondary text-xs px-4 py-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmNoShow}
+                className="btn-danger text-xs px-4 py-2"
+              >
+                Confirm Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Reschedule Appointment ── */}
+      {showRescheduleModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <h3 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-purple-600" />
+              Reschedule Scan Appointment
+            </h3>
+            <p className="text-xs text-slate-500">
+              Set a new examination date &amp; time for {caseItem.patientName}.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">New Date *</label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="input-field text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">New Time Slot</label>
+                <input
+                  type="time"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="input-field text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Reschedule Reason</label>
+              <input
+                type="text"
+                value={rescheduleReason}
+                onChange={(e) => setRescheduleReason(e.target.value)}
+                placeholder="e.g., Patient requested morning slot, Machine maintenance"
+                className="input-field text-xs"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowRescheduleModal(false)}
+                className="btn-secondary text-xs px-4 py-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmReschedule}
+                disabled={!rescheduleDate}
+                className="btn-primary text-xs px-4 py-2 disabled:opacity-50"
+              >
+                Save Reschedule
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
