@@ -55,8 +55,8 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /patients/{patientId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
-      allow update: if isAdmin() || hasRole('Radiology Department');
+      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
+      allow update: if isAdmin() || hasRole('Medical Officer') || hasRole('Radiology Department');
       allow delete: if isAdmin();
     }
 
@@ -65,11 +65,12 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /cases/{caseId} {
       allow read: if isAuth();
-      // Only Radiology Department staff or admins can create cases
-      allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
+      // Medical Officers, Radiology Department staff, or admins can create cases
+      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
       // Update requires one of: assigned radiographer, assigned radiologist,
-      // Radiology Department staff (case managers), or admin.
+      // Medical Officer, Radiology Department staff, or admin.
       allow update: if isAdmin()
+        || hasRole('Medical Officer')
         || hasRole('Radiology Department')
         || (isAuth() && request.auth.uid == resource.data.radiographerId)
         || (isAuth() && request.auth.uid == resource.data.radiologistId);
@@ -82,10 +83,10 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /reports/{reportId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Radiologist') || isAdmin());
+      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiologist') || isAdmin());
       // Reports are locked after sign-off — only admin can modify a signed report
       allow update: if isAdmin()
-        || (hasRole('Radiologist')
+        || ((hasRole('Medical Officer') || hasRole('Radiologist'))
             && resource.data.status != 'Verified / Signed Off'
             && request.auth.uid == resource.data.radiologistId);
       allow delete: if isAdmin();
@@ -111,8 +112,8 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /patient_requests/{requestId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Radiology Department') || isAdmin());
-      allow update: if isAdmin() || hasRole('Radiology Department');
+      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
+      allow update: if isAdmin() || hasRole('Medical Officer') || hasRole('Radiology Department');
       allow delete: if isAdmin();
     }
 
