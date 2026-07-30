@@ -189,7 +189,16 @@ export default function Reporting() {
                 💡 Tip: Click 'Fullscreen PACS' for 100vh reading workstation
               </span>
             </div>
-            <PacsImageViewer imageKeys={selectedCase.images} heightClass="h-[520px]" />
+            <PacsImageViewer
+              imageKeys={selectedCase.images}
+              heightClass="h-[520px]"
+              caseItem={selectedCase}
+              onAiAnalyzed={(res) => {
+                setFindings(res.findings);
+                setImpression(res.impression);
+                toast.success(`Vision AI analyzed image pixels (${res.confidenceScore}% confidence)`);
+              }}
+            />
           </div>
         </div>
 
