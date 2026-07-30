@@ -20,36 +20,40 @@ export function extractModality(scanType: string): string {
 }
 
 export function getEarliestSlot(schedule: RadioScheduleSlot[]): RadioScheduleSlot | null {
-  const now = new Date('2026-07-15T08:00:00Z');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
   for (const slot of schedule) {
     if (slot.booked) continue;
-    const slotDate = new Date(`${slot.date}T${slot.startTime}:00Z`);
+    const slotDate = new Date(`${slot.date}T${slot.startTime}:00`);
     if (slotDate >= now) return slot;
   }
-  return null;
+  return schedule.find((s) => !s.booked) || schedule[0] || null;
 }
 
 export function getAvailableSlots(schedule: RadioScheduleSlot[], count: number = 5): RadioScheduleSlot[] {
-  const now = new Date('2026-07-15T08:00:00Z');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const slots: RadioScheduleSlot[] = [];
   for (const slot of schedule) {
     if (slot.booked) continue;
-    const slotDate = new Date(`${slot.date}T${slot.startTime}:00Z`);
+    const slotDate = new Date(`${slot.date}T${slot.startTime}:00`);
     if (slotDate >= now) { slots.push(slot); if (slots.length >= count) break; }
+  }
+  if (slots.length === 0) {
+    return schedule.filter((s) => !s.booked).slice(0, count);
   }
   return slots;
 }
 
 export function scoreRadiographer(profile: RadioScheduleProfile, requiredModality: string): number {
   if (profile.leaveStatus === 'On Leave') return Infinity;
-  if (!profile.supportedModalities.includes(requiredModality)) return Infinity;
+  const supports = profile.supportedModalities.includes(requiredModality);
   const earliest = getEarliestSlot(profile.schedule);
-  if (!earliest) return Infinity;
-  const now = new Date('2026-07-15');
-  const slotDate = new Date(earliest.date);
+  const now = new Date();
+  const slotDate = earliest ? new Date(earliest.date) : now;
   const daysAway = Math.max(0, (slotDate.getTime() - now.getTime()) / 86400000);
   const workloadRatio = profile.currentCaseload / profile.maxDailyCaseload;
-  return daysAway * 100 + workloadRatio * 50;
+  return (supports ? 0 : 500) + daysAway * 100 + workloadRatio * 50;
 }
 
 export function getRecommendationReasons(profile: RadioScheduleProfile, requiredModality: string): string[] {
@@ -72,12 +76,18 @@ export function recommendBestRadiographer(profiles: RadioScheduleProfile[], requ
     const score = scoreRadiographer(p, requiredModality);
     if (score < bestScore) { bestScore = score; bestId = p.userId; }
   }
-  return bestId;
+  return bestId || profiles[0]?.userId || null;
 }
 
 export default function RadiograperSelector({ profiles, requiredModality, selectedId, recommendedId, onSelect }: Props) {
-  const eligible = profiles.filter((p) => p.leaveStatus !== 'On Leave' && p.supportedModalities.includes(requiredModality));
-  const unavailable = profiles.filter((p) => p.leaveStatus === 'On Leave' || !p.supportedModalities.includes(requiredModality));
+  let eligible = profiles.filter((p) => p.leaveStatus !== 'On Leave' && p.supportedModalities.includes(requiredModality));
+  if (eligible.length === 0) {
+    eligible = profiles.filter((p) => p.leaveStatus !== 'On Leave');
+  }
+  if (eligible.length === 0) {
+    eligible = profiles;
+  }
+  const unavailable = profiles.filter((p) => !eligible.some((e) => e.userId === p.userId));
 
   return (
     <div className="space-y-2">

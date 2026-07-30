@@ -1149,10 +1149,10 @@ export const mockMobilePacsVans: MobilePacsVan[] = [
 
 // Radiographer schedule profiles for AI Scheduler
 // Generates realistic schedule data for the next 7 days
-function generateScheduleSlots(bookedSlots: { date: string; time: string; caseId: string }[]): import('../types').RadioScheduleSlot[] {
+function generateScheduleSlots(bookedSlots: { date: string; time: string; caseId: string }[] = []): import('../types').RadioScheduleSlot[] {
   const slots: import('../types').RadioScheduleSlot[] = [];
-  const today = new Date('2026-07-15');
-  for (let d = 0; d < 7; d++) {
+  const today = new Date();
+  for (let d = 0; d < 14; d++) {
     const date = new Date(today);
     date.setDate(today.getDate() + d);
     const dateStr = date.toISOString().slice(0, 10);
@@ -1179,62 +1179,24 @@ export const mockRadioSchedules: RadioScheduleProfile[] = [
     userName: 'Ahmad Razak',
     deployedClinicId: 'clinic-001',
     deployedClinicName: 'Klinik Kesihatan Putrajaya',
-    supportedModalities: ['X-Ray', 'CT', 'MRI'],
-    currentCaseload: 3,
+    supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
+    currentCaseload: 1,
     maxDailyCaseload: 8,
     leaveStatus: 'Active',
     shift: 'Day (08:00–17:00)',
-    schedule: generateScheduleSlots([
-      { date: '2026-07-29', time: '09:00', caseId: 'existing-1' },
-      { date: '2026-07-29', time: '10:00', caseId: 'existing-2' },
-      { date: '2026-07-30', time: '09:00', caseId: 'existing-3' },
-    ]),
-  },
-
-
-  {
-    userId: 'rad-002',
-    userName: 'Lim Mei Ling',
-    deployedClinicId: 'clinic-002',
-    deployedClinicName: 'Klinik Kesihatan Cyberjaya',
-    supportedModalities: ['X-Ray', 'MRI', 'Ultrasound'],
-    currentCaseload: 1,
-    maxDailyCaseload: 6,
-    leaveStatus: 'Active',
-    shift: 'Day (08:00–17:00)',
-    schedule: generateScheduleSlots([
-      { date: '2026-07-15', time: '08:00', caseId: 'existing-3' },
-      { date: '2026-07-16', time: '10:00', caseId: 'existing-4' },
-    ]),
-  },
-  {
-    userId: 'rad-003',
-    userName: 'Kumaran Pillai',
-    deployedClinicId: 'clinic-003',
-    deployedClinicName: 'Klinik Kesihatan Bangi',
-    supportedModalities: ['CT', 'X-Ray'],
-    currentCaseload: 2,
-    maxDailyCaseload: 6,
-    leaveStatus: 'Active',
-    shift: 'Day (08:00–17:00)',
-    schedule: generateScheduleSlots([
-      { date: '2026-07-15', time: '09:00', caseId: 'existing-5' },
-      { date: '2026-07-15', time: '13:00', caseId: 'existing-6' },
-      { date: '2026-07-16', time: '08:00', caseId: 'existing-7' },
-      { date: '2026-07-16', time: '09:00', caseId: 'existing-8' },
-    ]),
+    schedule: generateScheduleSlots(),
   },
   {
     userId: 'rad-004',
     userName: 'Farah Hanim',
     deployedClinicId: 'clinic-001',
     deployedClinicName: 'Klinik Kesihatan Putrajaya',
-    supportedModalities: ['MRI', 'CT', 'X-Ray'],
+    supportedModalities: ['MRI', 'CT', 'X-Ray', 'Ultrasound'],
     currentCaseload: 0,
     maxDailyCaseload: 6,
-    leaveStatus: 'On Leave',
+    leaveStatus: 'Active',
     shift: 'Morning (08:00–13:00)',
-    schedule: generateScheduleSlots([]),
+    schedule: generateScheduleSlots(),
   },
   {
     userId: 'rad-005',

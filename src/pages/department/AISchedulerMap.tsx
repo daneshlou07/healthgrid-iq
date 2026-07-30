@@ -251,14 +251,19 @@ export default function AISchedulerMap() {
   const handleProceedToAssignment = async () => {
     if (!selectedClinicId || !selectedCase) return;
     let profiles = await getRadioSchedulesByClinic(selectedClinicId);
-    if (profiles.length === 0) profiles = await getRadioScheduleProfiles();
-    setScheduleProfiles(profiles);
+    const allProfiles = await getRadioScheduleProfiles();
+    if (profiles.length === 0) profiles = allProfiles;
+    setScheduleProfiles(profiles.length > 0 ? profiles : allProfiles);
     const modality = extractModality(selectedCase.scanType);
-    const bestId = recommendBestRadiographer(profiles, modality);
-    setRecommendedRadiographerId(bestId); setSelectedRadiographerId(bestId);
+    const bestId = recommendBestRadiographer(profiles.length > 0 ? profiles : allProfiles, modality);
+    setSelectedRadiographerId(bestId);
+    setRecommendedRadiographerId(bestId);
     if (bestId) {
-      const bestProfile = profiles.find((p) => p.userId === bestId);
-      if (bestProfile) { const slot = getEarliestSlot(bestProfile.schedule); if (slot) setAppointmentTime(`${slot.date}T${slot.startTime}`); }
+      const bestProfile = (profiles.length > 0 ? profiles : allProfiles).find((p) => p.userId === bestId);
+      if (bestProfile) {
+        const slot = getEarliestSlot(bestProfile.schedule);
+        if (slot) setAppointmentTime(`${slot.date}T${slot.startTime}`);
+      }
     }
     setStep('assign-radiographer');
   };
