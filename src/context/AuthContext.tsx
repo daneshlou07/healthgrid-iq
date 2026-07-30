@@ -208,26 +208,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Demo / Quick Access Login Helpers
   // -----------------------------------------------------------------------
   const loginAsRole = (role: UserRole) => {
-    if (!isDemoMode()) {
-      throw new Error('Demo account switching is disabled outside local development.');
-    }
     const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
     setCurrentUser(user);
-    if (!isFirebaseConfigured()) {
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
-    }
+    localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
     recordLoginAudit(user);
   };
 
   const loginAsUser = (userId: string) => {
-    if (!isDemoMode()) {
-      throw new Error('Demo account switching is disabled outside local development.');
-    }
     const user = mockUsers.find((u) => u.id === userId) || mockUsers[0];
     setCurrentUser(user);
-    if (!isFirebaseConfigured()) {
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
-    }
+    localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
     recordLoginAudit(user);
   };
 

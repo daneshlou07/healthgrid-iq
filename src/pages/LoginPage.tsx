@@ -319,34 +319,33 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo-only account switching */}
-          {demoMode && (
-            <div className="pt-2">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Quick Access Roles</span>
-                <div className="flex-1 h-px bg-slate-200" />
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {roleCards.map(({ role, label, sublabel, icon }) => (
-                  <button 
-                    key={role} 
-                    onClick={() => loginAsRole(role)} 
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-50 transition-all text-center group"
-                  >
-                    <div className="w-8 h-8 bg-slate-100 group-hover:bg-purple-50 rounded-lg flex items-center justify-center text-slate-700 group-hover:text-purple-600 transition-colors">
-                      {icon}
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800">{label}</p>
-                      <p className="text-[10px] text-slate-500 truncate max-w-[80px]">{sublabel}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+          {/* Quick Access Roles */}
+          <div className="pt-2">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">⚡ 1-Click Quick Access Testing Roles</span>
+              <div className="flex-1 h-px bg-slate-200" />
             </div>
-          )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {roleCards.map(({ role, label, sublabel, icon }) => (
+                <button 
+                  key={role} 
+                  type="button"
+                  onClick={() => loginAsRole(role)} 
+                  className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-purple-200 bg-purple-50/50 hover:border-purple-500 hover:bg-purple-100 transition-all text-center group cursor-pointer shadow-sm"
+                >
+                  <div className="w-8 h-8 bg-white group-hover:bg-purple-600 rounded-lg flex items-center justify-center text-purple-700 group-hover:text-white transition-colors shadow-xs">
+                    {icon}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{label}</p>
+                    <p className="text-[10px] text-slate-500 truncate max-w-[85px]">{sublabel}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Demo Test Accounts Grid */}
           <div className="pt-4 border-t border-slate-200">

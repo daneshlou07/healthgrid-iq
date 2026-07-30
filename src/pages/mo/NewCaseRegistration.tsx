@@ -98,8 +98,11 @@ export default function NewCaseRegistration() {
   const [contrastMediaVolumeMl, setContrastMediaVolumeMl] = useState('');
   const [clinicalNotes, setClinicalNotes] = useState('');
 
-  // ── Step 4 State ─────────────────────────────────────────────────────
+  // ── Step 4 State (Priority & Scheduling) ──────────────────────────────
   const [preferredClinicId, setPreferredClinicId] = useState('');
+  const [workflowPriority, setWorkflowPriority] = useState<'Emergency' | 'Non-Emergency'>('Emergency');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const selectedPatient = patients.find((p) => p.id === patientId);
@@ -218,6 +221,8 @@ export default function NewCaseRegistration() {
       )
     ).join(', ');
 
+    const generatedWaitingNumber = workflowPriority === 'Emergency' ? `Q-${Math.floor(100 + Math.random() * 900)}` : undefined;
+
     try {
       await addCase({
         caseNumber,
@@ -232,11 +237,13 @@ export default function NewCaseRegistration() {
         requestedExaminations,
         indication: indication.trim(),
         bodyRegion: uniqueRegions || 'General',
-        severity,
-        incubationPeriod: incubationPeriod || undefined,
+        severity: workflowPriority === 'Emergency' ? 'Critical' : (severity || 'Routine'),
         notes: clinicalNotes.trim(),
         status: 'CREATED',
         createdAt: new Date().toISOString(),
+        scheduledAt: workflowPriority === 'Non-Emergency' && scheduledDate ? `${scheduledDate}T${scheduledTime || '09:00'}:00` : undefined,
+        officeTarikhAppointment: workflowPriority === 'Non-Emergency' ? scheduledDate : undefined,
+        officeMasaAppointment: workflowPriority === 'Non-Emergency' ? scheduledTime : undefined,
         lmp: lmp || undefined,
         isPregnant: isPregnant || undefined,
         hasAllergy: hasAllergy || undefined,
