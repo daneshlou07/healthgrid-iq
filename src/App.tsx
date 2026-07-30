@@ -75,6 +75,8 @@ const MoAllCases = safeLazy(() => import('./pages/mo/AllCases'));
 const MoDepartmentReports = safeLazy(() => import('./pages/mo/DepartmentReports'));
 const MoPatientRequests = safeLazy(() => import('./pages/mo/PatientRequests'));
 const MoTrackStatus = safeLazy(() => import('./pages/mo/TrackStatus'));
+const MoReviewQueue = safeLazy(() => import('./pages/mo/ReviewQueue'));
+const MoReporting = safeLazy(() => import('./pages/mo/Reporting'));
 
 function OnboardingRouter() {
   const { currentUser } = useAuth();
@@ -126,6 +128,18 @@ function TrackStatusRouter() {
   return <TrackStatus />;
 }
 
+function ReviewQueueRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoReviewQueue />;
+  return <ReviewQueue />;
+}
+
+function ReportingRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoReporting />;
+  return <Reporting />;
+}
+
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
 
@@ -163,8 +177,8 @@ function AppRoutes() {
         <Route path="/upload" element={<ProtectedRoute allowedRoles={['Radiographer']}><UploadScans /></ProtectedRoute>} />
 
         {/* Radiologist & Medical Officer review and reporting routes */}
-        <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><ReviewQueue /></ProtectedRoute>} />
-        <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><Reporting /></ProtectedRoute>} />
+        <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><ReviewQueueRouter /></ProtectedRoute>} />
+        <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><ReportingRouter /></ProtectedRoute>} />
 
         {/* Onboarding routes */}
         <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
