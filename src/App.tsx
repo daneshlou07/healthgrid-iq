@@ -13,7 +13,6 @@ import LoginPage from './pages/LoginPage';
 import DashboardRouter from './pages/DashboardRouter';
 import PageLoader from './components/ux/PageLoader';
 import DevAccountSwitcher from './components/ux/DevAccountSwitcher';
-import { isDemoMode } from './services/firebase';
 
 // Helper for resilient lazy loading across new deployments
 function safeLazy<T extends React.ComponentType<any>>(importFn: () => Promise<{ default: T }>) {
@@ -65,8 +64,6 @@ const TechStack = safeLazy(() => import('./pages/admin/TechStack'));
 const PatientRegistry = safeLazy(() => import('./pages/admin/PatientRegistry'));
 const RecycleBin = safeLazy(() => import('./pages/admin/RecycleBin'));
 const NotFound = safeLazy(() => import('./pages/shared/NotFound'));
-
-
 
 const MoOnboarding = safeLazy(() => import('./pages/mo/Onboarding'));
 const MoPatientsList = safeLazy(() => import('./pages/mo/PatientsList'));
@@ -220,7 +217,7 @@ export default function App() {
                 <ConfirmProvider>
                   <AppRoutes />
                   <KeyboardShortcutsOverlay />
-                  {isDemoMode() && <DevAccountSwitcher />}
+                  <DevAccountSwitcher />
                 </ConfirmProvider>
               </SearchPaletteProvider>
             </ToastProvider>
