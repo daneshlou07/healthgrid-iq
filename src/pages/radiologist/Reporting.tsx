@@ -3,12 +3,13 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import StatusBadge from '../../components/ui/StatusBadge';
-import { CheckCircle, Image, FileText } from 'lucide-react';
+import { CheckCircle, Image, FileText, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getCaseRegistrar } from '../../utils/caseDisplay';
 import { loadImages } from '../../services/imageStorage';
 import PacsImageViewer from '../../components/ui/PacsImageViewer';
 import { generateAiReportDraft } from '../../services/aiReportingCopilot';
+import { analyzeImageWithVisionAi } from '../../services/visionAiAnalyzer';
 
 /** Loads and displays images from IndexedDB keys stored on the case */
 function CaseImageViewer({ imageKeys }: { imageKeys?: string[] }) {
@@ -52,6 +53,7 @@ export default function Reporting() {
   const [isCriticalFinding, setIsCriticalFinding] = useState(false);
   const [criticalFindingNote, setCriticalFindingNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isVisionAiAnalyzing, setIsVisionAiAnalyzing] = useState(false);
 
   const scannedCases = cases.filter((c) => c.status === 'SCANNED');
 
@@ -206,7 +208,30 @@ export default function Reporting() {
         <div className="xl:col-span-5 card space-y-5 border border-slate-200 shadow-md p-6 bg-white">
           <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Diagnostic Report</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                disabled={isVisionAiAnalyzing}
+                onClick={async () => {
+                  if (!selectedCase) return;
+                  setIsVisionAiAnalyzing(true);
+                  let imgUrl = '';
+                  if (selectedCase.images && selectedCase.images.length > 0) {
+                    const loaded = await loadImages([selectedCase.images[0]]);
+                    if (loaded && loaded.length > 0) imgUrl = loaded[0];
+                  }
+                  const res = await analyzeImageWithVisionAi(imgUrl, selectedCase);
+                  setFindings(res.findings);
+                  setImpression(res.impression);
+                  setIsVisionAiAnalyzing(false);
+                  toast.success(`Vision AI pixel analysis complete (${res.confidenceScore}% confidence)`);
+                }}
+                className="px-3 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-purple-500 shadow-sm disabled:opacity-50"
+                title="Inspect image pixels using Multimodal Vision AI Model"
+              >
+                <Brain className={`w-3.5 h-3.5 ${isVisionAiAnalyzing ? 'animate-pulse text-amber-300' : 'text-purple-200'}`} />
+                {isVisionAiAnalyzing ? 'Scanning...' : '🧠 Vision AI Scan'}
+              </button>
               <button
                 type="button"
                 onClick={() => {
