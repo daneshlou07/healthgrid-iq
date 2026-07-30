@@ -159,25 +159,25 @@ export default function Reporting() {
         <p className="page-subtitle">{selectedCase.patientName} — {selectedCase.scanType}</p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* Left: PACS Workstation & Info (7 Columns) */}
-        <div className="xl:col-span-7 space-y-4">
-          <div className="card border border-slate-200 shadow-sm p-4">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Patient &amp; Clinical Case Info</h3>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div><span className="text-slate-400 font-mono">CASE:</span> <Link to={`/case/${selectedCase.id}`} className="text-navy-700 font-mono font-bold hover:underline">{selectedCase.caseNumber}</Link></div>
-              <div><span className="text-slate-400">PATIENT:</span> <span className="text-slate-900 font-bold">{selectedCase.patientName}</span></div>
-              <div><span className="text-slate-400">MODALITY:</span> <span className="text-slate-900 font-semibold">{selectedCase.scanType}</span></div>
-              <div><span className="text-slate-400">REGISTRAR:</span> <span className="text-slate-800">{getCaseRegistrar(selectedCase)}</span></div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Info */}
+        <div className="space-y-4">
+          <div className="card">
+            <h3 className="text-xs font-semibold text-surface-500 uppercase mb-3">Patient &amp; Case</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-surface-500">Case</span><Link to={`/case/${selectedCase.id}`} className="text-navy-700 font-mono hover:underline">{selectedCase.caseNumber}</Link></div>
+              <div className="flex justify-between"><span className="text-surface-500">Patient</span><span className="text-surface-800">{selectedCase.patientName}</span></div>
+              <div className="flex justify-between"><span className="text-surface-500">Scan</span><span className="text-surface-800">{selectedCase.scanType}</span></div>
+              <div className="flex justify-between"><span className="text-surface-500">Registered by</span><span className="text-surface-800">{getCaseRegistrar(selectedCase)}</span></div>
             </div>
             {selectedCase.notes && (
-              <div className="mt-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-[11px] text-slate-500 font-semibold mb-0.5">Clinical Notes:</p>
-                <p className="text-xs text-slate-800 leading-relaxed">{selectedCase.notes}</p>
+              <div className="mt-3 p-3 bg-surface-100 rounded-lg">
+                <p className="text-xs text-surface-500 mb-1">Clinical Notes:</p>
+                <p className="text-sm text-surface-700">{selectedCase.notes}</p>
               </div>
             )}
             {selectedCase.isEscalated && (
-              <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs space-y-0.5">
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs space-y-1">
                 <p className="font-bold text-red-900">⚠️ Escalated by {selectedCase.escalatedBy || 'Medical Officer'}</p>
                 <p className="text-red-700">Reason: {selectedCase.escalationReason}</p>
               </div>
@@ -185,15 +185,10 @@ export default function Reporting() {
           </div>
 
           <div className="card p-0 border-0 bg-transparent">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">PACS Diagnostic Viewer</h3>
-              <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                💡 Tip: Click 'Fullscreen PACS' for 100vh reading workstation
-              </span>
-            </div>
+            <h3 className="text-xs font-semibold text-surface-500 uppercase mb-2">PACS Diagnostic Viewer</h3>
             <PacsImageViewer
               imageKeys={selectedCase.images}
-              heightClass="h-[520px]"
+              heightClass="h-[380px]"
               caseItem={selectedCase}
               onAiAnalyzed={(res) => {
                 setFindings(res.findings);
@@ -204,34 +199,11 @@ export default function Reporting() {
           </div>
         </div>
 
-        {/* Right: Un-crammed Report Editor (5 Columns) */}
-        <div className="xl:col-span-5 card space-y-5 border border-slate-200 shadow-md p-6 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Diagnostic Report</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                disabled={isVisionAiAnalyzing}
-                onClick={async () => {
-                  if (!selectedCase) return;
-                  setIsVisionAiAnalyzing(true);
-                  let imgUrl = '';
-                  if (selectedCase.images && selectedCase.images.length > 0) {
-                    const loaded = await loadImages([selectedCase.images[0]]);
-                    if (loaded && loaded.length > 0) imgUrl = loaded[0];
-                  }
-                  const res = await analyzeImageWithVisionAi(imgUrl, selectedCase);
-                  setFindings(res.findings);
-                  setImpression(res.impression);
-                  setIsVisionAiAnalyzing(false);
-                  toast.success(`Vision AI pixel analysis complete (${res.confidenceScore}% confidence)`);
-                }}
-                className="px-3 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-purple-500 shadow-sm disabled:opacity-50"
-                title="Inspect image pixels using Multimodal Vision AI Model"
-              >
-                <Brain className={`w-3.5 h-3.5 ${isVisionAiAnalyzing ? 'animate-pulse text-amber-300' : 'text-purple-200'}`} />
-                {isVisionAiAnalyzing ? 'Scanning...' : '🧠 Vision AI Scan'}
-              </button>
+        {/* Right: Editor */}
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-surface-500 uppercase">Diagnostic Report</h3>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -242,7 +214,7 @@ export default function Reporting() {
                   if (draft.suggestions) setSuggestions(draft.suggestions);
                   toast.success(`AI Draft generated (${draft.confidenceScore}% confidence)`);
                 }}
-                className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-purple-300 shadow-sm"
+                className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border border-purple-300 shadow-sm"
                 title="1-Click AI Preliminary Impression Generator"
               >
                 🪄 AI Copilot Draft
@@ -251,7 +223,7 @@ export default function Reporting() {
                 <button
                   type="button"
                   onClick={() => setShowEscalateModal(true)}
-                  className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-colors border border-amber-300"
+                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-bold transition-colors"
                 >
                   ⚠️ Escalate
                 </button>
@@ -283,41 +255,23 @@ export default function Reporting() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">Findings *</label>
-            <textarea
-              rows={9}
-              value={findings}
-              onChange={(e) => setFindings(e.target.value)}
-              className="input-field text-xs font-mono leading-relaxed min-h-[200px] border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-              placeholder="Detailed radiological findings..."
-            />
+            <label className="block text-sm font-medium text-surface-700 mb-1">Findings *</label>
+            <textarea rows={5} value={findings} onChange={(e) => setFindings(e.target.value)} className="input-field resize-none text-sm" placeholder="Detailed radiological findings..." />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">Impression *</label>
-            <textarea
-              rows={5}
-              value={impression}
-              onChange={(e) => setImpression(e.target.value)}
-              className="input-field text-xs font-mono leading-relaxed min-h-[110px] border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-              placeholder="Clinical synthesis..."
-            />
+            <label className="block text-sm font-medium text-surface-700 mb-1">Impression *</label>
+            <textarea rows={3} value={impression} onChange={(e) => setImpression(e.target.value)} className="input-field resize-none text-sm" placeholder="Clinical synthesis..." />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Suggestions</label>
-            <textarea
-              rows={3}
-              value={suggestions}
-              onChange={(e) => setSuggestions(e.target.value)}
-              className="input-field text-xs font-mono leading-relaxed border-slate-300"
-              placeholder="Follow-up recommendations..."
-            />
+            <label className="block text-sm font-medium text-surface-700 mb-1">Suggestions</label>
+            <textarea rows={2} value={suggestions} onChange={(e) => setSuggestions(e.target.value)} className="input-field resize-none text-sm" placeholder="Follow-up recommendations..." />
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-            <button onClick={() => setSelectedCase(null)} className="btn-secondary text-xs px-4 py-2 font-bold">Back</button>
-            <button onClick={handleSignOff} disabled={saving || !findings || !impression} className="btn-success disabled:opacity-50 text-xs px-5 py-2.5 font-bold shadow-md">
+          <div className="flex items-center justify-between pt-3 border-t border-surface-200">
+            <button onClick={() => setSelectedCase(null)} className="btn-secondary text-sm">Back</button>
+            <button onClick={handleSignOff} disabled={saving || !findings || !impression} className="btn-success disabled:opacity-50">
               {saving ? 'Signing...' : isMO ? 'Finalize Report (MO Approved)' : 'Sign Off & Finalize'}
             </button>
           </div>
