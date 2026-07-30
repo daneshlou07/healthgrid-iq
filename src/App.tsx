@@ -68,6 +68,13 @@ const NotFound = safeLazy(() => import('./pages/shared/NotFound'));
 
 
 const MoOnboarding = safeLazy(() => import('./pages/mo/Onboarding'));
+const MoPatientsList = safeLazy(() => import('./pages/mo/PatientsList'));
+const MoPatientRegistration = safeLazy(() => import('./pages/mo/PatientRegistration'));
+const MoNewCaseRegistration = safeLazy(() => import('./pages/mo/NewCaseRegistration'));
+const MoAllCases = safeLazy(() => import('./pages/mo/AllCases'));
+const MoDepartmentReports = safeLazy(() => import('./pages/mo/DepartmentReports'));
+const MoPatientRequests = safeLazy(() => import('./pages/mo/PatientRequests'));
+const MoTrackStatus = safeLazy(() => import('./pages/mo/TrackStatus'));
 
 function OnboardingRouter() {
   const { currentUser } = useAuth();
@@ -75,6 +82,48 @@ function OnboardingRouter() {
   if (currentUser?.role === 'Radiologist') return <RadiologistOnboarding />;
   if (currentUser?.role === 'Medical Officer') return <MoOnboarding />;
   return <Navigate to="/dashboard" replace />;
+}
+
+function PatientsRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoPatientsList />;
+  return <PatientsList />;
+}
+
+function PatientRegRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoPatientRegistration />;
+  return <PatientRegistration />;
+}
+
+function CasesRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoAllCases />;
+  return <AllCases />;
+}
+
+function NewCaseRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoNewCaseRegistration />;
+  return <NewCaseRegistration />;
+}
+
+function ReportsRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoDepartmentReports />;
+  return <DepartmentReports />;
+}
+
+function RequestsRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoPatientRequests />;
+  return <PatientRequests />;
+}
+
+function TrackStatusRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'Medical Officer') return <MoTrackStatus />;
+  return <TrackStatus />;
 }
 
 function AppRoutes() {
@@ -99,13 +148,13 @@ function AppRoutes() {
         <Route path="/case/:caseId" element={<CaseDetail />} />
         <Route path="/patient/:patientId" element={<PatientDetail />} />
 
-        {/* Radiology Department registration and case-management routes */}
-        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><PatientsList /></ProtectedRoute>} />
-        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><PatientRegistration /></ProtectedRoute>} />
-        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><AllCases /></ProtectedRoute>} />
-        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><NewCaseRegistration /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Radiologist']}><DepartmentReports /></ProtectedRoute>} />
-        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><PatientRequests /></ProtectedRoute>} />
+        {/* Radiology Department & Medical Officer routes */}
+        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><PatientsRouter /></ProtectedRoute>} />
+        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><PatientRegRouter /></ProtectedRoute>} />
+        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><CasesRouter /></ProtectedRoute>} />
+        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><NewCaseRouter /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Radiologist']}><ReportsRouter /></ProtectedRoute>} />
+        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><RequestsRouter /></ProtectedRoute>} />
         <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
 
         {/* Radiographer routes */}
@@ -120,8 +169,8 @@ function AppRoutes() {
         {/* Onboarding routes */}
         <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
 
-        {/* Radiology Department routes */}
-        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><TrackStatus /></ProtectedRoute>} />
+        {/* Track Status route */}
+        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><TrackStatusRouter /></ProtectedRoute>} />
 
         {/* Administrator routes (full CRUD access) */}
         <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />
