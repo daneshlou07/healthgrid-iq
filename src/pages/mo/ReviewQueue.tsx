@@ -10,20 +10,20 @@ export default function ReviewQueue() {
   const { currentUser } = useAuth();
   const { cases } = useData();
 
-  // Filter pending cases and sort escalated cases to top
+  // Filter scanned cases intended for Medical Officer review (or unassigned)
   const scannedCases = cases
-    .filter((c) => c.status === 'SCANNED')
+    .filter((c) => c.status === 'SCANNED' && (c.routedToRole === 'Medical Officer' || !c.routedToRole || c.secondOpinionRequested))
     .sort((a, b) => (b.isEscalated ? 1 : 0) - (a.isEscalated ? 1 : 0));
 
   return (
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <h1 className="page-title">Medical Officer Cases to Review</h1>
+          <h1 className="page-title">Cases to Review</h1>
           <span className="badge-purple font-mono text-xs font-bold">MO REVIEW INBOX</span>
         </div>
         <p className="page-subtitle">
-          {scannedCases.length} cases pending report &middot; Finalize routine cases or escalate complex cases to Specialist Radiologist.
+          {scannedCases.length} scanned cases pending Medical Officer review &middot; Finalize routine cases or request a 2nd opinion from Specialist Radiologist.
         </p>
       </div>
 
@@ -35,15 +35,20 @@ export default function ReviewQueue() {
                 <div className="flex items-center gap-2 mb-1">
                   <Link to={`/case/${c.id}`} className="text-sm font-semibold text-navy-700 hover:underline font-mono">{c.caseNumber}</Link>
                   <SeverityBadge severity={c.severity} />
+                  {c.routedToRole === 'Medical Officer' && (
+                    <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-bold rounded-full border border-purple-200">
+                      🎯 ROUTED TO MO BY RADIOGRAPHER
+                    </span>
+                  )}
                   {c.isEscalated && (
                     <span className="px-2.5 py-0.5 bg-red-600 text-white text-[10px] font-extrabold rounded-full flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> ESCALATED TO RADIOLOGIST
+                      <AlertTriangle className="w-3 h-3" /> 2ND OPINION REQUESTED
                     </span>
                   )}
                 </div>
                 <h3 className="font-semibold text-surface-900">{c.patientName}</h3>
                 <p className="text-xs text-surface-500 mt-1">{c.scanType} &bull; Clinical Indication: {c.indication || 'Unspecified'}</p>
-                {c.radiographerName && <p className="text-xs text-emerald-700 font-medium mt-1">Scanned by: {c.radiographerName}</p>}
+                {c.radiographerName && <p className="text-xs text-emerald-700 font-medium mt-1">Scanned &amp; Uploaded by Radiographer: {c.radiographerName}</p>}
               </div>
 
               <div className="flex flex-col items-end gap-2">

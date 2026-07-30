@@ -11,17 +11,20 @@ export default function ReviewQueue() {
   const { cases } = useData();
   const isMO = currentUser?.role === 'Medical Officer';
 
-  // Filter pending cases and sort escalated cases to top
+  // Filter cases routed directly to Radiologist OR escalated by MO for 2nd opinion
   const scannedCases = cases
-    .filter((c) => c.status === 'SCANNED')
+    .filter((c) => c.status === 'SCANNED' && (c.routedToRole === 'Radiologist' || c.isEscalated || !c.routedToRole))
     .sort((a, b) => (b.isEscalated ? 1 : 0) - (a.isEscalated ? 1 : 0));
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Report Inbox ({isMO ? 'Medical Officer' : 'Specialist Radiologist'})</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="page-title">Specialist Radiologist Report Inbox</h1>
+          <span className="badge-purple font-mono text-xs font-bold">RADIOLOGIST QUEUE</span>
+        </div>
         <p className="page-subtitle">
-          {scannedCases.length} cases pending report. {isMO ? 'You can finalize routine cases or escalate complex cases.' : 'Priority escalated cases are pinned to top.'}
+          {scannedCases.length} cases pending specialist review &middot; Priority 2nd opinion requests &amp; complex cases.
         </p>
       </div>
 

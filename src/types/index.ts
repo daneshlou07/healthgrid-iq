@@ -224,6 +224,13 @@ export interface Case {
     updatedByName?: string;
   }>;
 
+  /** Routing target set by Radiographer upon scan completion */
+  routedToRole?: 'Medical Officer' | 'Radiologist';
+  secondOpinionRequested?: boolean;
+  secondOpinionNotes?: string;
+  referringDoctorId?: string;
+  referringDoctorName?: string;
+
   /** Escalation tracking from MO to Specialist Radiologist */
   isEscalated?: boolean;
   escalationReason?: string;

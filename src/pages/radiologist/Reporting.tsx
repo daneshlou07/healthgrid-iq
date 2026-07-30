@@ -91,7 +91,7 @@ export default function Reporting() {
       timestamp: new Date().toISOString(),
     });
 
-    toast.success(`Report finalized by ${currentUser.name} (${signedRole}) for ${selectedCase.caseNumber}`);
+    toast.success(`Report signed off by Radiologist ${currentUser.name} & sent back to Medical Officer for case ${selectedCase.caseNumber}`);
     setSaving(false);
     setSelectedCase(null); setFindings(''); setImpression(''); setSuggestions('');
   };
@@ -272,7 +272,7 @@ export default function Reporting() {
           <div className="flex items-center justify-between pt-3 border-t border-surface-200">
             <button onClick={() => setSelectedCase(null)} className="btn-secondary text-sm">Back</button>
             <button onClick={handleSignOff} disabled={saving || !findings || !impression} className="btn-success disabled:opacity-50">
-              {saving ? 'Signing...' : isMO ? 'Finalize Report (MO Approved)' : 'Sign Off & Finalize'}
+              {saving ? 'Signing...' : 'Sign Off & Send Report Back to Medical Officer'}
             </button>
           </div>
         </div>

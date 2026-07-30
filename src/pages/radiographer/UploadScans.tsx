@@ -16,6 +16,7 @@ export default function UploadScans() {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [routedToRole, setRoutedToRole] = useState<'Medical Officer' | 'Radiologist'>('Medical Officer');
 
   // Synchronize selection if caseIdFromUrl is passed
   useEffect(() => {
@@ -62,24 +63,25 @@ export default function UploadScans() {
       status: 'SCANNED',
       scannedAt: new Date().toISOString(),
       images: imageKeys,
+      routedToRole,
     });
 
     await addAuditLog({
       userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
       action: 'SCAN_UPLOADED', target: `cases/${selectedCaseId}`,
-      details: `Uploaded ${files.length} image(s) for case ${selectedCase?.caseNumber}`,
+      details: `Uploaded ${files.length} image(s) for case ${selectedCase?.caseNumber} & routed to ${routedToRole}`,
       timestamp: new Date().toISOString(),
     });
 
-    toast.success(`Case ${selectedCase?.caseNumber} updated to SCANNED`);
+    toast.success(`Case ${selectedCase?.caseNumber} scanned & routed to ${routedToRole}`);
     setUploading(false); setFiles([]); setPreviews([]); setSelectedCaseId('');
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="page-title">Upload Scans</h1>
-        <p className="page-subtitle">Upload medical images and update case status to SCANNED.</p>
+        <h1 className="page-title">Upload Scans & Route Case</h1>
+        <p className="page-subtitle">Upload medical images and choose whether to send results to Medical Officer or Specialist Radiologist.</p>
       </div>
 
       <form onSubmit={handleUpload} className="card space-y-5">
@@ -90,6 +92,52 @@ export default function UploadScans() {
             {availableCases.map((c) => <option key={c.id} value={c.id}>{c.caseNumber} — {c.patientName} ({c.scanType})</option>)}
           </select>
           {availableCases.length === 0 && <p className="text-xs text-surface-400 mt-1">No scheduled cases available.</p>}
+        </div>
+
+        {/* ── ROUTING DECISION TOGGLE ──────────────────────────────── */}
+        <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
+          <label className="block text-xs font-bold text-purple-900 uppercase tracking-wider">
+            🎯 Route Completed Scan To *
+          </label>
+          <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
+            <label className={`p-3 rounded-lg border cursor-pointer flex items-center gap-2 transition-all ${
+              routedToRole === 'Medical Officer'
+                ? 'bg-white border-purple-600 text-purple-900 shadow-sm ring-2 ring-purple-600/20'
+                : 'bg-surface-50 border-surface-200 text-slate-600 hover:bg-white'
+            }`}>
+              <input
+                type="radio"
+                name="routedToRole"
+                value="Medical Officer"
+                checked={routedToRole === 'Medical Officer'}
+                onChange={() => setRoutedToRole('Medical Officer')}
+                className="text-purple-600 focus:ring-purple-500"
+              />
+              <div>
+                <p className="font-bold">Medical Officer (MO)</p>
+                <p className="text-[11px] font-normal text-slate-500">Routine scan / primary doctor review</p>
+              </div>
+            </label>
+
+            <label className={`p-3 rounded-lg border cursor-pointer flex items-center gap-2 transition-all ${
+              routedToRole === 'Radiologist'
+                ? 'bg-white border-purple-600 text-purple-900 shadow-sm ring-2 ring-purple-600/20'
+                : 'bg-surface-50 border-surface-200 text-slate-600 hover:bg-white'
+            }`}>
+              <input
+                type="radio"
+                name="routedToRole"
+                value="Radiologist"
+                checked={routedToRole === 'Radiologist'}
+                onChange={() => setRoutedToRole('Radiologist')}
+                className="text-purple-600 focus:ring-purple-500"
+              />
+              <div>
+                <p className="font-bold">Specialist Radiologist</p>
+                <p className="text-[11px] font-normal text-slate-500">Complex scan / priority specialist review</p>
+              </div>
+            </label>
+          </div>
         </div>
 
         <div>
@@ -120,7 +168,7 @@ export default function UploadScans() {
 
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={uploading || !selectedCaseId || files.length === 0} className="btn-primary disabled:opacity-50">
-            {uploading ? 'Uploading...' : 'Upload & Mark as Scanned'}
+            {uploading ? 'Uploading...' : `Upload & Send to ${routedToRole}`}
           </button>
         </div>
       </form>
