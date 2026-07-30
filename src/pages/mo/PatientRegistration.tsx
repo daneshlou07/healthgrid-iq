@@ -5,76 +5,9 @@ import { useToast } from '../../components/ux/Toast';
 import type { Gender } from '../../types';
 import { Info, CheckCircle, AlertCircle } from 'lucide-react';
 
-// --- MyKad NRIC Utilities ---
+import { parseMalaysianNric, normalizeNric, formatNric, JPN_STATE_CODES } from '../../utils/malaysianNric';
 
 type IdType = 'mykad' | 'passport';
-
-interface NricParseResult {
-  valid: boolean;
-  normalized: string;
-  formatted: string;
-  dob: string; // YYYY-MM-DD
-  gender: Gender;
-  error?: string;
-}
-
-function normalizeNric(raw: string): string {
-  return raw.replace(/[-\s]/g, '');
-}
-
-function formatNric(normalized: string): string {
-  if (normalized.length !== 12) return normalized;
-  return `${normalized.slice(0, 6)}-${normalized.slice(6, 8)}-${normalized.slice(8)}`;
-}
-
-function parseMyKad(raw: string): NricParseResult {
-  const normalized = normalizeNric(raw);
-
-  // Must be exactly 12 digits
-  if (!/^\d{12}$/.test(normalized)) {
-    return { valid: false, normalized, formatted: raw, dob: '', gender: 'Male', error: 'NRIC must be exactly 12 digits' };
-  }
-
-  // Extract date components
-  const yyStr = normalized.slice(0, 2);
-  const mmStr = normalized.slice(2, 4);
-  const ddStr = normalized.slice(4, 6);
-
-  const yy = parseInt(yyStr, 10);
-  const mm = parseInt(mmStr, 10);
-  const dd = parseInt(ddStr, 10);
-
-  // Determine century: if yy > current 2-digit year, assume 1900s; else 2000s
-  const currentYear = new Date().getFullYear();
-  const currentYY = currentYear % 100;
-  const century = yy > currentYY ? 1900 : 2000;
-  const fullYear = century + yy;
-
-  // Validate month
-  if (mm < 1 || mm > 12) {
-    return { valid: false, normalized, formatted: formatNric(normalized), dob: '', gender: 'Male', error: 'Invalid month in NRIC' };
-  }
-
-  // Validate day
-  const daysInMonth = new Date(fullYear, mm, 0).getDate();
-  if (dd < 1 || dd > daysInMonth) {
-    return { valid: false, normalized, formatted: formatNric(normalized), dob: '', gender: 'Male', error: 'Invalid day in NRIC' };
-  }
-
-  // Validate date is not in the future
-  const dobDate = new Date(fullYear, mm - 1, dd);
-  if (dobDate > new Date()) {
-    return { valid: false, normalized, formatted: formatNric(normalized), dob: '', gender: 'Male', error: 'Date of birth cannot be in the future' };
-  }
-
-  const dob = `${fullYear}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
-
-  // Gender: last digit odd = Male, even = Female
-  const lastDigit = parseInt(normalized.charAt(11), 10);
-  const gender: Gender = lastDigit % 2 === 0 ? 'Female' : 'Male';
-
-  return { valid: true, normalized, formatted: formatNric(normalized), dob, gender };
-}
 
 // --- Component ---
 
@@ -100,12 +33,14 @@ export default function PatientRegistration() {
   const ETHNICITY_OPTIONS = ['Malay', 'Chinese', 'Indian', 'Bumiputera (Sabah)', 'Bumiputera (Sarawak)', 'Others'];
 
   // Parse NRIC on every change
-  const nricResult = useMemo<NricParseResult | null>(() => {
+  const nricResult = useMemo(() => {
     if (idType !== 'mykad') return null;
     const normalized = normalizeNric(form.idNumber);
     if (normalized.length === 0) return null;
-    if (normalized.length < 12) return { valid: false, normalized, formatted: form.idNumber, dob: '', gender: 'Male', error: `${12 - normalized.length} digits remaining` };
-    return parseMyKad(form.idNumber);
+    if (normalized.length < 12) {
+      return { valid: false, normalized, formatted: form.idNumber, dob: '', gender: 'Male' as Gender, stateOfBirth: 'Unknown', stateCode: '', age: 0, error: `${12 - normalized.length} digits remaining` };
+    }
+    return parseMalaysianNric(form.idNumber);
   }, [form.idNumber, idType]);
 
   // Auto-fill DOB and Gender when NRIC is valid
@@ -270,10 +205,13 @@ export default function PatientRegistration() {
               {idType === 'mykad' && nricResult && (
                 <div className="mt-1.5">
                   {nricResult.valid ? (
-                    <div className="flex items-center gap-1.5 text-emerald-700">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span className="text-xs font-bold">Valid — {nricResult.formatted}</span>
-                      <span className="text-[10px] text-slate-500 ml-2">DOB and Gender auto-extracted</span>
+                    <div className="flex flex-wrap items-center gap-1.5 text-emerald-700 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="text-xs font-bold">{nricResult.formatted}</span>
+                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-medium">
+                        Negeri Kelahiran: {nricResult.stateOfBirth} ({nricResult.stateCode})
+                      </span>
+                      <span className="text-[10px] text-emerald-600">Age: {nricResult.age} yrs</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 text-red-600">
