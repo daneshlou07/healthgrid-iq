@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  setDoc,
   addDoc,
   updateDoc,
   query,
@@ -11,7 +12,6 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { getFirestoreDb, isFirebaseConfigured } from './firebase';
-import { apiClient } from './apiClient';
 import {
   mockUsers,
   mockClinics,
@@ -79,6 +79,13 @@ export async function getPatients(): Promise<Patient[]> {
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
 }
 
+export async function getPatient(id: string): Promise<Patient | null> {
+  if (useMock()) return mockPatients.find((p) => p.id === id) || null;
+  const db = getFirestoreDb()!;
+  const snap = await getDoc(doc(db, 'patients', id));
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Patient) : null;
+}
+
 export async function getPatientsByClinic(clinicId: string): Promise<Patient[]> {
   if (useMock()) return mockPatients.filter((p) => p.clinicId === clinicId);
   const db = getFirestoreDb()!;
@@ -89,21 +96,40 @@ export async function getPatientsByClinic(clinicId: string): Promise<Patient[]> 
 
 export async function createPatient(patient: Omit<Patient, 'id'>): Promise<Patient> {
   const id = generateId('patient');
+  const newPatient: Patient = { ...patient, id };
+  
   if (useMock()) {
-    const newPatient = { ...patient, id };
     mockPatients.push(newPatient);
     return newPatient;
   }
-  return apiClient.createPatient(patient);
+
+  try {
+    const db = getFirestoreDb();
+    if (db) {
+      await setDoc(doc(db, 'patients', id), newPatient);
+    }
+  } catch (err) {
+    console.warn('Direct Firestore createPatient write failed, retaining local state:', err);
+  }
+
+  mockPatients.push(newPatient);
+  return newPatient;
 }
 
 export async function updatePatient(id: string, updates: Partial<Patient>): Promise<void> {
-  if (useMock()) {
-    const idx = mockPatients.findIndex((p) => p.id === id);
-    if (idx !== -1) Object.assign(mockPatients[idx], updates);
-    return;
+  const idx = mockPatients.findIndex((p) => p.id === id);
+  if (idx !== -1) Object.assign(mockPatients[idx], updates);
+
+  if (!useMock()) {
+    try {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'patients', id), updates as any);
+      }
+    } catch (err) {
+      console.warn('Direct Firestore updatePatient write failed:', err);
+    }
   }
-  await apiClient.updatePatient(id, updates);
 }
 
 // ==================== CASES ====================
@@ -154,29 +180,44 @@ function validateReportData(reportData: Omit<Report, 'id'>): void {
 export async function createCase(c: Omit<Case, 'id'>): Promise<Case> {
   validateCaseData(c);
   const id = generateId('case');
-  const caseData = { ...c };
+  const newCase: Case = { ...c, id };
+
   if (useMock()) {
-    const newCase = { ...caseData, id };
     mockCases.push(newCase);
     return newCase;
   }
-  return apiClient.createCase(caseData);
+
+  try {
+    const db = getFirestoreDb();
+    if (db) {
+      await setDoc(doc(db, 'cases', id), newCase);
+    }
+  } catch (err) {
+    console.warn('Direct Firestore createCase write failed, retaining local state:', err);
+  }
+
+  mockCases.push(newCase);
+  return newCase;
 }
 
 export async function updateCase(id: string, updates: Partial<Case>): Promise<void> {
   if (!id) throw new Error('Update case failed: Missing document ID');
-  if (useMock()) {
-    const idx = mockCases.findIndex((c) => c.id === id);
-    if (idx !== -1) Object.assign(mockCases[idx], updates);
-    return;
+
+  const idx = mockCases.findIndex((c) => c.id === id);
+  if (idx !== -1) Object.assign(mockCases[idx], updates);
+
+  if (!useMock()) {
+    try {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'cases', id), updates as any);
+      }
+    } catch (err) {
+      console.warn('Direct Firestore updateCase write failed:', err);
+    }
   }
-  await apiClient.updateCase(id, updates);
 }
 
-/**
- * Partial update for MOH worksheet fields (Dose, Office-Use, Image Counts, Contrast, Komen).
- * Semantically distinct from updateCase to make intent clear at call sites.
- */
 export async function updateCaseWorksheet(
   id: string,
   worksheet: Pick<
@@ -213,22 +254,42 @@ export async function getReportByCase(caseId: string): Promise<Report | null> {
 export async function createReport(report: Omit<Report, 'id'>): Promise<Report> {
   validateReportData(report);
   const id = generateId('report');
+  const newReport: Report = { ...report, id };
+
   if (useMock()) {
-    const newReport = { ...report, id };
     mockReports.push(newReport);
     return newReport;
   }
-  return apiClient.createReport(report);
+
+  try {
+    const db = getFirestoreDb();
+    if (db) {
+      await setDoc(doc(db, 'reports', id), newReport);
+    }
+  } catch (err) {
+    console.warn('Direct Firestore createReport write failed, retaining local state:', err);
+  }
+
+  mockReports.push(newReport);
+  return newReport;
 }
 
 export async function updateReport(id: string, updates: Partial<Report>): Promise<void> {
   if (!id) throw new Error('Update report failed: Missing document ID');
-  if (useMock()) {
-    const idx = mockReports.findIndex((r) => r.id === id);
-    if (idx !== -1) Object.assign(mockReports[idx], updates);
-    return;
+
+  const idx = mockReports.findIndex((r) => r.id === id);
+  if (idx !== -1) Object.assign(mockReports[idx], updates);
+
+  if (!useMock()) {
+    try {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'reports', id), updates as any);
+      }
+    } catch (err) {
+      console.warn('Direct Firestore updateReport write failed:', err);
+    }
   }
-  await apiClient.updateReport(id, updates);
 }
 
 // ==================== PATIENT REQUESTS ====================
@@ -241,21 +302,40 @@ export async function getPatientRequests(): Promise<PatientRequest[]> {
 
 export async function createPatientRequest(req: Omit<PatientRequest, 'id'>): Promise<PatientRequest> {
   const id = generateId('req');
+  const newReq: PatientRequest = { ...req, id };
+
   if (useMock()) {
-    const newReq = { ...req, id };
     mockPatientRequests.push(newReq);
     return newReq;
   }
-  return apiClient.createPatientRequest(req);
+
+  try {
+    const db = getFirestoreDb();
+    if (db) {
+      await setDoc(doc(db, 'patient_requests', id), newReq);
+    }
+  } catch (err) {
+    console.warn('Direct Firestore createPatientRequest write failed:', err);
+  }
+
+  mockPatientRequests.push(newReq);
+  return newReq;
 }
 
 export async function updatePatientRequest(id: string, updates: Partial<PatientRequest>): Promise<void> {
-  if (useMock()) {
-    const idx = mockPatientRequests.findIndex((r) => r.id === id);
-    if (idx !== -1) Object.assign(mockPatientRequests[idx], updates);
-    return;
+  const idx = mockPatientRequests.findIndex((r) => r.id === id);
+  if (idx !== -1) Object.assign(mockPatientRequests[idx], updates);
+
+  if (!useMock()) {
+    try {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'patient_requests', id), updates as any);
+      }
+    } catch (err) {
+      console.warn('Direct Firestore updatePatientRequest write failed:', err);
+    }
   }
-  await apiClient.updatePatientRequest(id, updates);
 }
 
 // ==================== AUDIT LOGS ====================
@@ -269,11 +349,23 @@ export async function getAuditLogs(): Promise<AuditLog[]> {
 
 export async function createAuditLog(log: Omit<AuditLog, 'id'>): Promise<void> {
   const id = generateId('audit');
+  const newLog: AuditLog = { ...log, id };
+
   if (useMock()) {
-    mockAuditLogs.push({ ...log, id });
+    mockAuditLogs.push(newLog);
     return;
   }
-  await apiClient.createAuditLog(log as Omit<AuditLog, 'id' | 'timestamp'>);
+
+  try {
+    const db = getFirestoreDb();
+    if (db) {
+      await setDoc(doc(db, 'audit_logs', id), newLog);
+    }
+  } catch (err) {
+    console.warn('Direct Firestore createAuditLog write failed:', err);
+  }
+
+  mockAuditLogs.push(newLog);
 }
 
 // ==================== MOBILE PACS VANS ====================
@@ -285,106 +377,34 @@ export async function getMobilePacsVans(): Promise<MobilePacsVan[]> {
 }
 
 export async function updateMobilePacsVan(id: string, updates: Partial<MobilePacsVan>): Promise<void> {
-  if (useMock()) {
-    const idx = mockMobilePacsVans.findIndex((v) => v.id === id);
-    if (idx !== -1) Object.assign(mockMobilePacsVans[idx], updates);
-    return;
+  const idx = mockMobilePacsVans.findIndex((v) => v.id === id);
+  if (idx !== -1) Object.assign(mockMobilePacsVans[idx], updates);
+
+  if (!useMock()) {
+    try {
+      const db = getFirestoreDb();
+      if (db) {
+        await updateDoc(doc(db, 'mobile_pacs_vans', id), updates as any);
+      }
+    } catch (err) {
+      console.warn('Direct Firestore updateMobilePacsVan write failed:', err);
+    }
   }
-  await apiClient.updateVan(id, updates);
 }
 
-// ==================== RADIO SCHEDULE PROFILES ====================
-export async function getRadioScheduleProfiles(): Promise<RadioScheduleProfile[]> {
+// ==================== RADIOGRAPHER SCHEDULES ====================
+export async function getRadioSchedules(): Promise<RadioScheduleProfile[]> {
   if (useMock()) return [...mockRadioSchedules];
-  try {
-    const db = getFirestoreDb()!;
-    const snapshot = await getDocs(collection(db, 'radio_schedules'));
-    if (snapshot.empty) return [...mockRadioSchedules];
-    return snapshot.docs.map((d) => d.data() as RadioScheduleProfile);
-  } catch (err) {
-    console.warn('Failed to fetch radio schedules from Firestore, using mock:', err);
-    return [...mockRadioSchedules];
-  }
+  const db = getFirestoreDb()!;
+  const snapshot = await getDocs(collection(db, 'radio_schedules'));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as RadioScheduleProfile));
 }
 
 export async function getRadioSchedulesByClinic(clinicId: string): Promise<RadioScheduleProfile[]> {
-  if (useMock()) return mockRadioSchedules.filter((r) => r.deployedClinicId === clinicId);
-  try {
-    const db = getFirestoreDb()!;
-    const q = query(collection(db, 'radio_schedules'), where('deployedClinicId', '==', clinicId));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) return mockRadioSchedules.filter((r) => r.deployedClinicId === clinicId);
-    return snapshot.docs.map((d) => d.data() as RadioScheduleProfile);
-  } catch (err) {
-    console.warn('Failed to fetch radio schedules by clinic, using mock:', err);
-    return mockRadioSchedules.filter((r) => r.deployedClinicId === clinicId);
-  }
+  const all = await getRadioSchedules();
+  return all.filter((s) => s.deployedClinicId === clinicId);
 }
 
-export async function createRadioScheduleProfile(
-  profile: RadioScheduleProfile
-): Promise<RadioScheduleProfile> {
-  if (useMock()) {
-    mockRadioSchedules.push(profile);
-    return profile;
-  }
-  return apiClient.createSchedule(profile);
-}
-
-export async function updateRadioScheduleProfile(
-  userId: string,
-  updates: Partial<RadioScheduleProfile>
-): Promise<void> {
-  if (useMock()) {
-    const idx = mockRadioSchedules.findIndex((r) => r.userId === userId);
-    if (idx !== -1) Object.assign(mockRadioSchedules[idx], updates);
-    return;
-  }
-  await apiClient.updateSchedule(userId, updates);
-}
-
-// ==================== IAS SCHEDULING JOBS ====================
-export async function getIasSchedulingJobs(): Promise<import('../types').IasSchedulingJob[]> {
-  if (useMock()) return [];
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'scheduling_jobs'), orderBy('createdAt', 'desc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as import('../types').IasSchedulingJob));
-}
-
-export async function createIasSchedulingJob(
-  job: Omit<import('../types').IasSchedulingJob, 'id'>
-): Promise<import('../types').IasSchedulingJob> {
-  const id = generateId('job');
-  if (useMock()) {
-    return { ...job, id };
-  }
-  const db = getFirestoreDb()!;
-  const docRef = await addDoc(collection(db, 'scheduling_jobs'), job);
-  return { ...job, id: docRef.id };
-}
-
-// ==================== REAL-TIME SUBSCRIPTIONS (Firestore listeners) ====================
-// These are used by DataContext when Firebase is configured for live updates
-
-export function subscribeToCollection<T>(
-  collectionName: string,
-  onUpdate: (items: T[]) => void,
-  queryConstraints?: Parameters<typeof query>[1][]
-): (() => void) | null {
-  const db = getFirestoreDb();
-  if (!db) return null;
-
-  const { onSnapshot } = require('firebase/firestore');
-
-  const ref = queryConstraints
-    ? query(collection(db, collectionName), ...queryConstraints)
-    : collection(db, collectionName);
-
-  const unsubscribe = onSnapshot(ref, (snapshot: any) => {
-    const items = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() } as T));
-    onUpdate(items);
-  });
-
-  return unsubscribe;
+export async function getRadioScheduleProfiles(): Promise<RadioScheduleProfile[]> {
+  return getRadioSchedules();
 }
