@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import type { Gender } from '../../types';
-import { Info, CheckCircle, AlertCircle } from 'lucide-react';
+import { Info, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
 
 import { parseMalaysianNric, normalizeNric, formatNric, JPN_STATE_CODES } from '../../utils/malaysianNric';
 
@@ -334,7 +334,10 @@ export default function PatientRegistration() {
                 <option value="1867, Jln Kampung, Pekan Batang Berjuntai, 45600 Batang Berjuntai, Selangor" />
                 <option value="Jln Rizab Masjid, Kampung Bukit Cherakah, 45800 Jeram, Selangor" />
               </datalist>
-              <p className="text-[10px] text-surface-400 mt-1">⚡ Predictive Address: Select or enter a valid street address for accurate AI Scheduler geocoding.</p>
+              <p className="text-[10px] text-surface-400 mt-1 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-purple-600 inline shrink-0" />
+                <span>Predictive Address: Select or enter a valid street address for accurate AI Scheduler geocoding.</span>
+              </p>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-surface-700 mb-1">Emergency Contact <span className="text-surface-400 font-normal">(optional)</span></label>

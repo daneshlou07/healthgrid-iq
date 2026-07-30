@@ -284,7 +284,7 @@ export default function Reporting() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              ⚠️ Escalate to Specialist Radiologist
+              Escalate to Specialist Radiologist
             </h3>
             <p className="text-xs text-slate-500">
               This will route the case to the Specialist Radiologist queue for complex analysis.

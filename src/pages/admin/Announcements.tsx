@@ -139,7 +139,7 @@ export default function Announcements() {
       if (publish) {
         addNotification({
           userId: 'all',
-          title: `📢 ${form.title}`,
+          title: form.title,
           message: form.message,
           type: priorityToNotifType(form.priority),
         });

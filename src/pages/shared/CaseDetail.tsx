@@ -202,7 +202,8 @@ export default function CaseDetail() {
             className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-all border border-slate-700"
             title="Download full multi-page Clinical Dossier PDF Package"
           >
-            📄 Clinical Dossier PDF
+            <FileText className="w-3.5 h-3.5" />
+            Clinical Dossier PDF
           </button>
           <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
           <SeverityBadge severity={caseItem.severity} />

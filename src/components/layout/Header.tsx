@@ -153,7 +153,7 @@ export default function Header() {
             title="Click to view & acknowledge emergency critical findings"
           >
             <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
-            <span>🚨 {criticalCases.length} CRITICAL RED FLAG FINDING(S)!</span>
+            <span>{criticalCases.length} CRITICAL RED FLAG FINDING(S)!</span>
           </button>
         )}
 

@@ -323,7 +323,7 @@ export default function LoginPage() {
           <div className="pt-2">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">⚡ 1-Click Quick Access Testing Roles</span>
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">1-Click Quick Access Testing Roles</span>
               <div className="flex-1 h-px bg-slate-200" />
             </div>
 
@@ -354,7 +354,7 @@ export default function LoginPage() {
               <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-semibold">No password needed</span>
             </div>
 
-            <p className="text-[11px] text-slate-500 mb-2 font-medium">🩻 Healthcare Centre Radiographers (1 per clinic)</p>
+            <p className="text-[11px] text-slate-500 mb-2 font-medium">Healthcare Centre Radiographers (1 per clinic)</p>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mb-3">
               {[
                 { id: 'rad-001', name: 'Ahmad Razak',       clinic: 'Putrajaya' },

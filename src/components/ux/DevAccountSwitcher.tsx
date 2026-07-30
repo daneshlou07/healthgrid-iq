@@ -76,9 +76,11 @@ export default function DevAccountSwitcher() {
           )}
 
           <div className="max-h-[420px] overflow-y-auto">
-            {/* ── 3 Demo Radiographers ── */}
+            {/* ── Demo Radiographers ── */}
             <div className="p-3 border-b border-surface-100">
-              <p className="text-[9px] font-bold text-surface-400 uppercase tracking-widest mb-2">🩻 Demo Radiographers</p>
+              <p className="text-[9px] font-bold text-surface-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                <Radio className="w-3 h-3 text-navy-600" /> Radiographers
+              </p>
               <div className="space-y-1.5">
                 {DEMO_RADIOGRAPHERS.map((r) => {
                   const isCurrent = r.id === currentUser?.id;
@@ -99,7 +101,7 @@ export default function DevAccountSwitcher() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-navy-800 truncate">
-                          {r.name} {isCurrent && <span className="text-[9px] text-navy-400 font-normal ml-1">← you</span>}
+                          {r.name} {isCurrent && <span className="text-[9px] text-navy-600 font-medium ml-1">(Active)</span>}
                         </p>
                         <p className="text-[10px] text-surface-500">{r.clinic}</p>
                       </div>
@@ -120,7 +122,7 @@ export default function DevAccountSwitcher() {
                 onClick={() => setShowAll((s) => !s)}
                 className="w-full flex items-center justify-between text-[10px] text-surface-400 hover:text-navy-600 font-medium mb-2"
               >
-                <span>Other accounts (Admin · Dept · Radiologist)</span>
+                <span>Other accounts (Admin / Dept / Radiologist)</span>
                 {showAll ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
               {showAll && OTHER_ROLES.map((role) => {
@@ -128,7 +130,7 @@ export default function DevAccountSwitcher() {
                 if (!roleUsers.length) return null;
                 return (
                   <div key={role} className="mb-2">
-                    <p className="text-[9px] font-semibold text-surface-400 mb-1">{ROLE_EMOJI[role]} {role}</p>
+                    <p className="text-[9px] font-semibold text-surface-500 uppercase mb-1">{role}</p>
                     {roleUsers.map((u) => {
                       const isCurrent = u.id === currentUser?.id;
                       return (
@@ -142,7 +144,7 @@ export default function DevAccountSwitcher() {
                         >
                           <div className="min-w-0">
                             <p className="text-xs font-medium text-surface-800 truncate">
-                              {u.name} {isCurrent && <span className="text-[9px] text-navy-400">← you</span>}
+                              {u.name} {isCurrent && <span className="text-[9px] text-navy-600 font-medium ml-1">(Active)</span>}
                             </p>
                             <p className="text-[10px] text-surface-400 truncate">{u.email}</p>
                           </div>
