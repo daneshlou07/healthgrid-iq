@@ -395,9 +395,16 @@ export async function updateMobilePacsVan(id: string, updates: Partial<MobilePac
 // ==================== RADIOGRAPHER SCHEDULES ====================
 export async function getRadioSchedules(): Promise<RadioScheduleProfile[]> {
   if (useMock()) return [...mockRadioSchedules];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'radio_schedules'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as RadioScheduleProfile));
+  const db = getFirestoreDb();
+  if (!db) return [...mockRadioSchedules];
+  try {
+    const snapshot = await getDocs(collection(db, 'radio_schedules'));
+    if (snapshot.empty) return [...mockRadioSchedules];
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as RadioScheduleProfile));
+  } catch (err) {
+    console.warn('Firestore getRadioSchedules failed, falling back to mock:', err);
+    return [...mockRadioSchedules];
+  }
 }
 
 export async function getRadioSchedulesByClinic(clinicId: string): Promise<RadioScheduleProfile[]> {
