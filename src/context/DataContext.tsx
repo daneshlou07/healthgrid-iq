@@ -36,7 +36,6 @@ interface PersistedData {
 }
 
 function loadFromStorage(): PersistedData | null {
-  if (!USE_DEMO_STORAGE) return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -48,7 +47,6 @@ function loadFromStorage(): PersistedData | null {
 }
 
 function saveToStorage(data: Omit<PersistedData, 'lastUpdated'>) {
-  if (!USE_DEMO_STORAGE) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, lastUpdated: new Date().toISOString(), version: STORAGE_VERSION }));
   } catch { /* Storage full or unavailable — fail silently */ }
@@ -59,11 +57,9 @@ export type CaseComment = Comment;
 
 const COMMENTS_KEY = 'healthgrid_comments';
 function loadComments(): CaseComment[] {
-  if (!USE_DEMO_STORAGE) return [];
   try { const raw = localStorage.getItem(COMMENTS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
 }
 function saveComments(comments: CaseComment[]) {
-  if (!USE_DEMO_STORAGE) return;
   try { localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments)); } catch {}
 }
 
@@ -211,6 +207,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     unsubscribers.push(
       onSnapshot(
+        collection(db, 'patients'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
+            setPatients((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('Patients listener warning:', error)
+      )
+    );
+
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, 'patient_requests'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as PatientRequest));
+            setPatientRequests((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('PatientRequests listener warning:', error)
+      )
+    );
+
+    unsubscribers.push(
+      onSnapshot(
         query(collection(db, 'cases'), orderBy('createdAt', 'desc')),
         (snapshot) => {
           if (!snapshot.empty) {
@@ -323,7 +345,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Persist to localStorage whenever state changes (debounced)
   useEffect(() => {
-    if (!USE_DEMO_STORAGE || !initialized.current) return;
+    if (!initialized.current) return;
     const timer = setTimeout(() => {
       saveToStorage({ users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment });
       // Broadcast to other tabs
