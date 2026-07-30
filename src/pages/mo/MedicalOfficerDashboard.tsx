@@ -41,7 +41,7 @@ export default function MedicalOfficerDashboard() {
         <div>
           <h1 className="page-title">Medical Officer Clinical Dashboard</h1>
           <p className="page-subtitle">
-            Welcome back, Dr. {currentUser?.name || 'Medical Officer'} &middot; Manage case intake, first-line diagnostic reviews, and specialist escalations.
+            Welcome back, {currentUser?.name || 'Medical Officer'} &middot; Manage case intake, first-line diagnostic reviews, and specialist escalations.
           </p>
         </div>
         <div className="flex items-center gap-2">

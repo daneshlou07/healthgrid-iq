@@ -17,7 +17,7 @@ export default function MedicalOfficerOnboarding() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="page-title">Medical Officer Clinical Credentialing & Onboarding</h1>
-        <p className="page-subtitle">MMC verification, clinical ward privileges, and digital stamp status for Dr. {currentUser?.name}.</p>
+        <p className="page-subtitle">MMC verification, clinical ward privileges, and digital stamp status for {currentUser?.name}.</p>
       </div>
 
       {/* Main Profile Header */}
