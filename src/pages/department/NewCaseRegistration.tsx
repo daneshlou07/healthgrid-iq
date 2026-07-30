@@ -289,7 +289,7 @@ export default function NewCaseRegistration() {
       <div>
         <h1 className="page-title">Register Radiology Referral</h1>
         <p className="page-subtitle">
-          Complete the 4-step registration wizard to issue a digital radiology request (MOH Borang PER.SS-RA301).
+          Medical Officer clinical case intake &middot; Issue digital radiology request (MOH PER.SS-RA301).
         </p>
       </div>
 

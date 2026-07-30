@@ -67,10 +67,13 @@ const NotFound = safeLazy(() => import('./pages/shared/NotFound'));
 
 
 
+const MoOnboarding = safeLazy(() => import('./pages/mo/Onboarding'));
+
 function OnboardingRouter() {
   const { currentUser } = useAuth();
   if (currentUser?.role === 'Radiographer') return <RadiogrOnboarding />;
   if (currentUser?.role === 'Radiologist') return <RadiologistOnboarding />;
+  if (currentUser?.role === 'Medical Officer') return <MoOnboarding />;
   return <Navigate to="/dashboard" replace />;
 }
 
