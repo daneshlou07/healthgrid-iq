@@ -67,11 +67,21 @@ class ApiClient {
       return fetch(this.url(endpoint), { ...options, headers });
     };
 
-    let response = await attemptRequest(false);
+    let response: Response;
+    try {
+      response = await attemptRequest(false);
+    } catch (err: any) {
+      console.warn(`API request to ${endpoint} failed (backend unreachable):`, err);
+      throw new Error(`API Endpoint Unreachable (${endpoint})`);
+    }
 
     // On 401, force a token refresh and retry exactly once
     if (response.status === 401) {
-      response = await attemptRequest(true);
+      try {
+        response = await attemptRequest(true);
+      } catch (err: any) {
+        throw new Error('Session expired. Please log in again.');
+      }
     }
 
     if (!response.ok) {
