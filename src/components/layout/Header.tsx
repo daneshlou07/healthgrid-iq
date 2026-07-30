@@ -36,7 +36,29 @@ export default function Header() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  const criticalCases = cases.filter((c: Case) => c.isCriticalFinding);
+  const criticalCases = cases.filter((c: Case) => c.isCriticalFinding && c.status !== 'FINALIZED' && !c.criticalFindingAcknowledged);
+  const [showCriticalModal, setShowCriticalModal] = useState(false);
+  const { editCase, addAuditLog } = useData();
+
+  const handleAcknowledgeCritical = async (c: Case) => {
+    if (!currentUser) return;
+    await editCase(c.id, {
+      criticalFindingAcknowledged: true,
+      criticalFindingAcknowledgedAt: new Date().toISOString(),
+    });
+
+    await addAuditLog({
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      action: 'CRITICAL_FINDING_ACKNOWLEDGED',
+      target: `cases/${c.id}`,
+      details: `Acknowledged emergency critical finding for ${c.caseNumber}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    toast.success(`Acknowledged Critical Red Flag Alert for ${c.caseNumber}`);
+  };
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [editablePhone, setEditablePhone] = useState('');
   const [editableEmail, setEditableEmail] = useState('');
@@ -125,10 +147,14 @@ export default function Header() {
 
         {/* Emergency Critical Findings Banner */}
         {criticalCases.length > 0 && (
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-bold animate-pulse shadow-md">
+          <button
+            onClick={() => setShowCriticalModal(true)}
+            className="hidden lg:flex items-center gap-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold animate-pulse shadow-md transition-all cursor-pointer"
+            title="Click to view & acknowledge emergency critical findings"
+          >
             <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
             <span>🚨 {criticalCases.length} CRITICAL RED FLAG FINDING(S)!</span>
-          </div>
+          </button>
         )}
 
         <div className="ml-auto flex items-center gap-1">
@@ -302,6 +328,42 @@ export default function Header() {
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setShowPasswordModal(false)} className="btn-secondary">Cancel</button>
             <button onClick={handleChangePassword} disabled={!passwordForm.current || !passwordForm.newPass || !passwordForm.confirm} className="btn-primary disabled:opacity-50">Update Password</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Emergency Critical Findings Modal */}
+      <Modal isOpen={showCriticalModal} onClose={() => setShowCriticalModal(false)} title="🚨 Emergency Critical Red Flag Findings">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-600">
+            The following cases contain active emergency critical findings requiring urgent clinical attention:
+          </p>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {criticalCases.map((c) => (
+              <div key={c.id} className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-bold text-red-900">{c.caseNumber}</span>
+                  <span className="text-xs font-semibold text-slate-800">{c.patientName}</span>
+                </div>
+                <p className="text-xs text-red-700 font-medium">
+                  Note: {c.criticalFindingNote || 'Critical pathology flagged during diagnostic review.'}
+                </p>
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={() => handleAcknowledgeCritical(c)}
+                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors"
+                  >
+                    ✓ Acknowledge &amp; Clear Alert
+                  </button>
+                </div>
+              </div>
+            ))}
+            {criticalCases.length === 0 && (
+              <p className="text-center py-6 text-xs text-slate-400">All critical findings have been acknowledged!</p>
+            )}
+          </div>
+          <div className="flex justify-end pt-2">
+            <button onClick={() => setShowCriticalModal(false)} className="btn-secondary text-xs">Close</button>
           </div>
         </div>
       </Modal>

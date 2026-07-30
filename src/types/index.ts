@@ -240,6 +240,8 @@ export interface Case {
   /** Critical Finding Emergency Alert (Red Flag) */
   isCriticalFinding?: boolean;
   criticalFindingNote?: string;
+  criticalFindingAcknowledged?: boolean;
+  criticalFindingAcknowledgedAt?: string;
 
   /** @deprecated Read-only support for cases created before the symptom workflow. */
   disease?: string;
