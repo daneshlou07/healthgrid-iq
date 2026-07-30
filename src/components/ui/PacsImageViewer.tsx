@@ -332,12 +332,30 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96', caseI
           </div>
         )}
 
+        {/* AI CAD Bounding Box Canvas Overlay */}
+        {aiResult && !isAiScanning && (
+          <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+            {/* Target Bounding Box centered on ROI */}
+            <div className="relative w-48 h-36 border-2 border-dashed border-amber-400 bg-amber-500/10 rounded-lg animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+              <div className="absolute -top-6 left-0 bg-amber-500 text-slate-950 font-mono text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1">
+                <Brain className="w-3 h-3" />
+                <span>ROI CAD: {aiResult.detectedFeatures[0] || 'Suspected Anomaly'} ({aiResult.confidenceScore}%)</span>
+              </div>
+              {/* Corner reticles */}
+              <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-amber-300" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-amber-300" />
+              <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-amber-300" />
+              <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-amber-300" />
+            </div>
+          </div>
+        )}
+
         {/* AI Vision Feature Extraction Badge Overlay */}
         {aiResult && !isAiScanning && (
-          <div className="absolute top-2 right-2 max-w-xs bg-slate-950/90 border border-purple-500/40 p-2.5 rounded-xl text-[11px] font-mono space-y-1.5 backdrop-blur-md shadow-2xl z-10 text-slate-200">
+          <div className="absolute top-2 right-2 max-w-xs bg-slate-950/90 border border-purple-500/40 p-2.5 rounded-xl text-[11px] font-mono space-y-1.5 backdrop-blur-md shadow-2xl z-20 text-slate-200">
             <div className="flex items-center justify-between border-b border-purple-900/50 pb-1">
               <span className="text-purple-300 font-bold flex items-center gap-1">
-                <Brain className="w-3.5 h-3.5 text-purple-400" /> Vision AI Inspection
+                <Brain className="w-3.5 h-3.5 text-purple-400" /> CAD Inspection
               </span>
               <span className="text-[10px] bg-emerald-900/80 text-emerald-300 font-bold px-1.5 py-0.5 rounded">
                 {aiResult.confidenceScore}% Conf

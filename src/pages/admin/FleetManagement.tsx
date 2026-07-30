@@ -127,8 +127,16 @@ export default function FleetManagement() {
             <div className="space-y-1.5 text-xs text-surface-600">
               <p className="font-medium">Plate: {van.plateNumber}</p>
               <p className="flex items-start gap-1.5"><Wrench className="w-3 h-3 text-surface-400 mt-0.5 flex-shrink-0" />{van.equipment.join(', ')}</p>
-              <p className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-surface-400 flex-shrink-0" />{van.currentClinicName || 'Unassigned'}</p>
-              {van.assignedRadiographerName && <p className="text-surface-500">Operator: {van.assignedRadiographerName}</p>}
+              <p className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-surface-400 flex-shrink-0" />{van.currentClinicName || 'Unassigned Outreach'}</p>
+              {van.assignedRadiographerName && <p className="text-surface-500 font-medium">Operator: {van.assignedRadiographerName}</p>}
+              <div className="pt-1.5 flex items-center justify-between text-[10px]">
+                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-mono font-semibold border border-emerald-200">
+                  Calibration: OK (30 days)
+                </span>
+                <span className="text-navy-600 bg-navy-50 px-2 py-0.5 rounded font-mono font-semibold border border-navy-200">
+                  Selangor Outreach
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-1 mt-3 pt-3 border-t border-surface-200">
               <button onClick={() => openEdit(van)} className="p-1.5 text-surface-400 hover:text-navy-600 hover:bg-navy-50 rounded transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
