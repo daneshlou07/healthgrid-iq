@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardRouter from './pages/DashboardRouter';
 import PageLoader from './components/ux/PageLoader';
 import DevAccountSwitcher from './components/ux/DevAccountSwitcher';
+import { isDemoMode } from './services/firebase';
 
 // Helper for resilient lazy loading across new deployments
 function safeLazy<T extends React.ComponentType<any>>(importFn: () => Promise<{ default: T }>) {
@@ -219,7 +220,7 @@ export default function App() {
                 <ConfirmProvider>
                   <AppRoutes />
                   <KeyboardShortcutsOverlay />
-                  <DevAccountSwitcher />
+                  {isDemoMode() && <DevAccountSwitcher />}
                 </ConfirmProvider>
               </SearchPaletteProvider>
             </ToastProvider>

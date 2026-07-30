@@ -11,6 +11,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { getFirestoreDb, isFirebaseConfigured } from './firebase';
+import { apiClient } from './apiClient';
 import {
   mockUsers,
   mockClinics,
@@ -93,9 +94,7 @@ export async function createPatient(patient: Omit<Patient, 'id'>): Promise<Patie
     mockPatients.push(newPatient);
     return newPatient;
   }
-  const db = getFirestoreDb()!;
-  const docRef = await addDoc(collection(db, 'patients'), patient);
-  return { ...patient, id: docRef.id };
+  return apiClient.createPatient(patient);
 }
 
 export async function updatePatient(id: string, updates: Partial<Patient>): Promise<void> {
@@ -104,8 +103,7 @@ export async function updatePatient(id: string, updates: Partial<Patient>): Prom
     if (idx !== -1) Object.assign(mockPatients[idx], updates);
     return;
   }
-  const db = getFirestoreDb()!;
-  await updateDoc(doc(db, 'patients', id), updates as Record<string, unknown>);
+  await apiClient.updatePatient(id, updates);
 }
 
 // ==================== CASES ====================
@@ -162,9 +160,7 @@ export async function createCase(c: Omit<Case, 'id'>): Promise<Case> {
     mockCases.push(newCase);
     return newCase;
   }
-  const db = getFirestoreDb()!;
-  const docRef = await addDoc(collection(db, 'cases'), caseData);
-  return { ...caseData, id: docRef.id };
+  return apiClient.createCase(caseData);
 }
 
 export async function updateCase(id: string, updates: Partial<Case>): Promise<void> {
@@ -174,8 +170,7 @@ export async function updateCase(id: string, updates: Partial<Case>): Promise<vo
     if (idx !== -1) Object.assign(mockCases[idx], updates);
     return;
   }
-  const db = getFirestoreDb()!;
-  await updateDoc(doc(db, 'cases', id), updates as Record<string, unknown>);
+  await apiClient.updateCase(id, updates);
 }
 
 /**
@@ -223,9 +218,7 @@ export async function createReport(report: Omit<Report, 'id'>): Promise<Report> 
     mockReports.push(newReport);
     return newReport;
   }
-  const db = getFirestoreDb()!;
-  const docRef = await addDoc(collection(db, 'reports'), report);
-  return { ...report, id: docRef.id };
+  return apiClient.createReport(report);
 }
 
 export async function updateReport(id: string, updates: Partial<Report>): Promise<void> {
@@ -235,8 +228,7 @@ export async function updateReport(id: string, updates: Partial<Report>): Promis
     if (idx !== -1) Object.assign(mockReports[idx], updates);
     return;
   }
-  const db = getFirestoreDb()!;
-  await updateDoc(doc(db, 'reports', id), updates as Record<string, unknown>);
+  await apiClient.updateReport(id, updates);
 }
 
 // ==================== PATIENT REQUESTS ====================
@@ -254,9 +246,7 @@ export async function createPatientRequest(req: Omit<PatientRequest, 'id'>): Pro
     mockPatientRequests.push(newReq);
     return newReq;
   }
-  const db = getFirestoreDb()!;
-  const docRef = await addDoc(collection(db, 'patient_requests'), req);
-  return { ...req, id: docRef.id };
+  return apiClient.createPatientRequest(req);
 }
 
 export async function updatePatientRequest(id: string, updates: Partial<PatientRequest>): Promise<void> {
@@ -265,8 +255,7 @@ export async function updatePatientRequest(id: string, updates: Partial<PatientR
     if (idx !== -1) Object.assign(mockPatientRequests[idx], updates);
     return;
   }
-  const db = getFirestoreDb()!;
-  await updateDoc(doc(db, 'patient_requests', id), updates as Record<string, unknown>);
+  await apiClient.updatePatientRequest(id, updates);
 }
 
 // ==================== AUDIT LOGS ====================
@@ -284,8 +273,7 @@ export async function createAuditLog(log: Omit<AuditLog, 'id'>): Promise<void> {
     mockAuditLogs.push({ ...log, id });
     return;
   }
-  const db = getFirestoreDb()!;
-  await addDoc(collection(db, 'audit_logs'), log);
+  await apiClient.createAuditLog(log as Omit<AuditLog, 'id' | 'timestamp'>);
 }
 
 // ==================== MOBILE PACS VANS ====================
@@ -302,8 +290,7 @@ export async function updateMobilePacsVan(id: string, updates: Partial<MobilePac
     if (idx !== -1) Object.assign(mockMobilePacsVans[idx], updates);
     return;
   }
-  const db = getFirestoreDb()!;
-  await updateDoc(doc(db, 'mobile_pacs_vans', id), updates as Record<string, unknown>);
+  await apiClient.updateVan(id, updates);
 }
 
 // ==================== RADIO SCHEDULE PROFILES ====================
@@ -341,9 +328,7 @@ export async function createRadioScheduleProfile(
     mockRadioSchedules.push(profile);
     return profile;
   }
-  const db = getFirestoreDb()!;
-  await addDoc(collection(db, 'radio_schedules'), profile);
-  return profile;
+  return apiClient.createSchedule(profile);
 }
 
 export async function updateRadioScheduleProfile(
@@ -355,8 +340,7 @@ export async function updateRadioScheduleProfile(
     if (idx !== -1) Object.assign(mockRadioSchedules[idx], updates);
     return;
   }
-  const db = getFirestoreDb()!;
-  await updateDoc(doc(db, 'radio_schedules', userId), updates as Record<string, unknown>);
+  await apiClient.updateSchedule(userId, updates);
 }
 
 // ==================== IAS SCHEDULING JOBS ====================

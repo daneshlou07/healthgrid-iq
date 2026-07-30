@@ -333,7 +333,7 @@ class ApiClient {
 
   async addComment(
     caseId: string,
-    comment: Omit<Comment, 'id' | 'timestamp'>
+    comment: Pick<Comment, 'message'>
   ): Promise<Comment> {
     return this.request(`/v1/cases/${caseId}/comments`, {
       method: 'POST',
@@ -346,7 +346,7 @@ class ApiClient {
   // =========================================================================
 
   async getNotifications(userId: string): Promise<{ notifications: Notification[]; count: number }> {
-    return this.request(`/v1/notifications?userId=${encodeURIComponent(userId)}`);
+    return this.request(`/v1/notifications/${encodeURIComponent(userId)}`);
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
@@ -354,9 +354,8 @@ class ApiClient {
   }
 
   async markAllNotificationsRead(userId: string): Promise<void> {
-    return this.request('/v1/notifications/mark-all-read', {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
+    return this.request(`/v1/notifications/${encodeURIComponent(userId)}/read-all`, {
+      method: 'PATCH',
     });
   }
 

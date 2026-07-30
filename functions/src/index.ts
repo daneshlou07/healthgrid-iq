@@ -63,6 +63,16 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+const ALL_STAFF_ROLES = [
+  'Radiographer',
+  'Radiologist',
+  'Medical Officer',
+  'Radiology Department',
+  'Administrator',
+] as const;
+
+const CASE_MANAGEMENT_ROLES = ['Radiology Department', 'Medical Officer', 'Administrator'] as const;
+
 // ---------------------------------------------------------------------------
 // Authentication middleware
 // ---------------------------------------------------------------------------
@@ -106,6 +116,31 @@ const requireRole = (...roles: string[]) => {
   };
 };
 
+/** Permit an account to read its own record, or an authorised role to read another. */
+const requireSelfOrRole = (...roles: string[]) => {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.user.uid === req.params.userId || roles.includes(String(req.user.role || ''))) {
+      return next();
+    }
+    return res.status(403).json({ error: 'Forbidden' });
+  };
+};
+
+/** Return the authenticated actor without trusting user data supplied by a client. */
+async function getActor(req: express.Request) {
+  const uid = req.user?.uid;
+  if (!uid) throw new Error('Authenticated user is required');
+
+  const profile = await db.collection('users').doc(uid).get();
+  const data = profile.data();
+  return {
+    id: uid,
+    role: String(req.user?.role || ''),
+    name: String(data?.name || req.user?.name || req.user?.email || uid),
+  };
+}
+
 /** API Key middleware — for external IAS webhook only. */
 const validateApiKey = (
   req: express.Request,
@@ -115,7 +150,12 @@ const validateApiKey = (
   const apiKey = req.headers['x-api-key'] as string;
   const validKey = functions.config().api?.key || process.env.API_KEY;
 
-  if (validKey && apiKey !== validKey) {
+  if (!validKey) {
+    console.error('IAS webhook rejected because API_KEY is not configured');
+    return res.status(503).json({ error: 'IAS webhook is not configured' });
+  }
+
+  if (!apiKey || apiKey !== validKey) {
     return res.status(401).json({ error: 'Unauthorized: Invalid API key' });
   }
   next();
@@ -151,12 +191,23 @@ app.get('/v1/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// Apply Firebase token auth to all /v1/api/* routes except the IAS webhook
-// (The webhook uses an X-API-Key instead and is defined separately below)
+// The public client calls /api/v1/*, where /api is the Firebase function
+// prefix. Preserve the existing internal routes while normalising those
+// requests to /v1/api/* before Express dispatches them. The IAS integration
+// retains its dedicated API-key authentication.
+app.use('/v1', (req, _res, next) => {
+  if (req.path !== '/health' && req.path !== '/ias/webhook' && !req.path.startsWith('/api/')) {
+    req.url = `/api${req.url}`;
+  }
+  next();
+});
+
+// Apply Firebase token auth to all application endpoints. The IAS webhook
+// above is explicitly excluded and has its own fail-closed key check.
 app.use('/v1/api', verifyFirebaseToken);
 
 // ==================== USERS API ====================
-app.get('/v1/api/users', async (req, res) => {
+app.get('/v1/api/users', requireRole('Administrator'), async (req, res) => {
   try {
     const role = req.query.role as string | undefined;
     let query: admin.firestore.Query = db.collection('users');
@@ -174,7 +225,7 @@ app.get('/v1/api/users', async (req, res) => {
   }
 });
 
-app.get('/v1/api/users/:userId', async (req, res) => {
+app.get('/v1/api/users/:userId', requireSelfOrRole('Administrator'), async (req, res) => {
   try {
     const docSnap = await db.collection('users').doc(req.params.userId).get();
     if (!docSnap.exists) {
@@ -187,7 +238,7 @@ app.get('/v1/api/users/:userId', async (req, res) => {
 });
 
 // ==================== CLINICS API ====================
-app.get('/v1/api/clinics', async (req, res) => {
+app.get('/v1/api/clinics', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const status = req.query.status as string | undefined;
     let query: admin.firestore.Query = db.collection('clinics');
@@ -205,7 +256,7 @@ app.get('/v1/api/clinics', async (req, res) => {
   }
 });
 
-app.get('/v1/api/clinics/:clinicId', async (req, res) => {
+app.get('/v1/api/clinics/:clinicId', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const docSnap = await db.collection('clinics').doc(req.params.clinicId).get();
     if (!docSnap.exists) {
@@ -218,7 +269,7 @@ app.get('/v1/api/clinics/:clinicId', async (req, res) => {
 });
 
 // ==================== PATIENTS API ====================
-app.get('/v1/api/patients', async (req, res) => {
+app.get('/v1/api/patients', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const { clinicId, after, limit } = req.query;
     let query: admin.firestore.Query = db.collection('patients').orderBy('name');
@@ -262,7 +313,7 @@ const patientSchema = z.object({
   clinicName: z.string().optional(),
 });
 
-app.post('/v1/api/patients', async (req, res) => {
+app.post('/v1/api/patients', requireRole(...CASE_MANAGEMENT_ROLES), async (req, res) => {
   try {
     const data = patientSchema.parse(req.body);
     const docRef = await db.collection('patients').add({
@@ -276,6 +327,29 @@ app.post('/v1/api/patients', async (req, res) => {
       return res.status(400).json({ error: 'Validation failed', details: error.errors });
     }
     res.status(500).json({ error: 'Failed to create patient', message: (error as Error).message });
+  }
+});
+
+const patientUpdateSchema = patientSchema.partial();
+
+app.patch('/v1/api/patients/:patientId', requireRole(...CASE_MANAGEMENT_ROLES), async (req, res) => {
+  try {
+    const updates = patientUpdateSchema.parse(req.body);
+    const patientRef = db.collection('patients').doc(req.params.patientId);
+    const patient = await patientRef.get();
+    if (!patient.exists) return res.status(404).json({ error: 'Patient not found' });
+
+    await patientRef.update({
+      ...updates,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    const updated = await patientRef.get();
+    return res.json({ id: updated.id, ...updated.data() });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+    }
+    return res.status(500).json({ error: 'Failed to update patient', message: (error as Error).message });
   }
 });
 
@@ -323,7 +397,7 @@ const caseUpdateSchema = z.object({
   clinicName: z.string().optional(),
 });
 
-app.get('/v1/api/cases', async (req, res) => {
+app.get('/v1/api/cases', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const { status, registeredById, radiographerId, severity, after, limit } = req.query;
     let query: admin.firestore.Query = db.collection('cases').orderBy('createdAt', 'desc');
@@ -352,7 +426,7 @@ app.get('/v1/api/cases', async (req, res) => {
   }
 });
 
-app.get('/v1/api/cases/:caseId', async (req, res) => {
+app.get('/v1/api/cases/:caseId', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const docSnap = await db.collection('cases').doc(req.params.caseId).get();
     if (!docSnap.exists) {
@@ -364,9 +438,15 @@ app.get('/v1/api/cases/:caseId', async (req, res) => {
   }
 });
 
-app.post('/v1/api/cases', async (req, res) => {
+app.post('/v1/api/cases', requireRole(...CASE_MANAGEMENT_ROLES), async (req, res) => {
   try {
-    const data = caseSchema.parse(req.body);
+    const requested = caseSchema.parse(req.body);
+    const actor = await getActor(req);
+    const data = {
+      ...requested,
+      registeredById: actor.id,
+      registeredByName: actor.name,
+    };
     const docRef = await db.collection('cases').add({
       ...data,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -376,7 +456,7 @@ app.post('/v1/api/cases', async (req, res) => {
     await db.collection('audit_logs').add({
       userId: data.registeredById,
       userName: data.registeredByName,
-      userRole: 'Radiology Department',
+      userRole: actor.role,
       action: 'CASE_CREATED',
       target: `cases/${docRef.id}`,
       details: `Created case ${data.caseNumber} for patient ${data.patientName}`,
@@ -392,7 +472,7 @@ app.post('/v1/api/cases', async (req, res) => {
   }
 });
 
-app.patch('/v1/api/cases/:caseId', async (req, res) => {
+app.patch('/v1/api/cases/:caseId', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     // Validate the update body against the allowed fields
     const updates = caseUpdateSchema.parse(req.body);
@@ -402,6 +482,42 @@ app.patch('/v1/api/cases/:caseId', async (req, res) => {
 
     if (!docSnap.exists) {
       return res.status(404).json({ error: 'Case not found' });
+    }
+
+    const actor = await getActor(req);
+    const currentCase = docSnap.data()!;
+    const changedFields = Object.keys(updates);
+
+    if (actor.role === 'Radiographer') {
+      if (currentCase.radiographerId !== actor.id) {
+        return res.status(403).json({ error: 'Forbidden: case is not assigned to this radiographer' });
+      }
+      const allowed = new Set(['status', 'scannedAt', 'images']);
+      if (changedFields.some((field) => !allowed.has(field))) {
+        return res.status(403).json({ error: 'Forbidden: radiographers may only record scan completion and images' });
+      }
+      if (updates.status && updates.status !== 'SCANNED' && updates.status !== currentCase.status) {
+        return res.status(403).json({ error: 'Forbidden: radiographers may only transition a case to SCANNED' });
+      }
+    }
+
+    if (actor.role === 'Radiologist') {
+      if (currentCase.radiologistId !== actor.id) {
+        return res.status(403).json({ error: 'Forbidden: case is not assigned to this radiologist' });
+      }
+      const allowed = new Set(['status', 'reportedAt']);
+      if (changedFields.some((field) => !allowed.has(field))) {
+        return res.status(403).json({ error: 'Forbidden: radiologists may only record report completion' });
+      }
+      if (updates.status && updates.status !== 'REPORTED' && updates.status !== currentCase.status) {
+        return res.status(403).json({ error: 'Forbidden: radiologists may only transition a case to REPORTED' });
+      }
+    }
+
+    if (!CASE_MANAGEMENT_ROLES.includes(actor.role as typeof CASE_MANAGEMENT_ROLES[number])) {
+      if ('radiographerId' in updates || 'radiographerName' in updates || 'radiologistId' in updates || 'radiologistName' in updates) {
+        return res.status(403).json({ error: 'Forbidden: only case managers may change assignments' });
+      }
     }
 
     // Enforce status state machine
@@ -431,13 +547,10 @@ app.patch('/v1/api/cases/:caseId', async (req, res) => {
 
 // ==================== CASE COMMENTS ====================
 const commentSchema = z.object({
-  userId: z.string(),
-  userName: z.string(),
-  userRole: z.string(),
   message: z.string().min(1).max(5000),
 });
 
-app.get('/v1/api/cases/:caseId/comments', async (req, res) => {
+app.get('/v1/api/cases/:caseId/comments', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const snapshot = await db
       .collection('comments')
@@ -451,9 +564,16 @@ app.get('/v1/api/cases/:caseId/comments', async (req, res) => {
   }
 });
 
-app.post('/v1/api/cases/:caseId/comments', async (req, res) => {
+app.post('/v1/api/cases/:caseId/comments', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
-    const data = commentSchema.parse(req.body);
+    const requested = commentSchema.parse(req.body);
+    const actor = await getActor(req);
+    const data = {
+      ...requested,
+      userId: actor.id,
+      userName: actor.name,
+      userRole: actor.role,
+    };
     const docRef = await db.collection('comments').add({
       ...data,
       caseId: req.params.caseId,
@@ -491,7 +611,7 @@ const reportUpdateSchema = z.object({
   imageKeys: z.array(z.string()).optional(),
 });
 
-app.get('/v1/api/reports', async (req, res) => {
+app.get('/v1/api/reports', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const { caseId, radiologistId, status, after, limit } = req.query;
     let query: admin.firestore.Query = db.collection('reports').orderBy('createdAt', 'desc');
@@ -517,9 +637,15 @@ app.get('/v1/api/reports', async (req, res) => {
   }
 });
 
-app.post('/v1/api/reports', async (req, res) => {
+app.post('/v1/api/reports', requireRole('Radiologist', 'Administrator'), async (req, res) => {
   try {
-    const data = reportSchema.parse(req.body);
+    const requested = reportSchema.parse(req.body);
+    const actor = await getActor(req);
+    const data = {
+      ...requested,
+      radiologistId: actor.id,
+      radiologistName: actor.name,
+    };
     const docRef = await db.collection('reports').add({
       ...data,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -534,7 +660,7 @@ app.post('/v1/api/reports', async (req, res) => {
   }
 });
 
-app.patch('/v1/api/reports/:reportId', async (req, res) => {
+app.patch('/v1/api/reports/:reportId', requireRole('Radiologist', 'Administrator'), async (req, res) => {
   try {
     const updates = reportUpdateSchema.parse(req.body);
     const docRef = db.collection('reports').doc(req.params.reportId);
@@ -542,6 +668,10 @@ app.patch('/v1/api/reports/:reportId', async (req, res) => {
 
     if (!docSnap.exists) {
       return res.status(404).json({ error: 'Report not found' });
+    }
+
+    if (req.user?.role === 'Radiologist' && docSnap.data()?.radiologistId !== req.user.uid) {
+      return res.status(403).json({ error: 'Forbidden: report is not assigned to this radiologist' });
     }
 
     // Lock signed-off reports — only admins can modify them
@@ -578,7 +708,7 @@ const vanUpdateSchema = z.object({
   longitude: z.number().optional(),
 });
 
-app.get('/v1/api/fleet', async (req, res) => {
+app.get('/v1/api/fleet', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const snapshot = await db.collection('mobile_pacs_vans').get();
     const vans = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -588,7 +718,7 @@ app.get('/v1/api/fleet', async (req, res) => {
   }
 });
 
-app.patch('/v1/api/fleet/:vanId', async (req, res) => {
+app.patch('/v1/api/fleet/:vanId', requireRole('Radiology Department', 'Administrator'), async (req, res) => {
   try {
     const updates = vanUpdateSchema.parse(req.body);
     const docRef = db.collection('mobile_pacs_vans').doc(req.params.vanId);
@@ -653,7 +783,7 @@ const scheduleUpdateSchema = z.object({
   deployedClinicName: z.string().optional(),
 });
 
-app.get('/v1/api/schedules', async (req, res) => {
+app.get('/v1/api/schedules', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const { userId, clinicId, date } = req.query;
     let query: admin.firestore.Query = db.collection('radio_schedules');
@@ -682,7 +812,7 @@ app.get('/v1/api/schedules', async (req, res) => {
   }
 });
 
-app.post('/v1/api/schedules', async (req, res) => {
+app.post('/v1/api/schedules', requireRole('Radiology Department', 'Administrator'), async (req, res) => {
   try {
     const data = scheduleSchema.parse(req.body);
     const docRef = await db.collection('radio_schedules').add({
@@ -699,7 +829,7 @@ app.post('/v1/api/schedules', async (req, res) => {
   }
 });
 
-app.patch('/v1/api/schedules/:scheduleId', async (req, res) => {
+app.patch('/v1/api/schedules/:scheduleId', requireRole('Radiology Department', 'Administrator'), async (req, res) => {
   try {
     const updates = scheduleUpdateSchema.parse(req.body);
     const docRef = db.collection('radio_schedules').doc(req.params.scheduleId);
@@ -732,7 +862,7 @@ const patientRequestUpdateSchema = z.object({
   remarks: z.string().optional(),
 });
 
-app.get('/v1/api/patient-requests', async (req, res) => {
+app.get('/v1/api/patient-requests', requireRole('Radiology Department', 'Medical Officer', 'Administrator'), async (req, res) => {
   try {
     const { status } = req.query;
     let query: admin.firestore.Query = db
@@ -747,7 +877,7 @@ app.get('/v1/api/patient-requests', async (req, res) => {
   }
 });
 
-app.post('/v1/api/patient-requests', async (req, res) => {
+app.post('/v1/api/patient-requests', requireRole('Radiology Department', 'Medical Officer', 'Administrator'), async (req, res) => {
   try {
     const patientRequestSchema = z.object({
       patientId: z.string(),
@@ -763,7 +893,14 @@ app.post('/v1/api/patient-requests', async (req, res) => {
       status: z.enum(['Pending', 'Approved', 'Rejected']).default('Pending'),
       remarks: z.string().default(''),
     });
-    const data = patientRequestSchema.parse(req.body);
+    const requested = patientRequestSchema.parse(req.body);
+    const actor = await getActor(req);
+    const data = {
+      ...requested,
+      requestedBy: actor.name,
+      requestedById: actor.id,
+      requestedByRole: actor.role,
+    };
     const docRef = await db.collection('patient_requests').add({
       ...data,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -777,7 +914,7 @@ app.post('/v1/api/patient-requests', async (req, res) => {
   }
 });
 
-app.patch('/v1/api/patient-requests/:requestId', async (req, res) => {
+app.patch('/v1/api/patient-requests/:requestId', requireRole('Radiology Department', 'Administrator'), async (req, res) => {
   try {
     const updates = patientRequestUpdateSchema.parse(req.body);
     const docRef = db.collection('patient_requests').doc(req.params.requestId);
@@ -861,7 +998,7 @@ app.post('/v1/ias/webhook', validateApiKey, async (req, res) => {
 });
 
 // ==================== AUDIT LOGS API ====================
-app.get('/v1/api/audit-logs', async (req, res) => {
+app.get('/v1/api/audit-logs', requireRole('Administrator'), async (req, res) => {
   try {
     const { userId, action, after, limit } = req.query;
     let query: admin.firestore.Query = db
@@ -888,18 +1025,22 @@ app.get('/v1/api/audit-logs', async (req, res) => {
   }
 });
 
-app.post('/v1/api/audit-logs', async (req, res) => {
+app.post('/v1/api/audit-logs', requireRole(...ALL_STAFF_ROLES), async (req, res) => {
   try {
     const logSchema = z.object({
-      userId: z.string(),
-      userName: z.string(),
-      userRole: z.string(),
       action: z.string(),
       target: z.string(),
       details: z.string(),
     });
 
-    const data = logSchema.parse(req.body);
+    const requested = logSchema.parse(req.body);
+    const actor = await getActor(req);
+    const data = {
+      ...requested,
+      userId: actor.id,
+      userName: actor.name,
+      userRole: actor.role,
+    };
     const docRef = await db.collection('audit_logs').add({
       ...data,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -979,7 +1120,7 @@ app.patch('/v1/api/notifications/:userId/read-all', async (req, res) => {
 });
 
 // ==================== ANALYTICS API ====================
-app.get('/v1/api/analytics/dashboard', async (req, res) => {
+app.get('/v1/api/analytics/dashboard', requireRole('Administrator'), async (req, res) => {
   try {
     // Use Firestore aggregation queries (count only — no full document scans)
     const [

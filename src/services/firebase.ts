@@ -19,6 +19,15 @@ const firebaseConfig = {
 };
 
 /**
+ * Demo data and account switching are intentionally available only while
+ * developing locally. A production deployment without Firebase configuration
+ * must fail closed instead of silently granting a mock administrator session.
+ */
+export function isDemoMode(): boolean {
+  return import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE !== 'false';
+}
+
+/**
  * Returns true if real Firebase environment variables are provided.
  * When false, the app refuses to connect and shows a config-error banner.
  */

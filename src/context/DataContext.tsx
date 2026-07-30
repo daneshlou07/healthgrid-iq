@@ -8,7 +8,7 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
-import { getFirestoreDb, isFirebaseConfigured } from '../services/firebase';
+import { getFirestoreDb, isDemoMode, isFirebaseConfigured } from '../services/firebase';
 import { apiClient } from '../services/apiClient';
 import {
   getUsers, getCases, getPatients, getClinics, getReports,
@@ -21,6 +21,7 @@ const STORAGE_KEY = 'healthgrid_data';
 // Bump this version whenever seed data changes (e.g. new demo images).
 // Any cached data from a previous version will be discarded and reloaded from mock.
 const STORAGE_VERSION = '7'; // v7: Reset stale red flag alerts and clean up database cache
+const USE_DEMO_STORAGE = isDemoMode();
 
 interface PersistedData {
   users: User[];
@@ -35,6 +36,7 @@ interface PersistedData {
 }
 
 function loadFromStorage(): PersistedData | null {
+  if (!USE_DEMO_STORAGE) return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -46,6 +48,7 @@ function loadFromStorage(): PersistedData | null {
 }
 
 function saveToStorage(data: Omit<PersistedData, 'lastUpdated'>) {
+  if (!USE_DEMO_STORAGE) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, lastUpdated: new Date().toISOString(), version: STORAGE_VERSION }));
   } catch { /* Storage full or unavailable — fail silently */ }
@@ -56,17 +59,19 @@ export type CaseComment = Comment;
 
 const COMMENTS_KEY = 'healthgrid_comments';
 function loadComments(): CaseComment[] {
+  if (!USE_DEMO_STORAGE) return [];
   try { const raw = localStorage.getItem(COMMENTS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
 }
 function saveComments(comments: CaseComment[]) {
+  if (!USE_DEMO_STORAGE) return;
   try { localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments)); } catch {}
 }
 
 // --- Recently Viewed ---
 export interface RecentItem { id: string; type: 'case' | 'patient' | 'report'; title: string; subtitle?: string; path: string; viewedAt: string; }
 const RECENT_KEY = 'healthgrid_recent';
-function loadRecent(): RecentItem[] { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; } }
-function saveRecent(items: RecentItem[]) { try { localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, 10))); } catch {} }
+function loadRecent(): RecentItem[] { if (!USE_DEMO_STORAGE) return []; try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; } }
+function saveRecent(items: RecentItem[]) { if (!USE_DEMO_STORAGE) return; try { localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, 10))); } catch {} }
 
 // --- Recycle Bin (Soft Delete) ---
 export interface TrashItem {
@@ -77,8 +82,8 @@ export interface TrashItem {
   deletedBy: string;
 }
 const TRASH_KEY = 'healthgrid_trash';
-function loadTrash(): TrashItem[] { try { return JSON.parse(localStorage.getItem(TRASH_KEY) || '[]'); } catch { return []; } }
-function saveTrash(items: TrashItem[]) { try { localStorage.setItem(TRASH_KEY, JSON.stringify(items)); } catch {} }
+function loadTrash(): TrashItem[] { if (!USE_DEMO_STORAGE) return []; try { return JSON.parse(localStorage.getItem(TRASH_KEY) || '[]'); } catch { return []; } }
+function saveTrash(items: TrashItem[]) { if (!USE_DEMO_STORAGE) return; try { localStorage.setItem(TRASH_KEY, JSON.stringify(items)); } catch {} }
 
 // --- Context Interface ---
 interface DataContextValue {
@@ -104,7 +109,7 @@ interface DataContextValue {
   addPatientRequest: (r: Omit<PatientRequest, 'id'>) => Promise<PatientRequest>;
   editPatientRequest: (id: string, updates: Partial<PatientRequest>) => Promise<void>;
   addAuditLog: (log: Omit<AuditLog, 'id'>) => Promise<void>;
-  addComment: (comment: Omit<CaseComment, 'id' | 'timestamp'>) => void;
+  addComment: (comment: Omit<CaseComment, 'id' | 'timestamp'>) => Promise<void>;
   getCommentsForCase: (caseId: string) => CaseComment[];
   addRecentItem: (item: Omit<RecentItem, 'viewedAt'>) => void;
   softDelete: (type: TrashItem['type'], id: string, deletedBy: string) => void;
@@ -163,12 +168,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Fall back to mock data if empty
     if (!persisted) {
       try {
-        const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
+        const [u, c, p, cl, r, pr, eq] = await Promise.all([
           getUsers(), getCases(), getPatients(), getClinics(),
-          getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
+          getReports(), getPatientRequests(), getMobilePacsVans(),
         ]);
         initUsers = u; initCases = c; initPatients = p; initClinics = cl;
-        initReports = r; initRequests = pr; initLogs = al; initEquipment = eq;
+        initReports = r; initRequests = pr; initEquipment = eq;
+        // Audit logs are administrator-only and are loaded by the dedicated
+        // audit page. Avoid making all clinical data unavailable to non-admin
+        // users just because that protected query is denied.
+        if (USE_DEMO_STORAGE) initLogs = await getAuditLogs();
       } catch (e) {
         console.warn('Mock loading error:', e);
       }
@@ -182,26 +191,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setPatientRequests(initRequests);
     setAuditLogs(initLogs);
     setEquipment(initEquipment);
-
-    // If Firebase is configured, attempt background fetch from Firestore and merge
-    if (isFirebaseConfigured()) {
-      try {
-        const [u, c, p, cl, r, pr, al, eq] = await Promise.all([
-          getUsers(), getCases(), getPatients(), getClinics(),
-          getReports(), getPatientRequests(), getAuditLogs(), getMobilePacsVans(),
-        ]);
-        setUsers((prev) => mergeItems(prev, u));
-        setCases((prev) => mergeItems(prev, c));
-        setPatients((prev) => mergeItems(prev, p));
-        setClinics((prev) => mergeItems(prev, cl));
-        setReports((prev) => mergeItems(prev, r));
-        setPatientRequests((prev) => mergeItems(prev, pr));
-        setAuditLogs((prev) => mergeItems(prev, al));
-        setEquipment((prev) => mergeItems(prev, eq));
-      } catch (error) {
-        console.warn('Background Firestore fetch error (using local storage):', error);
-      }
-    }
 
     setComments(loadComments());
     setRecentItems(loadRecent());
@@ -334,7 +323,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Persist to localStorage whenever state changes (debounced)
   useEffect(() => {
-    if (!initialized.current) return;
+    if (!USE_DEMO_STORAGE || !initialized.current) return;
     const timer = setTimeout(() => {
       saveToStorage({ users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment });
       // Broadcast to other tabs
@@ -375,6 +364,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Mutations — tries apiClient first, falls back to direct Firestore/local
   // -------------------------------------------------------------------------
   const addCase = async (c: Omit<Case, 'id'>): Promise<Case> => {
+    if (!USE_DEMO_STORAGE) {
+      const created = await apiClient.createCase(c);
+      setCases((prev) => mergeItems(prev, [created]));
+      return created;
+    }
     const id = `case-${Date.now()}`;
     const newCase: Case = { ...c, id, createdAt: new Date().toISOString() };
     setCases((prev) => [...prev, newCase]);
@@ -392,6 +386,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const editCase = async (id: string, updates: Partial<Case>) => {
+    if (!USE_DEMO_STORAGE) {
+      const updated = await apiClient.updateCase(id, updates);
+      setCases((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      return;
+    }
     setCases((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
 
     try {
@@ -406,6 +405,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addPatient = async (p: Omit<Patient, 'id'>): Promise<Patient> => {
+    if (!USE_DEMO_STORAGE) {
+      const created = await apiClient.createPatient(p);
+      setPatients((prev) => mergeItems(prev, [created]));
+      return created;
+    }
     const id = `patient-${Date.now()}`;
     const newPatient: Patient = { ...p, id };
     setPatients((prev) => [...prev, newPatient]);
@@ -423,6 +427,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const editPatient = async (id: string, updates: Partial<Patient>) => {
+    if (!USE_DEMO_STORAGE) {
+      const updated = await apiClient.updatePatient(id, updates);
+      setPatients((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      return;
+    }
     setPatients((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
 
     try {
@@ -437,6 +446,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addReport = async (r: Omit<Report, 'id'>): Promise<Report> => {
+    if (!USE_DEMO_STORAGE) {
+      const created = await apiClient.createReport(r);
+      setReports((prev) => mergeItems(prev, [created]));
+      return created;
+    }
     const id = `report-${Date.now()}`;
     const newReport: Report = { ...r, id, createdAt: new Date().toISOString() };
     setReports((prev) => [...prev, newReport]);
@@ -454,6 +468,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const editReport = async (id: string, updates: Partial<Report>) => {
+    if (!USE_DEMO_STORAGE) {
+      const updated = await apiClient.updateReport(id, updates);
+      setReports((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      return;
+    }
     setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
 
     try {
@@ -468,6 +487,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addPatientRequest = async (r: Omit<PatientRequest, 'id'>): Promise<PatientRequest> => {
+    if (!USE_DEMO_STORAGE) {
+      const created = await apiClient.createPatientRequest(r);
+      setPatientRequests((prev) => mergeItems(prev, [created]));
+      return created;
+    }
     const id = `req-${Date.now()}`;
     const newReq: PatientRequest = { ...r, id, dateSubmitted: (r as any).dateSubmitted || new Date().toISOString() };
     setPatientRequests((prev) => [...prev, newReq]);
@@ -486,6 +510,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const editPatientRequest = async (id: string, updates: Partial<PatientRequest>) => {
+    if (!USE_DEMO_STORAGE) {
+      const updated = await apiClient.updatePatientRequest(id, updates);
+      setPatientRequests((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      return;
+    }
     setPatientRequests((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
 
     try {
@@ -501,6 +530,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addAuditLog = async (log: Omit<AuditLog, 'id'>) => {
+    if (!USE_DEMO_STORAGE) {
+      const created = await apiClient.createAuditLog(log as Omit<AuditLog, 'id' | 'timestamp'>);
+      setAuditLogs((prev) => mergeItems(prev, [created]));
+      return;
+    }
     const id = `audit-${Date.now()}`;
     const newLog: AuditLog = { ...log, id, timestamp: (log as any).timestamp || new Date().toISOString() };
     setAuditLogs((prev) => [newLog, ...prev]);
@@ -517,7 +551,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   // Comments
-  const addComment = (comment: Omit<CaseComment, 'id' | 'timestamp'>) => {
+  const addComment = async (comment: Omit<CaseComment, 'id' | 'timestamp'>) => {
+    if (!USE_DEMO_STORAGE) {
+      const created = await apiClient.addComment(comment.caseId, { message: comment.message });
+      setComments((prev) => mergeItems(prev, [created]));
+      return;
+    }
     const newComment: CaseComment = { ...comment, id: `comment-${Date.now()}`, timestamp: new Date().toISOString() };
     setComments((prev) => { const next = [...prev, newComment]; saveComments(next); return next; });
   };
@@ -535,6 +574,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const clearStorage = () => {
+    if (!USE_DEMO_STORAGE) return;
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(COMMENTS_KEY);
     localStorage.removeItem(RECENT_KEY);
@@ -544,6 +584,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Soft Delete — moves item to trash
   const softDelete = (type: TrashItem['type'], id: string, deletedBy: string) => {
+    if (!USE_DEMO_STORAGE) {
+      throw new Error('Local soft delete is available only in demo mode. Use the server-backed archive workflow.');
+    }
     let data: any = null;
     switch (type) {
       case 'user': data = users.find((u) => u.id === id); setUsers((prev) => prev.filter((u) => u.id !== id)); break;
@@ -561,6 +604,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Restore from trash
   const restoreFromTrash = (trashItemId: string) => {
+    if (!USE_DEMO_STORAGE) {
+      throw new Error('Local restore is available only in demo mode. Use the server-backed archive workflow.');
+    }
     const item = trash.find((t) => t.id === trashItemId);
     if (!item) return;
     switch (item.type) {
@@ -576,6 +622,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Permanent delete — removes from trash forever
   const permanentDelete = (trashItemId: string) => {
+    if (!USE_DEMO_STORAGE) {
+      throw new Error('Local deletion is available only in demo mode. Use the server-backed archive workflow.');
+    }
     setTrash((prev) => { const next = prev.filter((t) => t.id !== trashItemId); saveTrash(next); return next; });
   };
 

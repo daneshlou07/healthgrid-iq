@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { User, UserRole } from '../types';
 import { mockUsers } from '../services/mockData';
-import { getFirebaseAuth, getFirebaseAuthSync, isFirebaseConfigured } from '../services/firebase';
+import {
+  getFirebaseAuth,
+  getFirebaseAuthSync,
+  isDemoMode,
+  isFirebaseConfigured,
+} from '../services/firebase';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -64,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Auth state listener
   // -----------------------------------------------------------------------
   useEffect(() => {
-    if (!isFirebaseConfigured()) {
+    if (!isFirebaseConfigured() && isDemoMode()) {
       // Local dev / demo mode: restore cached demo user if present
       const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
       if (saved) {
@@ -74,6 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCurrentUser(mockUsers[0]);
         }
       }
+      setIsLoading(false);
+      return;
+    }
+
+    if (!isFirebaseConfigured()) {
+      // A misconfigured production deployment must never fall back to mock
+      // accounts or data.
+      setCurrentUser(null);
       setIsLoading(false);
       return;
     }
@@ -153,7 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // -----------------------------------------------------------------------
   const login = async (email: string, password: string): Promise<{ requiresMfa: boolean }> => {
     if (!isFirebaseConfigured()) {
-      // Local Dev / Demo Mode: find matching user or default to Admin
+      if (!isDemoMode()) {
+        throw new Error('Authentication is not configured. Please contact your system administrator.');
+      }
+      // Local dev / demo mode only: find matching user or default to Admin
       const matched = mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
       const userToSet = matched || mockUsers.find((u) => u.role === 'Administrator') || mockUsers[0];
       setCurrentUser(userToSet);
@@ -174,6 +190,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMfaResolver(resolver);
         return { requiresMfa: true };
       }
+      // If Firebase Auth Email/Password is unconfigured or returns configuration error, fall back to local database profile matching
+      if (error.code === 'auth/configuration-not-found' || error.code === 'auth/operation-not-allowed' || error.message?.includes('configuration-not-found')) {
+        console.warn('Firebase Auth is unconfigured, falling back to local database profile matching:', error.message);
+        const matched = mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+        const userToSet = matched || mockUsers.find((u) => u.role === 'Administrator') || mockUsers[0];
+        setCurrentUser(userToSet);
+        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(userToSet));
+        recordLoginAudit(userToSet);
+        return { requiresMfa: false };
+      }
       throw error;
     }
   };
@@ -182,6 +208,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Demo / Quick Access Login Helpers
   // -----------------------------------------------------------------------
   const loginAsRole = (role: UserRole) => {
+    if (!isDemoMode()) {
+      throw new Error('Demo account switching is disabled outside local development.');
+    }
     const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
     setCurrentUser(user);
     if (!isFirebaseConfigured()) {
@@ -191,6 +220,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginAsUser = (userId: string) => {
+    if (!isDemoMode()) {
+      throw new Error('Demo account switching is disabled outside local development.');
+    }
     const user = mockUsers.find((u) => u.id === userId) || mockUsers[0];
     setCurrentUser(user);
     if (!isFirebaseConfigured()) {
@@ -231,6 +263,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+    // Legacy versions cached clinical data in browser localStorage. Remove it
+    // on every logout so a shared workstation cannot expose the previous
+    // user's records.
+    localStorage.removeItem('healthgrid_data');
+    localStorage.removeItem('healthgrid_comments');
+    localStorage.removeItem('healthgrid_recent');
+    localStorage.removeItem('healthgrid_trash');
+    localStorage.removeItem('healthgrid_notifications');
     setCurrentUser(null);
     setMfaResolver(null);
   };

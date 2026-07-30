@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { mockUsers } from '../services/mockData';
+import { isDemoMode } from '../services/firebase';
 import type { UserRole } from '../types';
 import {
   Shield,
@@ -54,30 +55,13 @@ const roleCards: RoleCard[] = [
   },
 ];
 
-// Simulated password reset service
-const passwordResetService = {
-  validateEmail: (email: string): boolean => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  },
-  accountExists: (email: string): boolean => mockUsers.some((u) => u.email === email),
-  generateToken: (): string => Math.random().toString(36).substring(2, 10),
-  sendResetEmail: async (email: string, token: string): Promise<void> => {
-    await new Promise((r) => setTimeout(r, 800));
-    console.log(`[SIMULATED] Reset link sent to ${email} with token: ${token}`);
-  },
-  validateToken: (token: string): boolean => Boolean(token && token.length >= 6),
-  resetPassword: async (token: string, newPassword: string): Promise<void> => {
-    await new Promise((r) => setTimeout(r, 500));
-    console.log(`[SIMULATED] Password reset with token: ${token}`);
-  },
-};
-
-type ForgotStep = 'email' | 'sent' | 'reset' | 'success';
+type ForgotStep = 'email' | 'sent';
 
 export default function LoginPage() {
-  const { login, loginAsRole, loginAsUser } = useAuth();
-  const [email, setEmail] = useState('daneshlou05@gmail.com');
-  const [password, setPassword] = useState('password123');
+  const { login, loginAsRole, loginAsUser, sendPasswordReset } = useAuth();
+  const demoMode = isDemoMode();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
@@ -87,10 +71,6 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
-  const [resetToken, setResetToken] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showNewPass, setShowNewPass] = useState(false);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,28 +87,19 @@ export default function LoginPage() {
     setForgotError('');
 
     if (!forgotEmail.trim()) { setForgotError('Email address is required.'); return; }
-    if (!passwordResetService.validateEmail(forgotEmail)) { setForgotError('Please enter a valid email address.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) { setForgotError('Please enter a valid email address.'); return; }
 
     setForgotLoading(true);
-    const token = passwordResetService.generateToken();
-    setResetToken(token);
-    await passwordResetService.sendResetEmail(forgotEmail, token);
-    setForgotLoading(false);
-    setForgotStep('sent');
-  };
-
-  const handleResetSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setForgotError('');
-
-    if (newPassword.length < 8) { setForgotError('Password must be at least 8 characters long.'); return; }
-    if (newPassword !== confirmPassword) { setForgotError('Passwords do not match.'); return; }
-    if (!passwordResetService.validateToken(resetToken)) { setForgotError('Reset token is invalid or expired.'); return; }
-
-    setForgotLoading(true);
-    await passwordResetService.resetPassword(resetToken, newPassword);
-    setForgotLoading(false);
-    setForgotStep('success');
+    try {
+      await sendPasswordReset(forgotEmail.trim());
+      // Firebase intentionally does not disclose whether the email is
+      // registered, preventing account enumeration.
+      setForgotStep('sent');
+    } catch (err: unknown) {
+      setForgotError(err instanceof Error ? err.message : 'Unable to send the reset email.');
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   const openForgot = () => {
@@ -136,9 +107,6 @@ export default function LoginPage() {
     setForgotStep('email');
     setForgotEmail(email);
     setForgotError('');
-    setResetToken('');
-    setNewPassword('');
-    setConfirmPassword('');
   };
 
   const closeForgot = () => {
@@ -174,7 +142,7 @@ export default function LoginPage() {
           <div className="p-6">
             {forgotStep === 'email' && (
               <form onSubmit={handleForgotSubmit} className="space-y-4">
-                <p className="text-surface-500 text-sm mb-4">Enter your registered email address and we will generate a password recovery token.</p>
+                <p className="text-surface-500 text-sm mb-4">Enter your email address and we will send a secure password-reset link.</p>
                 {forgotError && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">{forgotError}</div>}
                 <div>
                   <label className="block text-xs font-medium text-surface-700 mb-1">Email Address</label>
@@ -186,7 +154,7 @@ export default function LoginPage() {
                 <div className="flex items-center gap-3 pt-2">
                   <button type="button" onClick={closeForgot} className="btn-outline flex-1 text-sm py-2">Cancel</button>
                   <button type="submit" disabled={forgotLoading} className="btn-primary flex-1 text-sm py-2 flex items-center justify-center gap-2">
-                    {forgotLoading ? 'Processing...' : 'Send Recovery Token'} <ArrowRight className="w-4 h-4" />
+                    {forgotLoading ? 'Processing...' : 'Send Reset Email'} <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </form>
@@ -196,51 +164,9 @@ export default function LoginPage() {
               <div className="space-y-4">
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl text-center space-y-2">
                   <CheckCircle2 className="w-8 h-8 text-purple-600 mx-auto" />
-                  <h3 className="text-sm font-semibold text-purple-900">Recovery Token Generated</h3>
-                  <p className="text-xs text-purple-700">Simulated email dispatched to <strong className="font-mono">{forgotEmail}</strong></p>
+                  <h3 className="text-sm font-semibold text-purple-900">Check your email</h3>
+                  <p className="text-xs text-purple-700">If an account exists for <strong className="font-mono">{forgotEmail}</strong>, a password-reset link has been sent.</p>
                 </div>
-                <div className="p-3 bg-surface-100 rounded-lg border border-surface-200 text-xs">
-                  <span className="font-semibold text-surface-700">Simulated Reset Token:</span>{' '}
-                  <span className="font-mono bg-white px-2 py-0.5 rounded border border-surface-300 text-purple-600 font-bold">{resetToken}</span>
-                </div>
-                <button onClick={() => setForgotStep('reset')} className="btn-primary w-full text-sm py-2 flex items-center justify-center gap-2">
-                  Proceed to Reset Password <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {forgotStep === 'reset' && (
-              <form onSubmit={handleResetSubmit} className="space-y-4">
-                {forgotError && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">{forgotError}</div>}
-                <div>
-                  <label className="block text-xs font-medium text-surface-700 mb-1">Reset Token</label>
-                  <input type="text" value={resetToken} onChange={(e) => setResetToken(e.target.value)} className="input-field text-sm font-mono" required />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-surface-700 mb-1">New Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-                    <input type={showNewPass ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-field pl-9 text-sm" placeholder="Min. 8 characters" required />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-surface-700 mb-1">Confirm New Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-                    <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="input-field pl-9 text-sm" placeholder="Re-enter new password" required />
-                  </div>
-                </div>
-                <button type="submit" disabled={forgotLoading} className="btn-primary w-full text-sm py-2 flex items-center justify-center gap-2">
-                  {forgotLoading ? 'Updating...' : 'Set New Password'} <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
-            )}
-
-            {forgotStep === 'success' && (
-              <div className="text-center space-y-4 py-2">
-                <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-                <h3 className="text-lg font-bold text-surface-900">Password Reset Complete</h3>
-                <p className="text-xs text-surface-500">Your password has been successfully updated. You can now sign in with your new password.</p>
                 <button onClick={closeForgot} className="btn-primary w-full py-2.5 flex items-center justify-center gap-2 text-sm">
                   Back to Sign In <ArrowRight className="w-4 h-4" />
                 </button>
@@ -393,32 +319,34 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Access Roles */}
-          <div className="pt-2">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Quick Access Roles</span>
-              <div className="flex-1 h-px bg-slate-200" />
-            </div>
+          {/* Demo-only account switching */}
+          {demoMode && (
+            <div className="pt-2">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Quick Access Roles</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {roleCards.map(({ role, label, sublabel, icon }) => (
-                <button 
-                  key={role} 
-                  onClick={() => loginAsRole(role)} 
-                  className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-50 transition-all text-center group"
-                >
-                  <div className="w-8 h-8 bg-slate-100 group-hover:bg-purple-50 rounded-lg flex items-center justify-center text-slate-700 group-hover:text-purple-600 transition-colors">
-                    {icon}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-800">{label}</p>
-                    <p className="text-[10px] text-slate-500 truncate max-w-[80px]">{sublabel}</p>
-                  </div>
-                </button>
-              ))}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {roleCards.map(({ role, label, sublabel, icon }) => (
+                  <button 
+                    key={role} 
+                    onClick={() => loginAsRole(role)} 
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-50 transition-all text-center group"
+                  >
+                    <div className="w-8 h-8 bg-slate-100 group-hover:bg-purple-50 rounded-lg flex items-center justify-center text-slate-700 group-hover:text-purple-600 transition-colors">
+                      {icon}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">{label}</p>
+                      <p className="text-[10px] text-slate-500 truncate max-w-[80px]">{sublabel}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Demo Test Accounts Grid */}
           <div className="pt-4 border-t border-slate-200">
@@ -503,4 +431,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
