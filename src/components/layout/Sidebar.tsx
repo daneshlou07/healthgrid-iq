@@ -34,6 +34,12 @@ function getNavGroups(role: UserRole, pendingRequests: number): NavGroup[] {
         { title: 'MAIN', items: [
           { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
           { label: 'Cases to Review', path: '/review-queue', icon: <Eye className="w-[18px] h-[18px]" /> },
+          { label: 'All Cases Queue', path: '/cases', icon: <FolderOpen className="w-[18px] h-[18px]" /> },
+        ]},
+        { title: 'CASE INTAKE & REGISTRATION', items: [
+          { label: 'Register Patient', path: '/patients/register', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
+          { label: 'Register New Case', path: '/cases/new', icon: <FileText className="w-[18px] h-[18px]" /> },
+          { label: 'Patient Requests', path: '/requests', icon: <CheckSquare className="w-[18px] h-[18px]" /> },
         ]},
         { title: 'PATIENTS & REPORTS', items: [
           { label: 'Patient Registry', path: '/patients', icon: <Users className="w-[18px] h-[18px]" /> },
@@ -58,8 +64,9 @@ function getNavGroups(role: UserRole, pendingRequests: number): NavGroup[] {
         ]},
       ];
     case 'Radiology Department':
+      // Archived: Access merged into Medical Officer role
       return [
-        { title: 'RADIOLOGY DEPARTMENT', items: [
+        { title: 'RADIOLOGY DEPARTMENT (ARCHIVED)', items: [
           { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
           { label: 'Patient Registry', path: '/patients', icon: <Users className="w-[18px] h-[18px]" /> },
           { label: 'Register Patient', path: '/patients/register', icon: <ClipboardList className="w-[18px] h-[18px]" /> },

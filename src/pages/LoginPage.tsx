@@ -29,22 +29,16 @@ interface RoleCard {
 
 const roleCards: RoleCard[] = [
   {
-    role: 'Radiology Department',
-    label: 'Dept. Staff',
-    sublabel: 'Patient Reg & Intake',
-    icon: <Building2 className="w-5 h-5" />,
+    role: 'Medical Officer',
+    label: 'Medical Officer',
+    sublabel: 'Case Intake, Clinical Review & Finalization',
+    icon: <UserCheck className="w-5 h-5" />,
   },
   {
     role: 'Radiographer',
     label: 'Radiographer',
-    sublabel: 'PACS Van & Scans',
+    sublabel: 'PACS Van & Mobile Scans',
     icon: <Radio className="w-5 h-5" />,
-  },
-  {
-    role: 'Medical Officer',
-    label: 'Medical Officer',
-    sublabel: 'MO Review & Direct Finalize',
-    icon: <UserCheck className="w-5 h-5" />,
   },
   {
     role: 'Radiologist',

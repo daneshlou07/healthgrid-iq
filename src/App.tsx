@@ -98,11 +98,11 @@ function AppRoutes() {
 
         {/* Radiology Department registration and case-management routes */}
         <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><PatientsList /></ProtectedRoute>} />
-        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientRegistration /></ProtectedRoute>} />
-        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Administrator']}><AllCases /></ProtectedRoute>} />
-        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department']}><NewCaseRegistration /></ProtectedRoute>} />
+        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><PatientRegistration /></ProtectedRoute>} />
+        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><AllCases /></ProtectedRoute>} />
+        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><NewCaseRegistration /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Radiologist']}><DepartmentReports /></ProtectedRoute>} />
-        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department']}><PatientRequests /></ProtectedRoute>} />
+        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><PatientRequests /></ProtectedRoute>} />
         <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
 
         {/* Radiographer routes */}
