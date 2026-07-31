@@ -224,11 +224,11 @@ export default function CaseDetail() {
 
         {(() => {
           const STAGES = [
-            { key: 'CREATED', label: '1. Case Created', date: caseItem.createdAt, actor: caseItem.createdByName || 'Intake Officer' },
+            { key: 'CREATED', label: '1. Case Created', date: caseItem.createdAt, actor: getCaseRegistrar(caseItem) },
             { key: 'SCHEDULED', label: '2. Scheduled', date: caseItem.scheduledAt || caseItem.officeTarikhAppointment, actor: caseItem.clinicName || 'Radiology Desk' },
             { key: 'SCANNED', label: '3. Scan Uploaded', date: caseItem.scannedAt, actor: caseItem.radiographerName || 'Radiographer' },
             { key: 'REPORTED', label: '4. Report Drafted', date: caseItem.reportedAt, actor: 'Medical Officer' },
-            { key: 'FINALIZED', label: '5. Signed Off', date: caseItem.finalizedAt, actor: report?.signedByName || 'Radiologist' },
+            { key: 'FINALIZED', label: '5. Signed Off', date: caseItem.finalizedAt, actor: report?.radiologistName || 'Radiologist' },
           ];
 
           const STAGE_ORDER = ['CREATED', 'SCHEDULED', 'SCANNED', 'REPORTED', 'FINALIZED'];
