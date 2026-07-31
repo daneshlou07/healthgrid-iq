@@ -1,108 +1,283 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import { Link } from 'react-router-dom';
-import { Clock, AlertTriangle } from 'lucide-react';
+import { Search, AlertTriangle, Clock, ArrowRight, Filter, X, CheckCircle2, RefreshCw } from 'lucide-react';
 import { getCaseIndication } from '../../utils/caseDisplay';
+
+function getInitials(name: string): string {
+  if (!name) return 'PT';
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getAvatarColor(name: string): string {
+  const colors = [
+    'bg-blue-100 text-blue-700 border-blue-200',
+    'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'bg-indigo-100 text-indigo-700 border-indigo-200',
+    'bg-teal-100 text-teal-700 border-teal-200',
+    'bg-purple-100 text-purple-700 border-purple-200',
+  ];
+  let charSum = 0;
+  for (let i = 0; i < name.length; i++) charSum += name.charCodeAt(i);
+  return colors[charSum % colors.length];
+}
+
+function getSlaInfo(createdAt: string, status: string): { isOverdue: boolean; label: string } {
+  const elapsedMs = new Date().getTime() - new Date(createdAt).getTime();
+  const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
+
+  if (status === 'CREATED' && elapsedHours >= 24) {
+    return { isOverdue: true, label: `⚠️ Overdue (${elapsedHours}h)` };
+  }
+  if (status === 'SCANNED' && elapsedHours >= 12) {
+    return { isOverdue: true, label: `⚠️ Report Delayed (${elapsedHours}h)` };
+  }
+  return { isOverdue: false, label: `${elapsedHours}h ago` };
+}
 
 export default function TrackStatus() {
   const { cases } = useData();
+  const [search, setSearch] = useState('');
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
+  const [selectedModality, setSelectedModality] = useState<string>('All');
 
-  const pending = cases.filter((c) => c.status === 'CREATED');
-  const scheduled = cases.filter((c) => c.status === 'SCHEDULED');
-  const scanned = cases.filter((c) => c.status === 'SCANNED');
-  const finalized = cases.filter((c) => c.status === 'FINALIZED');
+  const filteredCases = cases.filter((c) => {
+    const searchLower = search.toLowerCase().trim();
+    const searchMatch =
+      !searchLower ||
+      c.caseNumber.toLowerCase().includes(searchLower) ||
+      c.patientName.toLowerCase().includes(searchLower) ||
+      getCaseIndication(c).toLowerCase().includes(searchLower);
 
-  // Flag overdue pending cases (>24h)
-  const now = new Date();
-  const isOverdue = (createdAt: string) => (now.getTime() - new Date(createdAt).getTime()) > 24 * 60 * 60 * 1000;
+    const modalityMatch = selectedModality === 'All' || c.scanType === selectedModality;
 
-  return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="page-title">Track Case Status</h1>
-        <p className="page-subtitle">Monitor case pipeline across all stages. Flag delays and ensure SLA compliance.</p>
-      </div>
+    const slaInfo = getSlaInfo(c.createdAt, c.status);
+    const overdueMatch = !onlyOverdue || slaInfo.isOverdue;
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
-        {/* Pending Column */}
-        <KanbanColumn title="Pending Scheduling" count={pending.length} color="amber">
-          {pending.map((c) => (
-            <KanbanCard key={c.id} caseId={c.id} caseNumber={c.caseNumber} patient={c.patientName}
-              detail={`${c.scanType}${getCaseIndication(c) ? ' — ' + getCaseIndication(c) : ''}`}
-              severity={c.severity} date={c.createdAt} overdue={isOverdue(c.createdAt)} />
-          ))}
-        </KanbanColumn>
+    return searchMatch && modalityMatch && overdueMatch;
+  });
 
-        {/* Scheduled Column */}
-        <KanbanColumn title="Scheduled" count={scheduled.length} color="navy">
-          {scheduled.map((c) => (
-            <KanbanCard key={c.id} caseId={c.id} caseNumber={c.caseNumber} patient={c.patientName}
-              detail={`${c.scanType} — ${c.clinicName || ''}`}
-              severity={c.severity} date={c.scheduledAt || c.createdAt} />
-          ))}
-        </KanbanColumn>
+  const pending = filteredCases.filter((c) => c.status === 'CREATED');
+  const scheduled = filteredCases.filter((c) => c.status === 'SCHEDULED');
+  const scanned = filteredCases.filter((c) => c.status === 'SCANNED');
+  const finalized = filteredCases.filter((c) => c.status === 'FINALIZED');
 
-        {/* Imaging Done Column */}
-        <KanbanColumn title="Imaging Done" count={scanned.length} color="purple">
-          {scanned.map((c) => (
-            <KanbanCard key={c.id} caseId={c.id} caseNumber={c.caseNumber} patient={c.patientName}
-              detail={`${c.scanType} — ${c.clinicName || ''}`}
-              severity={c.severity} date={c.scannedAt || c.createdAt} />
-          ))}
-        </KanbanColumn>
-
-        {/* Report Ready Column */}
-        <KanbanColumn title="Report Finalized" count={finalized.length} color="emerald">
-          {finalized.map((c) => (
-            <KanbanCard key={c.id} caseId={c.id} caseNumber={c.caseNumber} patient={c.patientName}
-              detail={`${c.scanType} — ${c.clinicName || ''}`}
-              severity={c.severity} date={c.finalizedAt || c.createdAt} />
-          ))}
-        </KanbanColumn>
-      </div>
-    </div>
-  );
-}
-
-function KanbanColumn({ title, count, color, children }: { title: string; count: number; color: 'navy' | 'emerald' | 'purple' | 'amber'; children: React.ReactNode }) {
-  const headerColors = { navy: 'text-navy-700', emerald: 'text-emerald-700', purple: 'text-purple-700', amber: 'text-amber-700' };
-  const countColors = { navy: 'bg-navy-100 text-navy-700', emerald: 'bg-emerald-100 text-emerald-700', purple: 'bg-purple-100 text-purple-700', amber: 'bg-amber-100 text-amber-700' };
+  const overdueCount = cases.filter((c) => getSlaInfo(c.createdAt, c.status).isOverdue).length;
 
   return (
-    <div className="bg-surface-100 rounded-xl border border-surface-200 p-4 min-h-[300px]">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className={`text-xs font-semibold uppercase tracking-wider ${headerColors[color]}`}>{title}</h2>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${countColors[color]}`}>{count}</span>
-      </div>
-      <div className="space-y-2.5">
-        {children}
-      </div>
-      {count === 0 && <div className="text-center py-8 text-surface-400 text-[11px]">No cases</div>}
-    </div>
-  );
-}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-surface-200">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Track Case Pipeline</h1>
+            <span className="px-2 py-0.5 bg-navy-50 text-navy-700 border border-navy-200 font-mono text-[11px] font-bold rounded-md">
+              SLA TRACKER
+            </span>
+          </div>
+          <p className="text-xs text-surface-500 mt-1">
+            Monitor real-time clinical intake, scheduling, scanning, and report sign-off progress.
+          </p>
+        </div>
 
-function KanbanCard({ caseId, caseNumber, patient, detail, severity, date, overdue }: {
-  caseId: string; caseNumber: string; patient: string; detail: string;
-  severity?: 'Mild' | 'Moderate' | 'Severe' | 'Critical'; date: string; overdue?: boolean;
-}) {
-  return (
-    <Link to={`/case/${caseId}`} className={`block bg-white rounded-lg border p-3 shadow-card hover:shadow-card-hover transition-shadow ${overdue ? 'border-red-300 bg-red-50/30' : 'border-surface-300'}`}>
-      <div className="flex items-start justify-between mb-1">
-        <span className="text-xs font-mono font-semibold text-navy-600">{caseNumber}</span>
-        <SeverityBadge severity={severity} />
-      </div>
-      <p className="text-sm font-medium text-surface-800">{patient}</p>
-      <p className="text-xs text-surface-500 mt-0.5">{detail}</p>
-      <div className="flex items-center justify-between mt-1.5">
-        <p className="text-[10px] text-surface-400">{new Date(date).toLocaleDateString()}</p>
-        {overdue && (
-          <span className="flex items-center gap-0.5 text-[9px] text-red-600 font-medium">
-            <AlertTriangle className="w-2.5 h-2.5" /> Overdue
-          </span>
+        {overdueCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-semibold">
+            <AlertTriangle className="w-4 h-4 text-red-600 animate-pulse" />
+            <span>{overdueCount} case{overdueCount > 1 ? 's' : ''} breached SLA threshold</span>
+          </div>
         )}
       </div>
-    </Link>
+
+      {/* Control Bar (Search, Overdue Filter, Modality Dropdown) */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-surface-300 shadow-sm">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+          <input
+            type="text"
+            placeholder="Search pipeline by case #, patient, or symptom..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-surface-50 border border-surface-300 rounded-lg pl-9 pr-8 py-1.5 text-xs text-surface-800 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-500"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Overdue Toggle */}
+          <button
+            onClick={() => setOnlyOverdue(!onlyOverdue)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              onlyOverdue
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'bg-surface-100 text-surface-700 hover:bg-surface-200 border border-surface-300'
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>Overdue SLA Only</span>
+          </button>
+
+          {/* Modality Selector */}
+          <select
+            value={selectedModality}
+            onChange={(e) => setSelectedModality(e.target.value)}
+            className="bg-surface-100 border border-surface-300 rounded-lg px-3 py-1.5 text-xs font-medium text-surface-700 focus:outline-none focus:ring-2 focus:ring-navy-200"
+          >
+            <option value="All">All Modalities</option>
+            <option value="Chest X-Ray">Chest X-Ray</option>
+            <option value="Brain MRI">Brain MRI</option>
+            <option value="Abdominal CT">Abdominal CT</option>
+            <option value="Knee Ultrasound">Knee Ultrasound</option>
+            <option value="Lumbar Spine X-Ray">Lumbar Spine X-Ray</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Kanban Board */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
+        {/* 1. Pending Column */}
+        <KanbanColumn title="Pending Triage" count={pending.length} color="amber">
+          {pending.map((c) => (
+            <KanbanCard key={c.id} caseData={c} />
+          ))}
+        </KanbanColumn>
+
+        {/* 2. Scheduled Column */}
+        <KanbanColumn title="Scheduled" count={scheduled.length} color="navy">
+          {scheduled.map((c) => (
+            <KanbanCard key={c.id} caseData={c} />
+          ))}
+        </KanbanColumn>
+
+        {/* 3. Imaging Done Column */}
+        <KanbanColumn title="Imaging Uploaded" count={scanned.length} color="blue">
+          {scanned.map((c) => (
+            <KanbanCard key={c.id} caseData={c} />
+          ))}
+        </KanbanColumn>
+
+        {/* 4. Report Finalized Column */}
+        <KanbanColumn title="Report Finalized" count={finalized.length} color="emerald">
+          {finalized.map((c) => (
+            <KanbanCard key={c.id} caseData={c} />
+          ))}
+        </KanbanColumn>
+      </div>
+    </div>
+  );
+}
+
+function KanbanColumn({
+  title,
+  count,
+  color,
+  children,
+}: {
+  title: string;
+  count: number;
+  color: 'navy' | 'emerald' | 'blue' | 'amber';
+  children: React.ReactNode;
+}) {
+  const headerColors = {
+    navy: 'text-navy-800',
+    emerald: 'text-emerald-800',
+    blue: 'text-blue-800',
+    amber: 'text-amber-800',
+  };
+  const countColors = {
+    navy: 'bg-navy-100 text-navy-800',
+    emerald: 'bg-emerald-100 text-emerald-800',
+    blue: 'bg-blue-100 text-blue-800',
+    amber: 'bg-amber-100 text-amber-800',
+  };
+
+  return (
+    <div className="bg-surface-100/90 rounded-xl border border-surface-200 p-3.5 min-h-[420px] flex flex-col">
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h2 className={`text-xs font-bold uppercase tracking-wider ${headerColors[color]}`}>
+          {title}
+        </h2>
+        <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${countColors[color]}`}>
+          {count}
+        </span>
+      </div>
+
+      <div className="space-y-3 flex-1">{children}</div>
+
+      {count === 0 && (
+        <div className="text-center py-12 text-surface-400 text-xs my-auto">
+          No cases in this stage
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KanbanCard({ caseData }: { caseData: any }) {
+  const indication = getCaseIndication(caseData);
+  const sla = getSlaInfo(caseData.createdAt, caseData.status);
+  const avatarStyle = getAvatarColor(caseData.patientName);
+  const initials = getInitials(caseData.patientName);
+
+  return (
+    <div
+      className={`bg-white rounded-lg border p-3 shadow-card hover:shadow-card-hover transition-all duration-150 group ${
+        sla.isOverdue ? 'border-red-300 bg-red-50/20' : 'border-surface-200 hover:border-navy-300'
+      }`}
+    >
+      {/* Top row: Case # & Severity */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="font-mono text-[11px] font-bold text-navy-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+          {caseData.caseNumber}
+        </span>
+        <SeverityBadge severity={caseData.severity} />
+      </div>
+
+      {/* Patient Avatar & Name */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <div
+          className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-[9px] shrink-0 ${avatarStyle}`}
+        >
+          {initials}
+        </div>
+        <p className="text-xs font-semibold text-surface-900 group-hover:text-navy-700 truncate">
+          {caseData.patientName}
+        </p>
+      </div>
+
+      {/* Indication */}
+      <p className="text-[11px] text-surface-600 truncate mb-2" title={indication}>
+        {caseData.scanType} &bull; {indication || 'Unspecified'}
+      </p>
+
+      {/* Footer SLA & Quick Link */}
+      <div className="flex items-center justify-between pt-2 border-t border-surface-100 text-[10px]">
+        <span
+          className={`font-medium flex items-center gap-1 ${
+            sla.isOverdue ? 'text-red-700 font-bold' : 'text-surface-500'
+          }`}
+        >
+          <Clock className="w-3 h-3" />
+          <span>{sla.label}</span>
+        </span>
+
+        <Link
+          to={`/case/${caseData.id}`}
+          className="inline-flex items-center gap-0.5 text-navy-600 font-semibold hover:text-navy-800 hover:underline"
+        >
+          <span>View</span>
+          <ArrowRight className="w-3 h-3" />
+        </Link>
+      </div>
+    </div>
   );
 }

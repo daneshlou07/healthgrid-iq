@@ -211,6 +211,77 @@ export default function CaseDetail() {
         </div>
       </div>
 
+      {/* Clinical Audit Milestone Progress Bar */}
+      <div className="bg-white border border-surface-300 rounded-xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[11px] font-bold text-surface-500 uppercase tracking-wider">
+            Clinical Referral Timeline &amp; Milestone Tracker
+          </h3>
+          <span className="text-[10px] text-surface-400 font-mono">
+            ID: {caseItem.id.slice(0, 8)}
+          </span>
+        </div>
+
+        {(() => {
+          const STAGES = [
+            { key: 'CREATED', label: '1. Case Created', date: caseItem.createdAt, actor: caseItem.createdByName || 'Intake Officer' },
+            { key: 'SCHEDULED', label: '2. Scheduled', date: caseItem.scheduledAt || caseItem.officeTarikhAppointment, actor: caseItem.clinicName || 'Radiology Desk' },
+            { key: 'SCANNED', label: '3. Scan Uploaded', date: caseItem.scannedAt, actor: caseItem.radiographerName || 'Radiographer' },
+            { key: 'REPORTED', label: '4. Report Drafted', date: caseItem.reportedAt, actor: 'Medical Officer' },
+            { key: 'FINALIZED', label: '5. Signed Off', date: caseItem.finalizedAt, actor: report?.signedByName || 'Radiologist' },
+          ];
+
+          const STAGE_ORDER = ['CREATED', 'SCHEDULED', 'SCANNED', 'REPORTED', 'FINALIZED'];
+          let currentStageIdx = STAGE_ORDER.indexOf(caseItem.status);
+          if (currentStageIdx === -1) {
+            currentStageIdx = caseItem.status === 'NO_SHOW' || caseItem.status === 'CANCELLED' ? 0 : 0;
+          }
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-1">
+              {STAGES.map((s, idx) => {
+                const isPassed = idx <= currentStageIdx;
+                const isCurrent = idx === currentStageIdx;
+
+                return (
+                  <div
+                    key={s.key}
+                    className={`p-2.5 rounded-lg border text-xs transition-all ${
+                      isCurrent
+                        ? 'bg-navy-50/80 border-navy-300 shadow-sm ring-1 ring-navy-200'
+                        : isPassed
+                        ? 'bg-emerald-50/40 border-emerald-200 text-emerald-900'
+                        : 'bg-surface-50 border-surface-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold mb-1">
+                      {isPassed ? (
+                        <CheckCircle className={`w-3.5 h-3.5 ${isCurrent ? 'text-navy-600' : 'text-emerald-600'}`} />
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-full border border-surface-300 flex items-center justify-center text-[9px] text-surface-400">
+                          {idx + 1}
+                        </div>
+                      )}
+                      <span className={isCurrent ? 'text-navy-900' : isPassed ? 'text-emerald-900' : 'text-surface-500'}>
+                        {s.label}
+                      </span>
+                    </div>
+
+                    <div className="text-[10px] text-surface-500">
+                      {s.date ? new Date(s.date).toLocaleDateString() : 'Pending'}
+                    </div>
+
+                    <div className="text-[10px] text-surface-400 font-medium truncate mt-0.5" title={s.actor}>
+                      {s.date ? s.actor : '—'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Tab navigation */}
       <div className="flex gap-1 p-1 bg-surface-100 rounded-xl w-fit">
         <button
