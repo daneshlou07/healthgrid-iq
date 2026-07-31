@@ -173,12 +173,12 @@ export default function PatientRegistry() {
         )}
       </div>
 
-      {/* Table Card */}
-      <div className="bg-white border border-surface-300 rounded-xl shadow-card overflow-hidden">
+      {/* Table Card (Gmail Soft Style) */}
+      <div className="bg-white border border-surface-200/80 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface-100/70 border-b border-surface-200 text-[11px] font-semibold text-surface-500 uppercase tracking-wider">
+              <tr className="bg-surface-50/80 border-b border-surface-200/80 text-[11px] font-semibold text-surface-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Patient</th>
                 <th className="py-3 px-4">MRN</th>
                 <th className="py-3 px-4">NRIC</th>
@@ -189,21 +189,21 @@ export default function PatientRegistry() {
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-200 text-xs text-surface-700">
+            <tbody className="divide-y divide-surface-100 text-xs text-surface-700">
               {paginatedPatients.map((p) => {
                 const avatarStyle = getAvatarColor(p.name);
                 const initials = getInitials(p.name);
 
                 return (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={p.id} className="hover:bg-[#F2F6FC] transition-colors">
                     {/* Patient Name with Avatar */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-full border flex items-center justify-center font-bold text-[10px] shrink-0 ${avatarStyle}`}>
+                        <div className={`w-7 h-7 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${avatarStyle}`}>
                           {initials}
                         </div>
                         <div>
-                          <Link to={`/patient/${p.id}`} className="font-semibold text-surface-900 hover:text-navy-700 hover:underline block">
+                          <Link to={`/patient/${p.id}`} className="font-semibold text-surface-900 hover:text-navy-700 hover:underline block text-xs">
                             {p.name}
                           </Link>
                         </div>
@@ -211,33 +211,33 @@ export default function PatientRegistry() {
                     </td>
 
                     {/* MRN */}
-                    <td className="py-3.5 px-4">
-                      <span className="font-mono text-[11px] font-bold text-navy-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <Link to={`/patient/${p.id}`} className="font-semibold text-navy-700 hover:underline text-xs">
                         {p.mrn}
-                      </span>
+                      </Link>
                     </td>
 
                     {/* NRIC */}
-                    <td className="py-3.5 px-4 font-mono text-[11px] text-surface-600">{p.nric}</td>
+                    <td className="py-3.5 px-4 text-xs text-surface-600 whitespace-nowrap font-medium">{p.nric}</td>
 
                     {/* Gender */}
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-100 text-surface-700 border border-surface-200">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 text-surface-700">
                         {p.gender}
                       </span>
                     </td>
 
                     {/* DOB */}
-                    <td className="py-3.5 px-4 text-surface-600">{p.dob}</td>
+                    <td className="py-3.5 px-4 text-xs text-surface-600 whitespace-nowrap font-medium">{p.dob}</td>
 
                     {/* Contact */}
-                    <td className="py-3.5 px-4 text-surface-600">
+                    <td className="py-3.5 px-4 text-xs text-surface-600 whitespace-nowrap font-medium">
                       <div>{p.phone}</div>
-                      {p.email && <div className="text-[10px] text-surface-400 truncate">{p.email}</div>}
+                      {p.email && <div className="text-[11px] text-surface-400 truncate">{p.email}</div>}
                     </td>
 
                     {/* Address */}
-                    <td className="py-3.5 px-4 text-surface-600 max-w-[180px] truncate" title={p.address}>
+                    <td className="py-3.5 px-4 text-xs text-surface-600 max-w-[180px] truncate font-medium" title={p.address}>
                       {p.address}
                     </td>
 

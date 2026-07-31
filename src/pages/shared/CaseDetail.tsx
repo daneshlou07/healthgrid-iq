@@ -147,7 +147,7 @@ export default function CaseDetail() {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="page-title font-mono">{caseItem.caseNumber}</h1>
+              <h1 className="page-title font-bold text-navy-900">{caseItem.caseNumber}</h1>
               <button onClick={handleCopy} className="p-1 hover:bg-surface-100 rounded transition-colors" title="Copy case number">
                 {copied ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-surface-400" />}
               </button>

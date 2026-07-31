@@ -44,6 +44,12 @@
   }
 }
 
+@layer utilities {
+  .font-mono {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  }
+}
+
 @layer components {
 
   /* === BUTTONS === */

@@ -201,12 +201,12 @@ function KanbanColumn({
   };
 
   return (
-    <div className="bg-surface-100/90 rounded-xl border border-surface-200 p-3.5 min-h-[420px] flex flex-col">
-      <div className="flex items-center justify-between mb-3 px-1">
+    <div className="bg-surface-100/70 rounded-2xl border border-surface-200/80 p-4 min-h-[420px] flex flex-col">
+      <div className="flex items-center justify-between mb-3.5 px-1">
         <h2 className={`text-xs font-bold uppercase tracking-wider ${headerColors[color]}`}>
           {title}
         </h2>
-        <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${countColors[color]}`}>
+        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${countColors[color]}`}>
           {count}
         </span>
       </div>
@@ -214,7 +214,7 @@ function KanbanColumn({
       <div className="space-y-3 flex-1">{children}</div>
 
       {count === 0 && (
-        <div className="text-center py-12 text-surface-400 text-xs my-auto">
+        <div className="text-center py-12 text-surface-400 text-xs my-auto font-medium">
           No cases in this stage
         </div>
       )}
@@ -230,13 +230,13 @@ function KanbanCard({ caseData }: { caseData: any }) {
 
   return (
     <div
-      className={`bg-white rounded-lg border p-3 shadow-card hover:shadow-card-hover transition-all duration-150 group ${
-        sla.isOverdue ? 'border-red-300 bg-red-50/20' : 'border-surface-200 hover:border-navy-300'
+      className={`bg-white rounded-xl border p-3.5 shadow-xs hover:shadow-md transition-all duration-150 group ${
+        sla.isOverdue ? 'border-red-200 bg-red-50/30' : 'border-surface-200/80 hover:border-navy-300'
       }`}
     >
       {/* Top row: Case # & Severity */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="font-mono text-[11px] font-bold text-navy-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+        <span className="text-xs font-semibold text-navy-700">
           {caseData.caseNumber}
         </span>
         <SeverityBadge severity={caseData.severity} />
@@ -245,7 +245,7 @@ function KanbanCard({ caseData }: { caseData: any }) {
       {/* Patient Avatar & Name */}
       <div className="flex items-center gap-2 mb-1.5">
         <div
-          className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-[9px] shrink-0 ${avatarStyle}`}
+          className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${avatarStyle}`}
         >
           {initials}
         </div>
@@ -255,15 +255,15 @@ function KanbanCard({ caseData }: { caseData: any }) {
       </div>
 
       {/* Indication */}
-      <p className="text-[11px] text-surface-600 truncate mb-2" title={indication}>
+      <p className="text-[11px] text-surface-500 font-medium truncate mb-2.5" title={indication}>
         {caseData.scanType} &bull; {indication || 'Unspecified'}
       </p>
 
       {/* Footer SLA & Quick Link */}
-      <div className="flex items-center justify-between pt-2 border-t border-surface-100 text-[10px]">
+      <div className="flex items-center justify-between pt-2 border-t border-surface-100 text-xs">
         <span
-          className={`font-medium flex items-center gap-1 ${
-            sla.isOverdue ? 'text-red-700 font-bold' : 'text-surface-500'
+          className={`font-medium flex items-center gap-1 text-[11px] ${
+            sla.isOverdue ? 'text-red-700 font-semibold' : 'text-surface-500'
           }`}
         >
           <Clock className="w-3 h-3" />
@@ -272,7 +272,7 @@ function KanbanCard({ caseData }: { caseData: any }) {
 
         <Link
           to={`/case/${caseData.id}`}
-          className="inline-flex items-center gap-0.5 text-navy-600 font-semibold hover:text-navy-800 hover:underline"
+          className="inline-flex items-center gap-0.5 text-navy-600 font-semibold hover:text-navy-800 hover:underline text-xs"
         >
           <span>View</span>
           <ArrowRight className="w-3 h-3" />
