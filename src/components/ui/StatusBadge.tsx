@@ -17,6 +17,20 @@ function formatTime(isoString?: string): string {
   }
 }
 
+function formatStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    'CREATED': 'Pending',
+    'SCHEDULED': 'Scheduled',
+    'SCANNED': 'Scanned',
+    'REPORTED': 'Reported',
+    'FINALIZED': 'Finalized',
+    'NO_SHOW': 'No Show',
+    'CANCELLED': 'Cancelled',
+    'IN_PROGRESS': 'In Progress',
+  };
+  return map[status] || status;
+}
+
 export default function StatusBadge({ status, timestamp, showTimeInline = false }: Props) {
   const getClass = () => {
     switch (status) {
@@ -44,16 +58,17 @@ export default function StatusBadge({ status, timestamp, showTimeInline = false 
   };
 
   const formattedTime = formatTime(timestamp);
-  const fullTooltip = timestamp ? `Status: ${status} (${new Date(timestamp).toLocaleString()})` : `Status: ${status}`;
+  const displayLabel = formatStatusLabel(status);
+  const fullTooltip = timestamp ? `Status: ${displayLabel} (${new Date(timestamp).toLocaleString()})` : `Status: ${displayLabel}`;
 
   return (
     <span
       title={fullTooltip}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getClass()}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${getClass()}`}
     >
-      <span>{status}</span>
+      <span>{displayLabel}</span>
       {showTimeInline && formattedTime && (
-        <span className="text-[10px] opacity-75 font-mono">
+        <span className="text-[11px] opacity-75">
           &bull; {formattedTime}
         </span>
       )}

@@ -214,31 +214,31 @@ export default function AllCases() {
                     </td>
 
                     {/* Case # */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <Link
                         to={`/case/${c.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-navy-800 bg-surface-100 hover:bg-navy-100/70 hover:text-navy-900 px-2.5 py-1 rounded-md transition-colors"
+                        className="font-semibold text-navy-700 hover:text-navy-900 text-xs hover:underline whitespace-nowrap"
                       >
                         {c.caseNumber}
                       </Link>
                     </td>
 
                     {/* Patient info */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
                         <div
-                          className={`w-7 h-7 rounded-full border flex items-center justify-center font-bold text-[10px] shrink-0 ${avatarStyle}`}
+                          className={`w-7 h-7 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${avatarStyle}`}
                         >
                           {initials}
                         </div>
                         <div className="min-w-0">
                           <Link
                             to={`/patient/${c.patientId}`}
-                            className="font-semibold text-surface-900 hover:text-navy-700 hover:underline block truncate"
+                            className="font-semibold text-surface-900 hover:text-navy-700 hover:underline block truncate text-xs"
                           >
                             {c.patientName}
                           </Link>
-                          <span className="text-[10px] text-surface-400 block font-medium">
+                          <span className="text-[11px] text-surface-400 block font-medium">
                             MRN: {c.patientId ? c.patientId.slice(0, 8) : 'N/A'}
                           </span>
                         </div>
@@ -247,48 +247,51 @@ export default function AllCases() {
 
                     {/* Indication / Symptom */}
                     <td className="py-3.5 px-4 max-w-[200px]">
-                      <div className="truncate text-surface-700 font-medium" title={indication}>
+                      <div className="truncate text-surface-700 font-medium text-xs" title={indication}>
                         {indication || '—'}
                       </div>
                       {c.bodyRegion && (
-                        <span className="text-[10px] text-surface-400 block mt-0.5">
+                        <span className="text-[11px] text-surface-400 block mt-0.5 truncate">
                           Region: {c.bodyRegion}
                         </span>
                       )}
                     </td>
 
                     {/* Modality */}
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-surface-100 text-surface-700 border border-surface-200 text-[11px] font-medium">
+                    <td className="py-3.5 px-4 whitespace-nowrap max-w-[180px]">
+                      <span
+                        className="inline-block max-w-[160px] truncate align-middle px-2.5 py-0.5 rounded bg-surface-100 text-surface-700 text-xs font-medium"
+                        title={c.scanType}
+                      >
                         {c.scanType}
                       </span>
                     </td>
 
                     {/* Assigned To */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       {c.radiographerName ? (
                         <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[9px] flex items-center justify-center">
+                          <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center justify-center">
                             {getInitials(c.radiographerName)}
                           </div>
-                          <span className="text-surface-700 font-medium text-[11px]">
+                          <span className="text-surface-700 font-medium text-xs">
                             {c.radiographerName}
                           </span>
                         </div>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
                           Unassigned
                         </span>
                       )}
                     </td>
 
                     {/* Severity */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <SeverityBadge severity={c.severity} />
                     </td>
 
                     {/* Status */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <StatusBadge
                         status={c.status}
                         timestamp={c.finalizedAt || c.scannedAt || c.scheduledAt || c.createdAt}
@@ -296,20 +299,20 @@ export default function AllCases() {
                     </td>
 
                     {/* Date & Time */}
-                    <td className="py-3.5 px-4 text-surface-500 text-[11px] whitespace-nowrap">
-                      <div className="font-medium text-surface-800">
+                    <td className="py-3.5 px-4 text-surface-500 text-xs whitespace-nowrap">
+                      <div className="font-medium text-surface-800 text-xs">
                         {new Date(c.createdAt).toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' })}
                       </div>
-                      <div className="text-[10px] text-surface-400 font-medium">
+                      <div className="text-[11px] text-surface-400 font-medium">
                         {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </td>
 
                     {/* Action Column */}
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       <Link
                         to={`/case/${c.id}`}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-navy-600 hover:text-navy-800 bg-surface-100 hover:bg-surface-200 px-2.5 py-1 rounded-md transition-colors border border-surface-200"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 hover:text-navy-800 bg-surface-100 hover:bg-surface-200 px-3 py-1 rounded-md transition-colors border border-surface-200"
                       >
                         <span>View</span>
                         <ArrowRight className="w-3 h-3" />

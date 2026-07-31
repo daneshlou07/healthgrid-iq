@@ -167,7 +167,7 @@ export default function Header() {
         <div className="ml-auto flex items-center gap-3">
           {/* Live System Clock */}
           <div
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-surface-100/90 border border-surface-200 rounded-lg text-[11px] font-mono text-surface-600"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-surface-100/90 border border-surface-200 rounded-lg text-xs font-medium text-surface-600"
             title="Current Clinical System Time"
           >
             <Clock className="w-3.5 h-3.5 text-navy-600 shrink-0" />
