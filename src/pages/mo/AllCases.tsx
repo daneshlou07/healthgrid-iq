@@ -164,18 +164,18 @@ export default function AllCases() {
         </div>
       </div>
 
-      {/* 3. Clinical Data Table */}
-      <div className="bg-white border border-surface-300 rounded-xl shadow-card overflow-hidden">
+      {/* 3. Clinical Data Table (Gmail Soft Card Style) */}
+      <div className="bg-white border border-surface-200/80 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface-100/70 border-b border-surface-200 text-[11px] font-semibold text-surface-500 uppercase tracking-wider">
+              <tr className="bg-surface-50/80 border-b border-surface-200/80 text-[11px] font-semibold text-surface-500 uppercase tracking-wider">
                 <th className="py-3 px-4 w-10">
                   <input
                     type="checkbox"
                     checked={isAllSelected}
                     onChange={toggleSelectAll}
-                    className="w-4 h-4 text-navy-600 rounded border-surface-300 focus:ring-navy-500 cursor-pointer"
+                    className="w-4 h-4 text-navy-600 rounded border-surface-300 focus:ring-navy-200 cursor-pointer"
                   />
                 </th>
                 <th className="py-3 px-4">Case #</th>
@@ -189,7 +189,7 @@ export default function AllCases() {
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-200 text-xs text-surface-700">
+            <tbody className="divide-y divide-surface-100 text-xs text-surface-700">
               {paginatedCases.map((c) => {
                 const isSelected = selectedIds.includes(c.id);
                 const indication = getCaseIndication(c);
@@ -199,8 +199,8 @@ export default function AllCases() {
                 return (
                   <tr
                     key={c.id}
-                    className={`transition-colors hover:bg-slate-50/80 ${
-                      isSelected ? 'bg-navy-50/40' : ''
+                    className={`transition-colors hover:bg-[#F2F6FC] ${
+                      isSelected ? 'bg-[#E8F0FE]' : ''
                     }`}
                   >
                     {/* Checkbox */}
@@ -209,7 +209,7 @@ export default function AllCases() {
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(c.id)}
-                        className="w-4 h-4 text-navy-600 rounded border-surface-300 focus:ring-navy-500 cursor-pointer"
+                        className="w-4 h-4 text-navy-600 rounded border-surface-300 focus:ring-navy-200 cursor-pointer"
                       />
                     </td>
 
@@ -217,7 +217,7 @@ export default function AllCases() {
                     <td className="py-3.5 px-4">
                       <Link
                         to={`/case/${c.id}`}
-                        className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-navy-700 bg-slate-100 hover:bg-navy-100 hover:text-navy-900 border border-slate-200 px-2 py-0.5 rounded transition-colors"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-navy-800 bg-surface-100 hover:bg-navy-100/70 hover:text-navy-900 px-2.5 py-1 rounded-md transition-colors"
                       >
                         {c.caseNumber}
                       </Link>
@@ -238,7 +238,7 @@ export default function AllCases() {
                           >
                             {c.patientName}
                           </Link>
-                          <span className="text-[10px] text-surface-400 block font-mono">
+                          <span className="text-[10px] text-surface-400 block font-medium">
                             MRN: {c.patientId ? c.patientId.slice(0, 8) : 'N/A'}
                           </span>
                         </div>
@@ -300,7 +300,7 @@ export default function AllCases() {
                       <div className="font-medium text-surface-800">
                         {new Date(c.createdAt).toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' })}
                       </div>
-                      <div className="text-[10px] text-surface-400 font-mono">
+                      <div className="text-[10px] text-surface-400 font-medium">
                         {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </td>
