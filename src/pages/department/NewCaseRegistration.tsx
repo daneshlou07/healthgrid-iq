@@ -517,10 +517,15 @@ export default function NewCaseRegistration() {
                   <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
                 </div>
                 <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={incubationPeriod}
-                  onChange={(e) => setIncubationPeriod(e.target.value)}
+                  onChange={(e) => setIncubationPeriod(e.target.value.replace(/[^0-9]/g, ''))}
                   className={`input-field ${incubationPeriod ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : ''}`}
-                  placeholder="Optional — e.g. 3"
+                  placeholder="Optional — e.g. 3 (numbers only)"
                 />
               </div>
             </div>
