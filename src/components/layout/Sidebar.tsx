@@ -115,18 +115,18 @@ export default function Sidebar() {
   const groups = getNavGroups(currentUser.role, pendingRequests);
 
   return (
-    <aside className="w-60 bg-[#D4E2DD] border-r border-[#C0D3CD] flex flex-col h-full">
+    <aside className="w-60 bg-[#E4E9EE] border-r border-[#D1D9E0] flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-4 border-b border-[#C0D3CD]">
+      <div className="px-5 py-4 border-b border-[#D1D9E0]">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-[#0F4C42] rounded-lg flex items-center justify-center shadow-xs">
             <Activity className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-[#0F4C42] leading-tight">
-              HealthGrid <span className="text-[#157867]">IQ</span>
+            <h1 className="text-sm font-bold text-surface-900 leading-tight">
+              HealthGrid <span className="text-[#0F4C42]">IQ</span>
             </h1>
-            <p className="text-[10px] text-[#3B665E] leading-tight font-medium">Theta Edge Berhad</p>
+            <p className="text-[10px] text-surface-500 leading-tight font-medium">Theta Edge Berhad</p>
           </div>
         </div>
       </div>
@@ -135,7 +135,7 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-3 px-3">
         {groups.map((group, gi) => (
           <div key={group.title} className={gi > 0 ? 'mt-4' : ''}>
-            <p className="px-3 mb-1.5 text-[10px] font-semibold text-[#3B665E] uppercase tracking-wider">{group.title}</p>
+            <p className="px-3 mb-1.5 text-[10px] font-semibold text-surface-400 uppercase tracking-wider">{group.title}</p>
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const isActive = location.pathname === item.path;
@@ -145,11 +145,11 @@ export default function Sidebar() {
                     to={item.path}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-100 ${
                       isActive
-                        ? 'bg-[#B6CEC7] text-[#0B3931] font-semibold border border-[#9EBEB5]'
-                        : 'text-[#2C524B] hover:text-[#0F4C42] hover:bg-[#C8DAD4] border border-transparent'
+                        ? 'bg-white text-surface-900 font-semibold border border-surface-200/80 shadow-xs'
+                        : 'text-surface-600 hover:text-surface-900 hover:bg-surface-200/60 border border-transparent'
                     }`}
                   >
-                    {item.icon}
+                    <span className={isActive ? 'text-[#0F4C42]' : ''}>{item.icon}</span>
                     <span className="flex-1">{item.label}</span>
                     {item.badge && item.badge > 0 && (
                       <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
