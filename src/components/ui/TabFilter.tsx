@@ -9,25 +9,36 @@ interface Props {
 
 export default function TabFilter({ tabs, active, onChange, counts }: Props) {
   return (
-    <div className="flex items-center gap-1 flex-wrap">
-      {tabs.map((tab) => (
-        <button
-          key={tab}
-          onClick={() => onChange(tab)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            active === tab
-              ? 'bg-navy-600 text-white'
-              : 'bg-surface-100 text-surface-600 hover:bg-surface-200 border border-surface-300'
-          }`}
-        >
-          {tab}
-          {counts && counts[tab] !== undefined && (
-            <span className={`ml-1.5 ${active === tab ? 'text-white/70' : 'text-surface-400'}`}>
-              {counts[tab]}
-            </span>
-          )}
-        </button>
-      ))}
+    <div className="inline-flex items-center gap-1.5 p-1 bg-surface-100/80 rounded-xl border border-surface-200/80">
+      {tabs.map((tab) => {
+        const isActive = active === tab;
+        const count = counts && counts[tab] !== undefined ? counts[tab] : null;
+
+        return (
+          <button
+            key={tab}
+            onClick={() => onChange(tab)}
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+              isActive
+                ? 'bg-navy-700 text-white shadow-sm'
+                : 'text-surface-600 hover:text-navy-800 hover:bg-white/80'
+            }`}
+          >
+            <span>{tab}</span>
+            {count !== null && (
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  isActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-surface-200 text-surface-600'
+                }`}
+              >
+                {count}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

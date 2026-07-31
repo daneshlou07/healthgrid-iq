@@ -9,14 +9,20 @@ export default function SeverityBadge({ severity }: Props) {
   if (!severity) return <span className="text-xs text-surface-400">—</span>;
 
   const styles: Record<SeverityLevel, string> = {
-    Mild: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    Moderate: 'bg-amber-50 text-amber-700 border-amber-200',
-    Severe: 'bg-orange-50 text-orange-700 border-orange-200',
-    Critical: 'bg-red-50 text-red-700 border-red-200',
+    Mild: 'bg-slate-100 text-slate-700 border-slate-200',
+    Moderate: 'bg-amber-50 text-amber-800 border-amber-200',
+    Severe: 'bg-orange-50 text-orange-800 border-orange-200',
+    Critical: 'bg-red-50 text-red-800 border-red-200 font-bold',
   };
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${styles[severity]}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${styles[severity]}`}>
+      {severity === 'Critical' && (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+        </span>
+      )}
       {severity}
     </span>
   );
