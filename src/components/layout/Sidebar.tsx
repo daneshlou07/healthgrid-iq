@@ -88,6 +88,7 @@ function getNavGroups(role: UserRole, pendingRequests: number): NavGroup[] {
         { title: 'OPERATIONS', items: [
           { label: 'Patient Registry', path: '/patient-registry', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
           { label: 'Patient Requests', path: '/patient-requests', icon: <CheckSquare className="w-[18px] h-[18px]" />, badge: pendingRequests },
+          { label: 'Track Status', path: '/track-status', icon: <Search className="w-[18px] h-[18px]" /> },
           { label: 'AI Scheduler', path: '/ai-scheduler', icon: <Brain className="w-[18px] h-[18px]" /> },
           { label: 'Analytics', path: '/analytics', icon: <BarChart3 className="w-[18px] h-[18px]" /> },
         ]},

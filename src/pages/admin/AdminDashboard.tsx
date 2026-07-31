@@ -37,7 +37,10 @@ export default function AdminDashboard() {
               <p className="text-xs text-amber-600">These cases require AI Scheduler assignment.</p>
             </div>
           </div>
-          <Link to="/ai-scheduler" className="btn-primary text-xs">Open Scheduler</Link>
+          <div className="flex items-center gap-2">
+            <Link to="/track-status" className="btn-secondary text-xs">Track Status</Link>
+            <Link to="/ai-scheduler" className="btn-primary text-xs">Open Scheduler</Link>
+          </div>
         </div>
       )}
 
