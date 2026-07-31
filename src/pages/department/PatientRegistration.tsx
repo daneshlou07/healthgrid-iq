@@ -6,6 +6,7 @@ import type { Gender } from '../../types';
 import { Info, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
 
 import { parseMalaysianNric, normalizeNric, formatNric, JPN_STATE_CODES } from '../../utils/malaysianNric';
+import { PredictiveAddressInput } from '../../components/ui/PredictiveAddressInput';
 
 type IdType = 'mykad' | 'passport';
 
@@ -310,31 +311,13 @@ export default function PatientRegistration() {
               <label className="block text-sm font-medium text-surface-700 mb-1">Email</label>
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-field" placeholder="patient@email.com" />
             </div>
-            <div className="md:col-span-2 relative">
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-surface-700 mb-1">Address *</label>
-              <input 
-                required 
-                list="dept-malaysian-address-suggestions"
-                value={form.address} 
-                onChange={(e) => setForm({ ...form, address: e.target.value })} 
-                className="input-field" 
-                placeholder="Type or select Malaysian residential address (e.g. 8, Jalan Puteri 5D/3, Cyberjaya)" 
+              <PredictiveAddressInput
+                required
+                value={form.address}
+                onChange={(addressValue) => setForm({ ...form, address: addressValue })}
               />
-              <datalist id="dept-malaysian-address-suggestions">
-                <option value="8, Jalan Puteri 5D/3, Bandar Puteri, 47100 Puchong, Selangor" />
-                <option value="Universiti Tenaga Nasional, Putrajaya Campus, 43000 Kajang, Selangor" />
-                <option value="Persiaran APEC, Cyber 12, 63000 Cyberjaya, Selangor" />
-                <option value="Jalan P18, Presint 18, 62150 Putrajaya" />
-                <option value="Jalan Reko, 43650 Bandar Baru Bangi, Selangor" />
-                <option value="KM8, Jalan Sungai Terap 5, 45500 Tanjong Karang, Selangor" />
-                <option value="JKR 1087, Jln 14, Ijok, 45600 Batang Berjuntai, Selangor" />
-                <option value="1867, Jln Kampung, Pekan Batang Berjuntai, 45600 Batang Berjuntai, Selangor" />
-                <option value="Jln Rizab Masjid, Kampung Bukit Cherakah, 45800 Jeram, Selangor" />
-              </datalist>
-              <p className="text-[10px] text-surface-400 mt-1 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-purple-600 inline shrink-0" />
-                <span>Predictive Address: Select or enter a valid street address for accurate AI Scheduler geocoding.</span>
-              </p>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-surface-700 mb-1">Emergency Contact <span className="text-surface-400 font-normal">(optional)</span></label>

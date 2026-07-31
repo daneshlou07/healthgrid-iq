@@ -4,6 +4,7 @@ import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import type { Clinic } from '../../types';
 import Modal from '../../components/ui/Modal';
+import { PredictiveAddressInput } from '../../components/ui/PredictiveAddressInput';
 import { MapPin, Phone, Mail, Plus, Edit2, Trash2, ShieldCheck, ShieldOff, Search } from 'lucide-react';
 
 const MODALITIES = ['X-Ray', 'CT', 'MRI', 'Ultrasound', 'Mammography', 'Fluoroscopy'];
@@ -139,7 +140,18 @@ export default function ClinicsManagement() {
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-surface-700 mb-1">Address *</label>
-              <input required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="input-field" placeholder="Full address" />
+              <PredictiveAddressInput
+                required
+                value={form.address}
+                onChange={(addressValue, details) => {
+                  setForm(prev => ({
+                    ...prev,
+                    address: addressValue,
+                    latitude: details?.lat ? String(details.lat) : prev.latitude,
+                    longitude: details?.lon ? String(details.lon) : prev.longitude,
+                  }));
+                }}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-surface-700 mb-1">Phone *</label>
