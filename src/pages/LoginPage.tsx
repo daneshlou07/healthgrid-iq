@@ -194,11 +194,11 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-navy-800/80 border border-navy-700 rounded-full text-xs text-navy-200 font-medium">
-              <Building2 className="w-3.5 h-3.5 text-emerald-400" /> Enterprise Healthcare Suite
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-full text-xs text-slate-200 font-medium">
+              <Building2 className="w-3.5 h-3.5 text-[#00A86B]" /> Enterprise Healthcare Suite
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight">
-              HealthGrid <span className="text-emerald-400">IQ</span>
+              HealthGrid <span className="text-[#E056B6]">IQ</span>
             </h1>
             <p className="text-base text-slate-300 font-medium">
               Clinical Imaging &amp; Diagnostic Platform
