@@ -143,12 +143,12 @@ export default function Header() {
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-surface-300 flex items-center px-6 gap-4">
+      <header className="h-16 bg-[#FAFCFB] border-b border-[#D8E5E1] flex items-center px-6 gap-4">
         <div className="flex-1 max-w-md">
-          <button onClick={openSearch} className="w-full flex items-center gap-2.5 px-3 py-1.5 bg-surface-100 border border-surface-300 rounded-lg text-xs text-surface-500 hover:border-navy-300 hover:text-navy-600 transition-colors text-left">
-            <Search className="w-3.5 h-3.5 flex-shrink-0" />
+          <button onClick={openSearch} className="w-full flex items-center gap-2.5 px-3 py-1.5 bg-[#EDF4F2] border border-[#D8E5E1] rounded-lg text-xs text-[#2C524B] hover:border-[#0F4C42] hover:text-[#0F4C42] transition-colors text-left">
+            <Search className="w-3.5 h-3.5 flex-shrink-0 text-[#0F4C42]" />
             <span className="flex-1">Search patients, cases, reports...</span>
-            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 bg-white border border-surface-300 rounded text-[9px] font-mono text-surface-400">Ctrl+K</kbd>
+            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 bg-white border border-[#D8E5E1] rounded text-[9px] font-mono text-surface-400">Ctrl+K</kbd>
           </button>
         </div>
 
@@ -167,10 +167,10 @@ export default function Header() {
         <div className="ml-auto flex items-center gap-3">
           {/* Live System Clock */}
           <div
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-surface-100/90 border border-surface-200 rounded-lg text-xs font-medium text-surface-600"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-[#EDF4F2] border border-[#D8E5E1] rounded-lg text-xs font-medium text-[#2C524B]"
             title="Current Clinical System Time"
           >
-            <Clock className="w-3.5 h-3.5 text-navy-600 shrink-0" />
+            <Clock className="w-3.5 h-3.5 text-[#0F4C42] shrink-0" />
             <span>
               {currentTime.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' })} &bull;{' '}
               {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}

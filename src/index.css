@@ -18,8 +18,8 @@
 
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #F0F4F9;
-    color: #1F1F1F;
+    background-color: #EDF4F2;
+    color: #112A28;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -35,12 +35,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #D0D7E3;
+    background: #C4D6D1;
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #9BA5B7;
+    background: #A6BFB9;
   }
 }
 
@@ -54,7 +54,7 @@
 
   /* === BUTTONS === */
   .btn-primary {
-    @apply bg-navy-600 hover:bg-navy-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-navy-300 focus:ring-offset-2 text-sm;
+    @apply bg-[#0F4C42] hover:bg-[#0B3931] text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/30 text-sm;
   }
 
   .btn-secondary {

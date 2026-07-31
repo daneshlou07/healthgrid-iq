@@ -164,18 +164,18 @@ export default function AllCases() {
         </div>
       </div>
 
-      {/* 3. Clinical Data Table (Gmail Soft Card Style) */}
-      <div className="bg-white border border-surface-200/80 rounded-2xl shadow-sm overflow-hidden">
+      {/* 3. Clinical Data Table (Soft Sage Green Card Style) */}
+      <div className="bg-[#FAFCFB] border border-[#D8E5E1] rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface-50/80 border-b border-surface-200/80 text-[11px] font-semibold text-surface-500 uppercase tracking-wider">
+              <tr className="bg-[#E6F0ED] border-b border-[#D8E5E1] text-[11px] font-semibold text-[#2C524B] uppercase tracking-wider">
                 <th className="py-3 px-4 w-10">
                   <input
                     type="checkbox"
                     checked={isAllSelected}
                     onChange={toggleSelectAll}
-                    className="w-4 h-4 text-navy-600 rounded border-surface-300 focus:ring-navy-200 cursor-pointer"
+                    className="w-4 h-4 text-[#0F4C42] rounded border-[#A8C7BF] focus:ring-[#0F4C42]/20 cursor-pointer"
                   />
                 </th>
                 <th className="py-3 px-4">Case #</th>
@@ -189,7 +189,7 @@ export default function AllCases() {
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-100 text-xs text-surface-700">
+            <tbody className="divide-y divide-[#E6F0ED] text-xs text-[#112A28]">
               {paginatedCases.map((c) => {
                 const isSelected = selectedIds.includes(c.id);
                 const indication = getCaseIndication(c);
@@ -199,8 +199,8 @@ export default function AllCases() {
                 return (
                   <tr
                     key={c.id}
-                    className={`transition-colors hover:bg-[#F2F6FC] ${
-                      isSelected ? 'bg-[#E8F0FE]' : ''
+                    className={`transition-colors hover:bg-[#E2EEEB] ${
+                      isSelected ? 'bg-[#D6E8E3]' : ''
                     }`}
                   >
                     {/* Checkbox */}
@@ -209,7 +209,7 @@ export default function AllCases() {
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(c.id)}
-                        className="w-4 h-4 text-navy-600 rounded border-surface-300 focus:ring-navy-200 cursor-pointer"
+                        className="w-4 h-4 text-[#0F4C42] rounded border-[#A8C7BF] focus:ring-[#0F4C42]/20 cursor-pointer"
                       />
                     </td>
 
@@ -217,7 +217,7 @@ export default function AllCases() {
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <Link
                         to={`/case/${c.id}`}
-                        className="font-semibold text-navy-700 hover:text-navy-900 text-xs hover:underline whitespace-nowrap"
+                        className="font-semibold text-[#0F4C42] hover:text-[#0B3931] text-xs hover:underline whitespace-nowrap"
                       >
                         {c.caseNumber}
                       </Link>
@@ -312,7 +312,7 @@ export default function AllCases() {
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       <Link
                         to={`/case/${c.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 hover:text-navy-800 bg-surface-100 hover:bg-surface-200 px-3 py-1 rounded-md transition-colors border border-surface-200"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#0F4C42] hover:text-[#0B3931] bg-[#EAF2F0] hover:bg-[#DCEAE6] px-3 py-1 rounded-md transition-colors border border-[#C4DCD6]"
                       >
                         <span>View</span>
                         <ArrowRight className="w-3 h-3" />
