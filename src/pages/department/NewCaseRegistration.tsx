@@ -1117,6 +1117,10 @@ export default function NewCaseRegistration() {
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
+                <p className="text-[10px] text-surface-400 mt-1 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-purple-600 inline shrink-0" />
+                  <span>Select a specific centre to assign your designated facility, or select "No preference" to allow the AI Scheduler to determine the optimal centre based on proximity, equipment, and workload.</span>
+                </p>
               </div>
             </div>
 

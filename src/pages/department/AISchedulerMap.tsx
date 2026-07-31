@@ -212,14 +212,22 @@ export default function AISchedulerMap() {
       if (patLat && patLon) {
         const nearest = findNearestClinic(patLat, patLon, clinics.filter((c) => c.status === 'active'));
         const nearestId = nearest?.clinicId || null;
-        setRecommendedClinicId(nearestId); setSelectedClinicId(nearestId);
-        if (nearestId) {
-          const clinic = clinics.find((c) => c.id === nearestId);
+        setRecommendedClinicId(nearestId);
+
+        // Respect user's explicit preference if designated, otherwise fallback to AI nearest recommendation
+        const userPreferredId = caseItem.clinicId || patient.preferredClinicId;
+        const isValidUserChoice = userPreferredId && clinics.some((c) => c.id === userPreferredId && c.status === 'active');
+        const activeClinicId = isValidUserChoice ? userPreferredId : nearestId;
+
+        setSelectedClinicId(activeClinicId);
+
+        if (activeClinicId) {
+          const clinic = clinics.find((c) => c.id === activeClinicId);
           if (clinic) {
             setRouteLoading(true);
             const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
             setRouteInfo(route); setRouteLoading(false);
-            updateMap(patient, nearestId, route);
+            updateMap(patient, activeClinicId, route);
           }
         }
         setStep('map-routing');
@@ -358,16 +366,22 @@ export default function AISchedulerMap() {
     const assignments: BulkAssignment[] = [];
     for (const result of geocodeResults) {
       if (result.status !== 'fulfilled' || !result.value) continue;
-      const { caseItem, patLat, patLon } = result.value;
+      const { caseItem, patient, patLat, patLon } = result.value;
 
       const nearest = findNearestClinic(patLat, patLon, clinics);
-      if (!nearest) continue;
 
-      const clinic = clinics.find((c) => c.id === nearest.clinicId);
+      // Respect user's designated preference if chosen, otherwise fallback to AI nearest recommendation
+      const userPreferredId = caseItem.clinicId || patient.preferredClinicId;
+      const isValidChoice = userPreferredId && clinics.some((c) => c.id === userPreferredId && c.status === 'active');
+      const targetClinicId = isValidChoice ? userPreferredId : (nearest?.clinicId || null);
+
+      if (!targetClinicId) continue;
+
+      const clinic = clinics.find((c) => c.id === targetClinicId);
       if (!clinic) continue;
 
-      const profiles = (clinicProfileMap.get(nearest.clinicId) ?? []).length > 0
-        ? clinicProfileMap.get(nearest.clinicId)!
+      const profiles = (clinicProfileMap.get(targetClinicId) ?? []).length > 0
+        ? clinicProfileMap.get(targetClinicId)!
         : allProfiles;
 
       const modality = extractModality(caseItem.scanType);
@@ -383,12 +397,12 @@ export default function AISchedulerMap() {
         caseNumber: caseItem.caseNumber,
         patientName: caseItem.patientName,
         scanType: caseItem.scanType,
-        clinicId: nearest.clinicId,
+        clinicId: targetClinicId,
         clinicName: clinic.name,
         radiographerId: bestId,
         radiographerName: bestProfile?.userName || '',
         scheduledAt: `${slot.date}T${slot.startTime}`,
-        distanceKm: nearest.distanceKm,
+        distanceKm: nearest?.distanceKm || 0,
       });
     }
 
@@ -884,14 +898,43 @@ export default function AISchedulerMap() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-surface-500 uppercase mb-1">Healthcare Centre</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-surface-500 uppercase">Healthcare Centre</label>
+                    {selectedCase?.clinicId || selectedPatient?.preferredClinicId ? (
+                      <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        User Designated
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        AI Determined
+                      </span>
+                    )}
+                  </div>
                   <select value={selectedClinicId || ''} onChange={(e) => handleClinicChange(e.target.value)} className="select-field text-sm">
-                    {clinics.filter((c) => c.status === 'active').map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}{c.id === recommendedClinicId ? ' (Nearest)' : ''}</option>
-                    ))}
+                    {clinics.filter((c) => c.status === 'active').map((c) => {
+                      const isUserChoice = c.id === (selectedCase?.clinicId || selectedPatient?.preferredClinicId);
+                      const isNearest = c.id === recommendedClinicId;
+                      let tag = '';
+                      if (isUserChoice && isNearest) tag = ' (User Choice & AI Nearest)';
+                      else if (isUserChoice) tag = ' (User Choice)';
+                      else if (isNearest) tag = ' (AI Nearest)';
+
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.name}{tag}
+                        </option>
+                      );
+                    })}
                   </select>
-                  {recommendedClinicId === selectedClinicId && (
-                    <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Nearest facility selected</p>
+                  {selectedClinicId === (selectedCase?.clinicId || selectedPatient?.preferredClinicId) && (
+                    <p className="text-xs text-purple-700 dark:text-purple-400 mt-1 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 text-purple-600" /> Preserving user's designated healthcare centre
+                    </p>
+                  )}
+                  {selectedClinicId === recommendedClinicId && selectedClinicId !== (selectedCase?.clinicId || selectedPatient?.preferredClinicId) && (
+                    <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 text-emerald-600" /> AI Scheduler nearest facility selected
+                    </p>
                   )}
                 </div>
 

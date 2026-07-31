@@ -344,7 +344,10 @@ export default function PatientRegistration() {
               <option value="">No preference — AI Scheduler will determine</option>
               {clinics.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <p className="text-[10px] text-surface-400 mt-1">The AI Scheduler will still determine the optimal centre based on availability, equipment, and proximity. This preference is advisory only.</p>
+            <p className="text-[10px] text-surface-400 mt-1 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-purple-600 inline shrink-0" />
+              <span>Select a specific centre to assign your designated facility, or select "No preference" to allow the AI Scheduler to determine the optimal facility.</span>
+            </p>
           </div>
         </div>
 
