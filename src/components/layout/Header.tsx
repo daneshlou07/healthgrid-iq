@@ -40,6 +40,13 @@ export default function Header() {
   const [showCriticalModal, setShowCriticalModal] = useState(false);
   const { editCase, addAuditLog } = useData();
 
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const handleAcknowledgeCritical = async (c: Case) => {
     if (!currentUser) return;
     await editCase(c.id, {
@@ -157,7 +164,19 @@ export default function Header() {
           </button>
         )}
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-3">
+          {/* Live System Clock */}
+          <div
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-surface-100/90 border border-surface-200 rounded-lg text-[11px] font-mono text-surface-600"
+            title="Current Clinical System Time"
+          >
+            <Clock className="w-3.5 h-3.5 text-navy-600 shrink-0" />
+            <span>
+              {currentTime.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' })} &bull;{' '}
+              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
+
           {/* Notifications */}
           <div className="relative" ref={notifRef}>
             <button onClick={() => { setShowNotifications(!showNotifications); setShowProfile(false); }} className="relative p-2 text-surface-500 hover:text-navy-600 hover:bg-surface-100 rounded-lg transition-colors" aria-label="Notifications">

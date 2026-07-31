@@ -185,6 +185,7 @@ export default function AllCases() {
                 <th className="py-3 px-4">Assigned To</th>
                 <th className="py-3 px-4">Severity</th>
                 <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Date &amp; Time</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -288,7 +289,20 @@ export default function AllCases() {
 
                     {/* Status */}
                     <td className="py-3.5 px-4">
-                      <StatusBadge status={c.status} />
+                      <StatusBadge
+                        status={c.status}
+                        timestamp={c.finalizedAt || c.scannedAt || c.scheduledAt || c.createdAt}
+                      />
+                    </td>
+
+                    {/* Date & Time */}
+                    <td className="py-3.5 px-4 text-surface-500 text-[11px] whitespace-nowrap">
+                      <div className="font-medium text-surface-800">
+                        {new Date(c.createdAt).toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' })}
+                      </div>
+                      <div className="text-[10px] text-surface-400 font-mono">
+                        {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </td>
 
                     {/* Action Column */}

@@ -3,9 +3,21 @@ import type { CaseStatus, PatientRequestStatus, ReportStatus } from '../../types
 
 interface Props {
   status: CaseStatus | PatientRequestStatus | ReportStatus | string;
+  timestamp?: string;
+  showTimeInline?: boolean;
 }
 
-export default function StatusBadge({ status }: Props) {
+function formatTime(isoString?: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
+export default function StatusBadge({ status, timestamp, showTimeInline = false }: Props) {
   const getClass = () => {
     switch (status) {
       case 'CREATED':
@@ -31,9 +43,20 @@ export default function StatusBadge({ status }: Props) {
     }
   };
 
+  const formattedTime = formatTime(timestamp);
+  const fullTooltip = timestamp ? `Status: ${status} (${new Date(timestamp).toLocaleString()})` : `Status: ${status}`;
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getClass()}`}>
-      {status}
+    <span
+      title={fullTooltip}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getClass()}`}
+    >
+      <span>{status}</span>
+      {showTimeInline && formattedTime && (
+        <span className="text-[10px] opacity-75 font-mono">
+          &bull; {formattedTime}
+        </span>
+      )}
     </span>
   );
 }
