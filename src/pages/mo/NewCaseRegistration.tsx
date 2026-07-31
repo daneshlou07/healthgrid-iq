@@ -256,7 +256,7 @@ export default function NewCaseRegistration() {
         requestedExaminations,
         indication: indication.trim(),
         bodyRegion: uniqueRegions || 'General',
-        severity: workflowPriority === 'Emergency' ? 'Critical' : (severity || 'Routine'),
+        severity: severity || 'Moderate',
         notes: clinicalNotes.trim(),
         status: 'CREATED',
         createdAt: new Date().toISOString(),

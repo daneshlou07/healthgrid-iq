@@ -251,7 +251,7 @@ export default function NewCaseRegistration() {
         requestedExaminations,
         indication: indication.trim(),
         bodyRegion: uniqueRegions || 'General',
-        severity,
+        severity: severity || 'Moderate',
         incubationPeriod: incubationPeriod || undefined,
         notes: clinicalNotes.trim(),
         status: 'CREATED',
