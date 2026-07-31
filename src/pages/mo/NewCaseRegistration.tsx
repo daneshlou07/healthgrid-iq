@@ -22,6 +22,7 @@ import {
   FileCheck2,
   Send,
   Building2,
+  Sparkles,
 } from 'lucide-react';
 
 const MODALITIES = Object.keys(MODALITY_REFERENCE_DATASET);
@@ -73,8 +74,26 @@ export default function NewCaseRegistration() {
   // ── Step 1 State ─────────────────────────────────────────────────────
   const [patientId, setPatientId] = useState('');
   const [indication, setIndication] = useState('');
+  const [symptomOption, setSymptomOption] = useState<string>('');
+  const [customIndication, setCustomIndication] = useState<string>('');
   const [severity, setSeverity] = useState<SeverityLevel>('Moderate');
   const [incubationPeriod, setIncubationPeriod] = useState('');
+
+  const handleSymptomOptionChange = (selected: string) => {
+    setSymptomOption(selected);
+    if (selected === 'Others') {
+      setIndication(customIndication);
+    } else {
+      setIndication(selected);
+    }
+  };
+
+  const handleCustomIndicationChange = (text: string) => {
+    setCustomIndication(text);
+    if (symptomOption === 'Others') {
+      setIndication(text);
+    }
+  };
 
   // ── Step 2 State ─────────────────────────────────────────────────────
   const [modality, setModality] = useState('X-Ray');
@@ -276,7 +295,7 @@ export default function NewCaseRegistration() {
       toast.success(`Case ${caseNumber} registered with ${requestedExaminations.length} examination(s) — pending AI Scheduler`);
 
       // Reset form
-      setPatientId(''); setIndication(''); setSeverity('Moderate'); setIncubationPeriod('');
+      setPatientId(''); setIndication(''); setSymptomOption(''); setCustomIndication(''); setSeverity('Moderate'); setIncubationPeriod('');
       setPreferredClinicId(''); setClinicalNotes(''); setExamCards([createBlankExamCard(1)]);
       setLmp(''); setIsPregnant(''); setHasAllergy(''); setAllergyDetails('');
       setHasMobileDevice(''); setIsWarganegara(''); setIsPenjawatAwam(''); setIsFpp('');
@@ -434,21 +453,43 @@ export default function NewCaseRegistration() {
                     * Required
                   </span>
                 </div>
-                <input
-                  required
-                  list="symptom-suggestions"
-                  value={indication}
-                  onChange={(e) => setIndication(e.target.value)}
-                  className={`input-field transition-all ${
-                    indication ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : 'focus:ring-2 focus:ring-purple-500/30'
-                  }`}
-                  placeholder="Type the patient's presenting symptom or clinical indication..."
-                />
-                <datalist id="symptom-suggestions">
-                  {SYMPTOM_SUGGESTIONS.map((symptom) => (
-                    <option key={symptom} value={symptom} />
-                  ))}
-                </datalist>
+                <div className="space-y-2">
+                  <select
+                    required
+                    value={symptomOption}
+                    onChange={(e) => handleSymptomOptionChange(e.target.value)}
+                    className={`select-field transition-all ${
+                      indication ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : 'focus:ring-2 focus:ring-purple-500/30'
+                    }`}
+                  >
+                    <option value="">Select presenting indication / symptom...</option>
+                    {SYMPTOM_SUGGESTIONS.map((symptom) => (
+                      <option key={symptom} value={symptom}>
+                        {symptom}
+                      </option>
+                    ))}
+                    <option value="Others">Others (Type custom indication)</option>
+                  </select>
+
+                  {symptomOption === 'Others' && (
+                    <div className="animate-in fade-in slide-in-from-top-1 duration-150">
+                      <input
+                        required
+                        type="text"
+                        value={customIndication}
+                        onChange={(e) => handleCustomIndicationChange(e.target.value)}
+                        className={`input-field transition-all ${
+                          customIndication ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : 'focus:ring-2 focus:ring-purple-500/30'
+                        }`}
+                        placeholder="Type custom presenting indication / symptom..."
+                      />
+                      <p className="text-[10px] text-surface-400 mt-1 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-purple-600 inline shrink-0" />
+                        <span>Specify custom symptoms or clinical referral reasons.</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Severity */}
