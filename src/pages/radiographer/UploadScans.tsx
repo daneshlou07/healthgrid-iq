@@ -81,12 +81,12 @@ export default function UploadScans() {
     return items;
   }, [selectedCase]);
 
-  // Auto-check all views on case load and auto-fill radiation dose benchmark
+  // Initialize all requested views as unchecked on case selection and auto-fill radiation dose benchmark
   useEffect(() => {
     if (!selectedCase) return;
     const initialChecked: Record<string, boolean> = {};
     flattenedViews.forEach((v) => {
-      initialChecked[v.id] = true;
+      initialChecked[v.id] = false;
     });
     setCompletedViewIds(initialChecked);
 
@@ -285,7 +285,7 @@ export default function UploadScans() {
             {/* ── 2. ROUTING DECISION ────────────────────────────────────── */}
             <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2">
               <label className="block text-xs font-bold text-purple-950 uppercase tracking-wider">
-                🎯 {t('Route Completed Scan To *', 'Hantar Imbasan Selesai Ke *')}
+                {t('Route Completed Scan To *', 'Hantar Imbasan Selesai Ke *')}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold">
                 <label className={`p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 transition-all ${

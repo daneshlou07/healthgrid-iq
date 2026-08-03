@@ -37,7 +37,7 @@ export default function ReviewQueue() {
                   <SeverityBadge severity={c.severity} />
                   {c.routedToRole === 'Medical Officer' && (
                     <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-bold rounded-full border border-purple-200">
-                      🎯 ROUTED TO MO BY RADIOGRAPHER
+                      ROUTED TO MO BY RADIOGRAPHER
                     </span>
                   )}
                   {c.isEscalated && (
