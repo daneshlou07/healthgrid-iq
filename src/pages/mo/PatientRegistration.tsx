@@ -5,7 +5,7 @@ import { useToast } from '../../components/ux/Toast';
 import type { Gender } from '../../types';
 import { Info, CheckCircle, AlertCircle, Sparkles, Loader2, UserX } from 'lucide-react';
 
-import { parseMalaysianNric, normalizeNric } from '../../utils/malaysianNric';
+import { parseMalaysianNric, normalizeNric, formatNric } from '../../utils/malaysianNric';
 import { PredictiveAddressInput } from '../../components/ui/PredictiveAddressInput';
 
 type IdType = 'mykad' | 'passport';
