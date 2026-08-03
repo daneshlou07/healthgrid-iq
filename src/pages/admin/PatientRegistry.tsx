@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { getPatients, createAuditLog } from '../../services/dataService';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import { useDebounce } from '../../hooks/useDebounce';
 import { normalizeNric, formatNric } from '../../utils/malaysianNric';
@@ -39,8 +39,8 @@ function getAvatarColor(name: string): string {
 
 export default function PatientRegistry() {
   const { currentUser } = useAuth();
+  const { patients, editPatient, addAuditLog } = useData();
   const toast = useToast();
-  const [patients, setPatients] = useState<Patient[]>([]);
   const [archived, setArchived] = useState<Patient[]>([]);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 180);
@@ -53,8 +53,6 @@ export default function PatientRegistry() {
   const [form, setForm] = useState({
     name: '', phone: '', email: '', address: '', medicalHistory: '', emergencyContact: '',
   });
-
-  useEffect(() => { getPatients().then(setPatients); }, []);
 
   const filtered = (showArchived ? archived : patients).filter((p) =>
     p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -99,12 +97,13 @@ export default function PatientRegistry() {
 
   const handleSave = async () => {
     if (!currentUser || !showEdit) return;
-    setPatients((prev) => prev.map((p) => p.id === showEdit.id ? {
-      ...p, name: form.name, phone: form.phone, email: form.email, address: form.address,
+    const updates = {
+      name: form.name, phone: form.phone, email: form.email, address: form.address,
       medicalHistory: form.medicalHistory.split(',').map((s) => s.trim()).filter(Boolean),
       emergencyContact: form.emergencyContact || undefined,
-    } : p));
-    await createAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'PATIENT_UPDATED', target: `patients/${showEdit.id}`, details: `Updated patient: ${form.name} (${showEdit.mrn})`, timestamp: new Date().toISOString() });
+    };
+    await editPatient(showEdit.id, updates);
+    await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'PATIENT_UPDATED', target: `patients/${showEdit.id}`, details: `Updated patient: ${form.name} (${showEdit.mrn})`, timestamp: new Date().toISOString() });
     toast.success(`${form.name} updated`);
     setShowEdit(null);
   };
@@ -112,17 +111,15 @@ export default function PatientRegistry() {
   const archivePatient = async (patient: Patient) => {
     if (!currentUser) return;
     if (!confirm(`Archive ${patient.name}? They can be restored later.`)) return;
-    setPatients((prev) => prev.filter((p) => p.id !== patient.id));
     setArchived((prev) => [...prev, patient]);
-    await createAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'PATIENT_ARCHIVED', target: `patients/${patient.id}`, details: `Archived patient: ${patient.name} (${patient.mrn})`, timestamp: new Date().toISOString() });
+    await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'PATIENT_ARCHIVED', target: `patients/${patient.id}`, details: `Archived patient: ${patient.name} (${patient.mrn})`, timestamp: new Date().toISOString() });
     toast.info(`${patient.name} archived`);
   };
 
   const restorePatient = async (patient: Patient) => {
     if (!currentUser) return;
-    setArchived((prev) => prev.filter((p) => p.id !== patient.id));
-    setPatients((prev) => [...prev, patient]);
-    await createAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'PATIENT_RESTORED', target: `patients/${patient.id}`, details: `Restored patient: ${patient.name} (${patient.mrn})`, timestamp: new Date().toISOString() });
+    setArchived((prev) => prev.filter((t) => t.id !== patient.id));
+    await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'PATIENT_RESTORED', target: `patients/${patient.id}`, details: `Restored patient: ${patient.name} (${patient.mrn})`, timestamp: new Date().toISOString() });
     toast.success(`${patient.name} restored`);
   };
 

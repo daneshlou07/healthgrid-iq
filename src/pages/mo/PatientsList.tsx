@@ -53,7 +53,7 @@ export default function PatientsList() {
                   <td className="table-cell">
                     <Link to={`/patient/${patient.id}`} className="font-medium text-surface-800 hover:text-navy-700 hover:underline">{patient.name}</Link>
                   </td>
-                  <td className="table-cell text-surface-500 font-mono text-xs">{patient.nric}</td>
+                  <td className="table-cell text-surface-500 font-mono text-xs">{displayNric(patient.nric)}</td>
                   <td className="table-cell">
                     <span className="text-emerald-600 font-semibold">{caseCount}</span>
                   </td>

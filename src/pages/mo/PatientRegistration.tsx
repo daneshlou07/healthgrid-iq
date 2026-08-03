@@ -125,10 +125,9 @@ export default function PatientRegistration() {
 
     const mrnGenerated = generateMrn();
     const preferredClinic = clinics.find((c) => c.id === form.preferredClinicId);
-    // Always store NRIC as raw 12-digit string (no hyphens) for consistent querying.
-    // The formatted display (850312-01-5678) is only used in the UI badge.
+    const rawNricDigits = normalizeNric(form.idNumber);
     const nricValue = idType === 'mykad'
-      ? normalizeNric(form.idNumber)
+      ? (rawNricDigits.length === 12 ? formatNric(rawNricDigits) : form.idNumber.trim())
       : form.idNumber.trim();
 
     setSubmitting(true);
