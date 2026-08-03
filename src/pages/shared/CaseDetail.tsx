@@ -139,33 +139,49 @@ export default function CaseDetail() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-surface-100 rounded-lg transition-colors">
+      {/* Header Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 border border-surface-200 rounded-xl shadow-sm">
+        {/* Left: Case Title & Context Badges */}
+        <div className="flex items-start gap-3">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-surface-100 rounded-lg transition-colors mt-0.5 shrink-0" title="Back">
             <ArrowLeft className="w-4 h-4 text-surface-500" />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="page-title font-bold text-navy-900">{caseItem.caseNumber}</h1>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold text-navy-900 tracking-tight">{caseItem.caseNumber}</h1>
               <button onClick={handleCopy} className="p-1 hover:bg-surface-100 rounded transition-colors" title="Copy case number">
                 {copied ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-surface-400" />}
               </button>
+              <StatusBadge status={caseItem.status} />
+              <SeverityBadge severity={caseItem.severity} />
             </div>
-            <p className="page-subtitle">{caseItem.patientName} — {caseItem.scanType}</p>
+            <p className="text-xs text-surface-500 font-medium flex flex-wrap items-center gap-1.5">
+              <span>{caseItem.patientName}</span>
+              <span>&middot;</span>
+              <span className="font-semibold text-slate-700">{caseItem.scanType}</span>
+              {caseItem.clinicName && (
+                <>
+                  <span>&middot;</span>
+                  <span className="text-purple-700 font-medium">{caseItem.clinicName}</span>
+                </>
+              )}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Right: Uniform Single-Line Action Buttons (h-9 whitespace-nowrap) */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {caseItem.status === 'SCHEDULED' && (
             <Link
               to={`/upload?caseId=${caseItem.id}`}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+              className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
               title="Upload medical scans for this case"
             >
               <Upload className="w-3.5 h-3.5" />
-              Upload Scan
+              <span>Upload Scan</span>
             </Link>
           )}
+
           {caseItem.status !== 'FINALIZED' && caseItem.status !== 'CANCELLED' && caseItem.status !== 'NO_SHOW' && (
             <>
               <button
@@ -174,40 +190,41 @@ export default function CaseDetail() {
                   setRescheduleTime(caseItem.officeMasaAppointment || '');
                   setShowRescheduleModal(true);
                 }}
-                className="btn-secondary text-xs flex items-center gap-1"
+                className="h-9 px-3 btn-secondary text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors"
                 title="Change or update scan appointment"
               >
-                <Calendar className="w-3.5 h-3.5" />
-                Reschedule
+                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                <span>Reschedule</span>
               </button>
               <button
                 onClick={() => setShowSmsModal(true)}
-                className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold flex items-center gap-1 border border-purple-200 transition-colors"
+                className="h-9 px-3 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-purple-200 transition-colors whitespace-nowrap"
                 title="Send automated SMS / WhatsApp appointment alert to patient"
               >
-                📱 Send Patient SMS
+                <span>📱</span>
+                <span>Send SMS</span>
               </button>
               <button
                 onClick={() => setShowNoShowModal(true)}
-                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-300 transition-colors"
+                className="h-9 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-300 transition-colors whitespace-nowrap"
                 title="Flag patient no-show or cancel referral"
               >
                 <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />
-                No-Show / Cancel
+                <span>Cancel / No-Show</span>
               </button>
             </>
           )}
+
           <button
             onClick={() => exportDossierPdf(caseItem, patient, report)}
-            className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-all border border-slate-700"
+            className="h-9 px-3.5 bg-navy-900 hover:bg-navy-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all border border-navy-700 whitespace-nowrap"
             title="Download full multi-page Clinical Dossier PDF Package"
           >
             <FileText className="w-3.5 h-3.5" />
-            Clinical Dossier PDF
+            <span>Export Dossier</span>
           </button>
+
           <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
-          <SeverityBadge severity={caseItem.severity} />
-          <StatusBadge status={caseItem.status} />
         </div>
       </div>
 

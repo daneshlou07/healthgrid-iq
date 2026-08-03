@@ -586,7 +586,7 @@ export default function DownloadMohFormButton({ caseItem, patient, report }: Pro
       <button
         onClick={handleDownload}
         disabled={loading}
-        className="btn-secondary text-xs flex items-center gap-1.5 disabled:opacity-50"
+        className="h-9 px-3.5 btn-secondary text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 transition-colors"
         title="Download Radiology Request Form (MOH PER.SS-RA301) as PDF"
       >
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
