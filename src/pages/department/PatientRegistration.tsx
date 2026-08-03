@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
@@ -71,25 +71,40 @@ export default function PatientRegistration() {
 
   const isNricLocked = idType === 'mykad' && nricResult?.valid === true;
 
-  // Real-time duplicate NRIC check — only active once the NRIC is valid.
-  // Uses a stable derived value to avoid flickering when patients list updates
-  // from Firestore snapshots after initial render.
-  const nricRawValid = nricResult?.valid ? normalizeNric(form.idNumber) : null;
-  const duplicatePatient = useMemo(() => {
-    if (!nricRawValid) return null;
-    return patients.find((p) => p.nric && normalizeNric(p.nric) === nricRawValid) || null;
-  }, [nricRawValid, patients]);
+  // Keep a stable ref to the latest patients list so submit handler always
+  // reads the most current data regardless of React render batching.
+  const patientsRef = useRef(patients);
+  useEffect(() => { patientsRef.current = patients; }, [patients]);
+
+  // Duplicate NRIC check — latched into state so it never flickers back to
+  // null once a duplicate is found for the current NRIC value.
+  const [duplicatePatient, setDuplicatePatient] = useState<typeof patients[0] | null>(null);
+  useEffect(() => {
+    if (idType !== 'mykad' || !nricResult?.valid) {
+      setDuplicatePatient(null);
+      return;
+    }
+    const nricToCheck = normalizeNric(form.idNumber);
+    const found = patientsRef.current.find((p) => p.nric && normalizeNric(p.nric) === nricToCheck) || null;
+    setDuplicatePatient(found);
+  // Re-run whenever NRIC value changes or patients list updates
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.idNumber, idType, nricResult?.valid, patients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || submitting) return;
 
-    // Re-check duplicate at submit time against the live patients list.
-    // This catches the case where duplicatePatient memo was null due to
-    // patients loading asynchronously after the first render.
+    // Block if duplicate already detected by the effect
+    if (duplicatePatient) {
+      toast.error(`NRIC already registered to ${duplicatePatient.name} (${duplicatePatient.mrn}). Use the Patient Registry to update their record.`);
+      return;
+    }
+
+    // Final safety check at submit time using the ref (always current)
     if (idType === 'mykad' && nricResult?.valid) {
       const nricToCheck = normalizeNric(form.idNumber);
-      const existingPatient = patients.find((p) => p.nric && normalizeNric(p.nric) === nricToCheck);
+      const existingPatient = patientsRef.current.find((p) => p.nric && normalizeNric(p.nric) === nricToCheck);
       if (existingPatient) {
         toast.error(`NRIC already registered to ${existingPatient.name} (${existingPatient.mrn}). Use the Patient Registry to update their record.`);
         return;
