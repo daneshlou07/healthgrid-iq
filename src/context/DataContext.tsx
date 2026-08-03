@@ -7,6 +7,9 @@ import {
   doc,
   setDoc,
   updateDoc,
+  getDocs,
+  deleteDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { getFirestoreDb, isDemoMode, isFirebaseConfigured, waitForAuthReady } from '../services/firebase';
 import { apiClient } from '../services/apiClient';
@@ -127,6 +130,7 @@ interface DataContextValue {
   setPatientRequests: React.Dispatch<React.SetStateAction<PatientRequest[]>>;
   refresh: () => void;
   clearStorage: () => void;
+  resetFirestoreData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -564,6 +568,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
     loadAll();
   };
 
+  const resetFirestoreData = async (): Promise<void> => {
+    const db = getFirestoreDb();
+    if (!db) {
+      clearStorage();
+      return;
+    }
+    setLoading(true);
+    try {
+      const collectionsToClear = ['cases', 'patients', 'reports', 'patient_requests', 'comments', 'audit_logs', 'trash'];
+      for (const colName of collectionsToClear) {
+        const snap = await getDocs(collection(db, colName));
+        await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+      }
+
+      const batch = writeBatch(db);
+      mockUsers.forEach((u) => batch.set(doc(db, 'users', u.id), clean(u)));
+      mockClinics.forEach((c) => batch.set(doc(db, 'clinics', c.id), clean(c)));
+      mockPatients.forEach((p) => batch.set(doc(db, 'patients', p.id), clean(p)));
+      mockCases.forEach((c) => batch.set(doc(db, 'cases', c.id), clean(c)));
+      mockReports.forEach((r) => batch.set(doc(db, 'reports', r.id), clean(r)));
+      mockPatientRequests.forEach((pr) => batch.set(doc(db, 'patient_requests', pr.id), clean(pr)));
+      mockMobilePacsVans.forEach((v) => batch.set(doc(db, 'mobile_pacs_vans', v.id), clean(v)));
+
+      await batch.commit();
+
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(COMMENTS_KEY);
+      localStorage.removeItem(RECENT_KEY);
+      localStorage.removeItem(TRASH_KEY);
+
+      await loadAll();
+    } catch (err) {
+      console.error('Reset Firestore data failed:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Soft Delete — moves item to trash
   const softDelete = (type: TrashItem['type'], id: string, deletedBy: string) => {
     if (!USE_DEMO_STORAGE) {
@@ -645,7 +688,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateUserLocally, updateEquipmentLocally, updateClinicLocally,
       updatePatientLocally, addUserLocally, addEquipmentLocally, addClinicLocally,
       setUsers, setEquipment, setClinics, setPatients, setPatientRequests,
-      refresh: loadAll, clearStorage,
+      refresh: loadAll, clearStorage, resetFirestoreData,
     }}>
       {children}
     </DataContext.Provider>

@@ -39,7 +39,7 @@ function getAvatarColor(name: string): string {
 
 export default function PatientRegistry() {
   const { currentUser } = useAuth();
-  const { patients, editPatient, addAuditLog } = useData();
+  const { patients, editPatient, addAuditLog, resetFirestoreData } = useData();
   const toast = useToast();
   const [archived, setArchived] = useState<Patient[]>([]);
   const [search, setSearch] = useState('');
@@ -49,6 +49,20 @@ export default function PatientRegistry() {
   const [showArchived, setShowArchived] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetData = async () => {
+    if (!confirm('Are you sure you want to reset all data? This will clear messy test entries from Firestore and restore clean Malaysian healthcare demo records.')) return;
+    setResetting(true);
+    try {
+      await resetFirestoreData();
+      toast.success('Firestore data successfully reset to clean demo records');
+    } catch {
+      toast.error('Failed to reset Firestore data');
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const [form, setForm] = useState({
     name: '', phone: '', email: '', address: '', medicalHistory: '', emergencyContact: '',
@@ -140,6 +154,15 @@ export default function PatientRegistry() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleResetData}
+            disabled={resetting}
+            className="px-3 py-2 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            title="Wipe test data and restore clean Malaysian demo records"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${resetting ? 'animate-spin' : ''}`} />
+            {resetting ? 'Resetting Data...' : 'Reset & Reseed Data'}
+          </button>
           <button onClick={handleExport} className="btn-secondary text-xs flex items-center gap-1.5 py-2">
             <Download className="w-3.5 h-3.5" /> Export (CSV)
           </button>
