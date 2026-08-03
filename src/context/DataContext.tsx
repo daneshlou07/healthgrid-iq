@@ -384,25 +384,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Tries apiClient first (Cloud Functions), falls back to direct Firestore.
   // If both fail the optimistic state update is reverted and the error rethrown.
   // -------------------------------------------------------------------------
+  // Utility: strip undefined values so Firestore never receives them
+  const clean = <T extends object>(obj: T): T =>
+    Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+
   const addCase = async (c: Omit<Case, 'id'>): Promise<Case> => {
     const id = `case-${Date.now()}`;
-    // Strip undefined values — Firestore rejects documents with undefined fields
-    const sanitized = Object.fromEntries(
-      Object.entries({ ...c, id, createdAt: new Date().toISOString() }).filter(([, v]) => v !== undefined)
-    ) as Case;
-    setCases((prev) => [...prev, sanitized]);
-
+    const data = clean({ ...c, id, createdAt: new Date().toISOString() }) as Case;
+    setCases((prev) => [...prev, data]);
     try {
-      await apiClient.createCase(c);
-      return sanitized;
-    } catch (apiErr) {
-      console.warn('[addCase] apiClient failed, trying direct Firestore:', apiErr);
-      try {
-        const db = getFirestoreDb();
-        if (db) { await setDoc(doc(db, 'cases', id), sanitized); return sanitized; }
-      } catch (fsErr) {
-        console.error('[addCase] Firestore direct write failed:', fsErr);
-      }
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not initialised');
+      await setDoc(doc(db, 'cases', id), data);
+      return data;
+    } catch (err) {
+      console.error('[addCase] write failed:', err);
       setCases((prev) => prev.filter((item) => item.id !== id));
       throw new Error('Failed to save case. Please check your connection and try again.');
     }
@@ -410,17 +406,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const editCase = async (id: string, updates: Partial<Case>) => {
     const previous = cases.find((c) => c.id === id);
-    setCases((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
-
+    const data = clean(updates);
+    setCases((prev) => prev.map((c) => (c.id === id ? { ...c, ...data } : c)));
     try {
-      await apiClient.updateCase(id, updates);
-      return;
-    } catch {
-      try {
-        const db = getFirestoreDb();
-        if (db) { await updateDoc(doc(db, 'cases', id), updates); return; }
-      } catch { /* fall through to rollback */ }
-      // Rollback
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not initialised');
+      await updateDoc(doc(db, 'cases', id), data);
+    } catch (err) {
+      console.error('[editCase] write failed:', err);
       if (previous) setCases((prev) => prev.map((c) => (c.id === id ? previous : c)));
       throw new Error('Failed to update case. Please check your connection and try again.');
     }
@@ -428,23 +421,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addPatient = async (p: Omit<Patient, 'id'>): Promise<Patient> => {
     const id = `patient-${Date.now()}`;
-    // Strip undefined values — Firestore rejects documents with undefined fields
-    const sanitized = Object.fromEntries(
-      Object.entries({ ...p, id }).filter(([, v]) => v !== undefined)
-    ) as Patient;
-    setPatients((prev) => [...prev, sanitized]);
-
+    const data = clean({ ...p, id }) as Patient;
+    setPatients((prev) => [...prev, data]);
     try {
-      await apiClient.createPatient(p);
-      return sanitized;
-    } catch (apiErr) {
-      console.warn('[addPatient] apiClient failed, trying direct Firestore:', apiErr);
-      try {
-        const db = getFirestoreDb();
-        if (db) { await setDoc(doc(db, 'patients', id), sanitized); return sanitized; }
-      } catch (fsErr) {
-        console.error('[addPatient] Firestore direct write failed:', fsErr);
-      }
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not initialised');
+      await setDoc(doc(db, 'patients', id), data);
+      return data;
+    } catch (err) {
+      console.error('[addPatient] write failed:', err);
       setPatients((prev) => prev.filter((item) => item.id !== id));
       throw new Error('Failed to save patient. Please check your connection and try again.');
     }
@@ -452,16 +437,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const editPatient = async (id: string, updates: Partial<Patient>) => {
     const previous = patients.find((p) => p.id === id);
-    setPatients((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
-
+    const data = clean(updates);
+    setPatients((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
     try {
-      await apiClient.updatePatient(id, updates);
-      return;
-    } catch {
-      try {
-        const db = getFirestoreDb();
-        if (db) { await updateDoc(doc(db, 'patients', id), updates); return; }
-      } catch { /* fall through to rollback */ }
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not initialised');
+      await updateDoc(doc(db, 'patients', id), data);
+    } catch (err) {
+      console.error('[editPatient] write failed:', err);
       if (previous) setPatients((prev) => prev.map((p) => (p.id === id ? previous : p)));
       throw new Error('Failed to update patient. Please check your connection and try again.');
     }
@@ -469,19 +452,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addReport = async (r: Omit<Report, 'id'>): Promise<Report> => {
     const id = `report-${Date.now()}`;
-    const sanitized = Object.fromEntries(
-      Object.entries({ ...r, id, createdAt: new Date().toISOString() }).filter(([, v]) => v !== undefined)
-    ) as Report;
-    setReports((prev) => [...prev, sanitized]);
-
+    const data = clean({ ...r, id, createdAt: new Date().toISOString() }) as Report;
+    setReports((prev) => [...prev, data]);
     try {
-      await apiClient.createReport(r);
-      return sanitized;
-    } catch {
-      try {
-        const db = getFirestoreDb();
-        if (db) { await setDoc(doc(db, 'reports', id), sanitized); return sanitized; }
-      } catch { /* fall through to rollback */ }
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not initialised');
+      await setDoc(doc(db, 'reports', id), data);
+      return data;
+    } catch (err) {
+      console.error('[addReport] write failed:', err);
       setReports((prev) => prev.filter((item) => item.id !== id));
       throw new Error('Failed to save report. Please check your connection and try again.');
     }
@@ -489,16 +468,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const editReport = async (id: string, updates: Partial<Report>) => {
     const previous = reports.find((r) => r.id === id);
-    setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
-
+    const data = clean(updates);
+    setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
     try {
-      await apiClient.updateReport(id, updates);
-      return;
-    } catch {
-      try {
-        const db = getFirestoreDb();
-        if (db) { await updateDoc(doc(db, 'reports', id), updates); return; }
-      } catch { /* fall through to rollback */ }
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not initialised');
+      await updateDoc(doc(db, 'reports', id), data);
+    } catch (err) {
+      console.error('[editReport] write failed:', err);
       if (previous) setReports((prev) => prev.map((r) => (r.id === id ? previous : r)));
       throw new Error('Failed to update report. Please check your connection and try again.');
     }
@@ -506,17 +483,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addPatientRequest = async (r: Omit<PatientRequest, 'id'>): Promise<PatientRequest> => {
     const id = `req-${Date.now()}`;
-    const newReq: PatientRequest = { ...r, id, dateSubmitted: (r as any).dateSubmitted || new Date().toISOString() };
-    setPatientRequests((prev) => [...prev, newReq]);
-
+    const data = clean({ ...r, id, dateSubmitted: (r as any).dateSubmitted || new Date().toISOString() }) as PatientRequest;
+    setPatientRequests((prev) => [...prev, data]);
     try {
-      await apiClient.createPatientRequest(r);
-      return newReq;
-    } catch {
-      try {
-        const db = getFirestoreDb();
-        if (db) { await setDoc(doc(db, 'patient_requests', id), newReq); return newReq; }
-      } catch { /* fall through to rollback */ }
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not initialised');
+      await setDoc(doc(db, 'patient_requests', id), data);
+      return data;
+    } catch (err) {
+      console.error('[addPatientRequest] write failed:', err);
       setPatientRequests((prev) => prev.filter((item) => item.id !== id));
       throw new Error('Failed to save request. Please check your connection and try again.');
     }
@@ -524,16 +499,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const editPatientRequest = async (id: string, updates: Partial<PatientRequest>) => {
     const previous = patientRequests.find((r) => r.id === id);
-    setPatientRequests((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
-
+    const data = clean(updates);
+    setPatientRequests((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
     try {
-      await apiClient.updatePatientRequest(id, updates);
-      return;
-    } catch {
-      try {
-        const db = getFirestoreDb();
-        if (db) { await updateDoc(doc(db, 'patient_requests', id), updates); return; }
-      } catch { /* fall through to rollback */ }
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not initialised');
+      await updateDoc(doc(db, 'patient_requests', id), data);
+    } catch (err) {
+      console.error('[editPatientRequest] write failed:', err);
       if (previous) setPatientRequests((prev) => prev.map((r) => (r.id === id ? previous : r)));
       throw new Error('Failed to update request. Please check your connection and try again.');
     }
