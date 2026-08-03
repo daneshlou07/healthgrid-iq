@@ -75,7 +75,7 @@ export default function PatientRegistration() {
   const duplicatePatient = useMemo(() => {
     if (idType !== 'mykad' || !nricResult?.valid) return null;
     const nricToCheck = normalizeNric(form.idNumber);
-    return patients.find((p) => normalizeNric(p.nric) === nricToCheck) || null;
+    return patients.find((p) => p.nric && normalizeNric(p.nric) === nricToCheck) || null;
   }, [idType, nricResult, patients, form.idNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
