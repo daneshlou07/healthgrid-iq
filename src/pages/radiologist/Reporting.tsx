@@ -9,6 +9,7 @@ import { getCaseRegistrar } from '../../utils/caseDisplay';
 import { loadImages } from '../../services/imageStorage';
 import PacsImageViewer from '../../components/ui/PacsImageViewer';
 import { generateAiReportDraft } from '../../services/aiReportingCopilot';
+import { Sparkles, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { analyzeImageWithVisionAi } from '../../services/visionAiAnalyzer';
 
 /** Loads and displays images from IndexedDB keys stored on the case */
@@ -217,15 +218,17 @@ export default function Reporting() {
                 className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border border-purple-300 shadow-sm"
                 title="1-Click AI Preliminary Impression Generator"
               >
-                🪄 AI Copilot Draft
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI Copilot Draft
               </button>
               {isMO && (
                 <button
                   type="button"
                   onClick={() => setShowEscalateModal(true)}
-                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-bold transition-colors"
+                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
                 >
-                  ⚠️ Escalate
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Escalate
                 </button>
               )}
             </div>
@@ -233,14 +236,15 @@ export default function Reporting() {
 
           {/* Critical Red Flag Alert Toggle */}
           <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-red-900">
-              <input
-                type="checkbox"
-                checked={isCriticalFinding}
-                onChange={(e) => setIsCriticalFinding(e.target.checked)}
-                className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
-              />
-              🚨 Flag as Critical Finding (Emergency Red Flag Alert)
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-red-900">
+                <input
+                  type="checkbox"
+                  checked={isCriticalFinding}
+                  onChange={(e) => setIsCriticalFinding(e.target.checked)}
+                  className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                />
+                <ShieldAlert className="w-4 h-4 text-red-700" />
+                Flag as Critical Finding (Emergency Red Flag Alert)
             </label>
             {isCriticalFinding && (
               <input

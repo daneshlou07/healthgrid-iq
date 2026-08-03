@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import StatusBadge from '../../components/ui/StatusBadge';
-import { CheckCircle, Image, FileText, Brain } from 'lucide-react';
+import { CheckCircle, Image, FileText, Brain, Sparkles, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getCaseRegistrar } from '../../utils/caseDisplay';
 import { loadImages } from '../../services/imageStorage';
@@ -220,14 +220,16 @@ export default function Reporting() {
                 className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border border-purple-300 shadow-sm"
                 title="1-Click AI Preliminary Impression Generator"
               >
-                🪄 AI Copilot Draft
+                <Sparkles className="w-3.5 h-3.5" />
+                AI Copilot Draft
               </button>
               <button
                 type="button"
                 onClick={() => setShowEscalateModal(true)}
-                className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-bold transition-colors"
+                className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
               >
-                ⚠️ Escalate
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Escalate
               </button>
             </div>
           </div>
@@ -241,7 +243,8 @@ export default function Reporting() {
                 onChange={(e) => setIsCriticalFinding(e.target.checked)}
                 className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
               />
-              🚨 Flag as Critical Finding (Emergency Red Flag Alert)
+              <ShieldAlert className="w-4 h-4 text-red-700" />
+              Flag as Critical Finding (Emergency Red Flag Alert)
             </label>
             {isCriticalFinding && (
               <input

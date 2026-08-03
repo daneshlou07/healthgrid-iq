@@ -211,6 +211,13 @@ export interface Case {
   /** Komen — radiographer's operational comments */
   komen?: string;
 
+  // ── Radiographer Clinical Findings (pre-read notes) ───────────────────────
+  /** Radiographer's preliminary image findings / observations */
+  radiographerFindings?: string;
+  /** Radiographer's preliminary impression / technical note */
+  radiographerImpression?: string;
+
+
   // ── MOH Form § Kegunaan Pejabat — Office Use (Admin fills) ───────────────
   /** ISO 8601 — Waktu Terima (time received) */
   officeWaktuTerima?: string;

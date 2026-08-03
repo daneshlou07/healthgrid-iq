@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import { useLanguage } from '../../context/LanguageContext';
-import { Upload, Image as ImageIcon, X, CheckSquare, Zap, ShieldCheck } from 'lucide-react';
+import { Upload, Image as ImageIcon, X, CheckSquare, Zap, ShieldCheck, FileText, Sparkles } from 'lucide-react';
 import { saveImage } from '../../services/imageStorage';
 import { getEffectiveDoseForExam } from '../../data/effectiveDoseTable';
+import { generateAiReportDraft } from '../../services/aiReportingCopilot';
 
 interface FlattenedViewItem {
   id: string; // e.g. "Chest / Thorax_PA (Posteroanterior)_0"
@@ -38,6 +39,10 @@ export default function UploadScans() {
   const [bilanganFilem, setBilanganFilem] = useState('1');
   const [bilanganCdDvd, setBilanganCdDvd] = useState('0');
   const [komen, setKomen] = useState('');
+
+  // Radiographer Findings (preliminary image observations)
+  const [radiographerFindings, setRadiographerFindings] = useState('');
+  const [radiographerImpression, setRadiographerImpression] = useState('');
 
   // Quality Assurance Checklist State
   const [qaPatientIdVerified, setQaPatientIdVerified] = useState(true);
@@ -145,6 +150,8 @@ export default function UploadScans() {
       bilanganFilem: bilanganFilem ? Number(bilanganFilem) : 1,
       bilanganCdDvd: bilanganCdDvd ? Number(bilanganCdDvd) : 0,
       komen: komen.trim() || undefined,
+      radiographerFindings: radiographerFindings.trim() || undefined,
+      radiographerImpression: radiographerImpression.trim() || undefined,
       officeJuruXRay: currentUser.name,
       officeWaktuTerima: new Date().toISOString(),
       officeWaktuSelesai: new Date().toISOString(),
@@ -395,6 +402,67 @@ export default function UploadScans() {
                   <input type="checkbox" checked={qaQualityVerified} onChange={(e) => setQaQualityVerified(e.target.checked)} className="rounded text-emerald-600" />
                   <span>No Motion Artifacts</span>
                 </label>
+              </div>
+            </div>
+
+            {/* ── 5. RADIOGRAPHER FINDINGS ──────────────────────────────────── */}
+            <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-blue-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-blue-700" />
+                  {t('Radiographer Findings', 'Penemuan Radiografer')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!selectedCase) return;
+                    const draft = generateAiReportDraft(selectedCase);
+                    setRadiographerFindings(draft.findings);
+                    setRadiographerImpression(draft.impression);
+                    toast.success(t(`AI draft generated (${draft.confidenceScore}% confidence)`, `Draf AI dijana (${draft.confidenceScore}% keyakinan)`));
+                  }}
+                  className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border border-purple-300"
+                  title="AI Preliminary Impression Generator"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {t('AI Copilot Draft', 'Draf Kopilot AI')}
+                </button>
+              </div>
+              <p className="text-[11px] text-blue-700">
+                {t(
+                  'Document your preliminary image observations. These notes are passed to the reviewing MO or Radiologist as context.',
+                  'Rekodkan pemerhatian imej awal anda. Nota ini akan dikemukakan kepada MO atau Pakar Radiologi yang menyemak.'
+                )}
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {t('Image Findings / Observations', 'Penemuan Imej / Pemerhatian')} *
+                </label>
+                <textarea
+                  rows={4}
+                  value={radiographerFindings}
+                  onChange={(e) => setRadiographerFindings(e.target.value)}
+                  className="input-field resize-none text-xs"
+                  placeholder={t(
+                    'Describe what is visible in the scan (e.g. Lung fields clear, no consolidation. Cardiothoracic ratio normal...)',
+                    'Huraikan apa yang kelihatan dalam imbasan...'
+                  )}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {t('Preliminary Impression / Technical Note', 'Tanggapan Awal / Nota Teknikal')}
+                </label>
+                <textarea
+                  rows={2}
+                  value={radiographerImpression}
+                  onChange={(e) => setRadiographerImpression(e.target.value)}
+                  className="input-field resize-none text-xs"
+                  placeholder={t(
+                    'Short summary or technical note for reviewing clinician...',
+                    'Ringkasan pendek atau nota teknikal untuk doktor penyemak...'
+                  )}
+                />
               </div>
             </div>
           </>
