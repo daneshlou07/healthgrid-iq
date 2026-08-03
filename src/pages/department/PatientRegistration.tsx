@@ -71,50 +71,25 @@ export default function PatientRegistration() {
 
   const isNricLocked = idType === 'mykad' && nricResult?.valid === true;
 
-  // Keep a stable ref to the latest patients list so submit handler always
-  // reads the most current data regardless of React render batching.
+  // Keep a stable ref to the latest patients list — always current regardless of render cycle
   const patientsRef = useRef(patients);
   useEffect(() => { patientsRef.current = patients; }, [patients]);
 
-  // Duplicate NRIC check.
-  // Key design choices:
-  // 1. Driven by form.idNumber (stable string), not nricResult object (new ref each render)
-  // 2. Only sets to null when the NRIC field is cleared/changed — never clears due to patient list updates
-  // 3. Uses patientsRef so it always searches the latest list even if patients is still loading
+  // Duplicate NRIC — drive entirely from form.idNumber string (not nricResult object).
+  // This effect only clears/sets when the NRIC digits themselves change.
+  // It never re-runs due to patients list updates (avoiding the flicker).
   const [duplicatePatient, setDuplicatePatient] = useState<typeof patients[0] | null>(null);
-  const lastCheckedNric = useRef<string>('');
-
   useEffect(() => {
     const rawNric = normalizeNric(form.idNumber);
-
-    // Clear when user changes/clears the NRIC
     if (idType !== 'mykad' || rawNric.length < 12) {
       setDuplicatePatient(null);
-      lastCheckedNric.current = '';
       return;
     }
-
-    // Only re-run the lookup when the NRIC value itself changes, not when
-    // patients array updates (that's handled by the patients watcher below)
-    if (rawNric !== lastCheckedNric.current) {
-      lastCheckedNric.current = rawNric;
-      const found = patientsRef.current.find((p) => p.nric && normalizeNric(p.nric) === rawNric) || null;
-      setDuplicatePatient(found);
-    }
+    // Use patientsRef.current — always the latest list even if patients hasn't re-rendered yet
+    const found = patientsRef.current.find((p) => p.nric && normalizeNric(p.nric) === rawNric) || null;
+    setDuplicatePatient(found);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.idNumber, idType]);
-
-  // Separate effect: re-check against patients list once it loads/updates,
-  // but only if we already have a valid complete NRIC typed in.
-  useEffect(() => {
-    const rawNric = lastCheckedNric.current;
-    if (!rawNric || idType !== 'mykad' || patients.length === 0) return;
-    const found = patients.find((p) => p.nric && normalizeNric(p.nric) === rawNric) || null;
-    // Only update state if the result changes to avoid unnecessary re-renders
-    setDuplicatePatient((prev) => {
-      if (prev?.id === found?.id) return prev;
-      return found;
-    });
-  }, [patients, idType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

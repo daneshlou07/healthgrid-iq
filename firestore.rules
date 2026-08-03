@@ -6,31 +6,188 @@ service cloud.firestore {
     // Helper functions
     // -----------------------------------------------------------------------
 
-    // Check if the request is from an authenticated user
     function isAuth() {
       return request.auth != null;
     }
 
-    // Read the custom role claim from the Firebase ID token (fast, tamper-proof)
-    // Falls back to the Firestore users document role if claim is absent.
-    function tokenRole() {
-      return request.auth.token.role;
+    // Read role from custom JWT claim first; fall back to the user's Firestore
+    // document if the claim is absent (e.g. Cloud Functions not yet deployed,
+    // or user signed up before claims were set).
+    function userRole() {
+      return request.auth.token.role != null
+        ? request.auth.token.role
+        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Check if the authenticated user has a specific role via custom claim
     function hasRole(role) {
-      return isAuth() && tokenRole() == role;
+      return isAuth() && userRole() == role;
     }
 
-    // Check if user is an administrator
     function isAdmin() {
       return hasRole('Administrator');
     }
 
-    // Check if the caller is the owner of this document
+    // Any authenticated staff member (any recognised role)
+    function isStaff() {
+      return isAuth() && userRole() in [
+        'Administrator', 'Medical Officer', 'Radiology Department',
+        'Radiographer', 'Radiologist'
+      ];
+    }
+
     function isOwner(userId) {
       return isAuth() && request.auth.uid == userId;
     }
+
+    // -----------------------------------------------------------------------
+    // Users collection
+    // -----------------------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Clinics collection
+    // -----------------------------------------------------------------------
+    match /clinics/{clinicId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Patients collection
+    // -----------------------------------------------------------------------
+    match /patients/{patientId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
+      allow update: if isAdmin() || hasRole('Medical Officer') || hasRole('Radiology Department');
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Cases collection
+    // -----------------------------------------------------------------------
+    match /cases/{caseId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
+      allow update: if isAdmin()
+        || hasRole('Medical Officer')
+        || hasRole('Radiology Department')
+        || (isAuth() && request.auth.uid == resource.data.radiographerId)
+        || (isAuth() && request.auth.uid == resource.data.radiologistId);
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Reports collection
+    // -----------------------------------------------------------------------
+    match /reports/{reportId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiologist') || isAdmin());
+      allow update: if isAdmin()
+        || ((hasRole('Medical Officer') || hasRole('Radiologist'))
+            && resource.data.status != 'Verified / Signed Off'
+            && request.auth.uid == resource.data.radiologistId);
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Case Comments collection
+    // -----------------------------------------------------------------------
+    match /comments/{commentId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAdmin()
+        || (isAuth() && request.auth.uid == resource.data.userId);
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Patient requests collection
+    // -----------------------------------------------------------------------
+    match /patient_requests/{requestId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
+      allow update: if isAdmin() || hasRole('Medical Officer') || hasRole('Radiology Department');
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Audit logs — write-once, immutable
+    // -----------------------------------------------------------------------
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update, delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Mobile PACS vans (equipment)
+    // -----------------------------------------------------------------------
+    match /mobile_pacs_vans/{vanId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Radiographer schedules
+    // -----------------------------------------------------------------------
+    match /radio_schedules/{scheduleId} {
+      allow read: if isAuth();
+      allow create, update: if isAdmin() || hasRole('Radiology Department');
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // IAS Scheduling Jobs
+    // -----------------------------------------------------------------------
+    match /scheduling_jobs/{jobId} {
+      allow read: if isAuth();
+      allow create: if isAdmin() || hasRole('Radiology Department');
+      allow update: if isAdmin() || hasRole('Radiology Department');
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Announcements
+    // -----------------------------------------------------------------------
+    match /announcements/{announcementId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Notifications
+    // -----------------------------------------------------------------------
+    match /notifications/{notificationId} {
+      allow read: if isAdmin()
+        || (isAuth() && resource.data.userId == request.auth.uid);
+      allow create: if false;
+      allow update: if isAdmin()
+        || (isAuth()
+            && resource.data.userId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // Sessions
+    // -----------------------------------------------------------------------
+    match /sessions/{sessionId} {
+      allow read: if isAdmin()
+        || (isAuth() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Trash / Soft deletes
+    // -----------------------------------------------------------------------
+    match /trash/{trashItemId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
 
     // -----------------------------------------------------------------------
     // Users collection
