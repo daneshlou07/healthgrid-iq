@@ -55,10 +55,17 @@ export function getFirebaseApp(): FirebaseApp | null {
 
 /**
  * Get the Firestore database instance.
+ * Ensures Firebase Auth is initialised first so the Firestore SDK has
+ * access to the current user's token for security rule evaluation.
  */
 export function getFirestoreDb(): Firestore | null {
   const app = getFirebaseApp();
   if (!app) return null;
+  // Ensure auth instance exists so the Firestore SDK can attach the token.
+  // getAuth() is synchronous and returns the existing instance if already created.
+  if (!_authInstance) {
+    _authInstance = getAuth(app);
+  }
   return getFirestore(app);
 }
 
@@ -122,6 +129,25 @@ export async function getIdToken(forceRefresh = false): Promise<string | null> {
     console.error('Failed to get ID token:', error);
     return null;
   }
+}
+
+/**
+ * Wait for Firebase Auth to restore the user's session.
+ * Returns the current user, or null if not signed in.
+ * This must be called before any Firestore write to ensure the auth
+ * token is attached to the request.
+ */
+export function waitForAuthReady(): Promise<import('firebase/auth').User | null> {
+  return new Promise((resolve) => {
+    const app = getFirebaseApp();
+    if (!app) { resolve(null); return; }
+    const auth = _authInstance ?? getAuth(app);
+    // onAuthStateChanged fires immediately with the current user
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
 }
 
 // Export config for debug purposes (never logs API key)
