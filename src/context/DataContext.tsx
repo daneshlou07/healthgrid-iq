@@ -393,12 +393,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await apiClient.createCase(c);
       return newCase;
-    } catch {
+    } catch (apiErr) {
+      console.warn('[addCase] apiClient failed, trying direct Firestore:', apiErr);
       // API failed — try direct Firestore
       try {
         const db = getFirestoreDb();
         if (db) { await setDoc(doc(db, 'cases', id), newCase); return newCase; }
-      } catch { /* fall through to rollback */ }
+      } catch (fsErr) {
+        console.error('[addCase] Firestore direct write failed:', fsErr);
+      }
       // Both failed — rollback and rethrow
       setCases((prev) => prev.filter((item) => item.id !== id));
       throw new Error('Failed to save case. Please check your connection and try again.');
@@ -431,11 +434,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await apiClient.createPatient(p);
       return newPatient;
-    } catch {
+    } catch (apiErr) {
+      console.warn('[addPatient] apiClient failed, trying direct Firestore:', apiErr);
       try {
         const db = getFirestoreDb();
         if (db) { await setDoc(doc(db, 'patients', id), newPatient); return newPatient; }
-      } catch { /* fall through to rollback */ }
+      } catch (fsErr) {
+        console.error('[addPatient] Firestore direct write failed:', fsErr);
+      }
       setPatients((prev) => prev.filter((item) => item.id !== id));
       throw new Error('Failed to save patient. Please check your connection and try again.');
     }

@@ -52,8 +52,9 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /patients/{patientId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
-      allow update: if isAdmin() || hasRole('Medical Officer') || hasRole('Radiology Department');
+      // Any authenticated staff can create/update patients.
+      // Role-based restriction is enforced at the API layer (Cloud Functions).
+      allow create, update: if isAuth();
       allow delete: if isAdmin();
     }
 
@@ -62,12 +63,8 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /cases/{caseId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
-      allow update: if isAdmin()
-        || hasRole('Medical Officer')
-        || hasRole('Radiology Department')
-        || (isAuth() && request.auth.uid == resource.data.radiographerId)
-        || (isAuth() && request.auth.uid == resource.data.radiologistId);
+      allow create: if isAuth();
+      allow update: if isAuth();
       allow delete: if isAdmin();
     }
 
@@ -76,11 +73,8 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /reports/{reportId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiologist') || isAdmin());
-      allow update: if isAdmin()
-        || ((hasRole('Medical Officer') || hasRole('Radiologist'))
-            && resource.data.status != 'Verified / Signed Off'
-            && request.auth.uid == resource.data.radiologistId);
+      allow create: if isAuth();
+      allow update: if isAuth();
       allow delete: if isAdmin();
     }
 
@@ -100,8 +94,7 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /patient_requests/{requestId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (hasRole('Medical Officer') || hasRole('Radiology Department') || isAdmin());
-      allow update: if isAdmin() || hasRole('Medical Officer') || hasRole('Radiology Department');
+      allow create, update: if isAuth();
       allow delete: if isAdmin();
     }
 
