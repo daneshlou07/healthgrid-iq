@@ -4,12 +4,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import { useLanguage } from '../../context/LanguageContext';
-import { Upload, Image as ImageIcon, X, Check, CheckCircle2, Zap, ShieldCheck, FileCheck, Layers } from 'lucide-react';
+import { Upload, Image as ImageIcon, X, CheckSquare, Zap, ShieldCheck } from 'lucide-react';
 import { saveImage } from '../../services/imageStorage';
 import { getEffectiveDoseForExam } from '../../data/effectiveDoseTable';
 
 interface FlattenedViewItem {
-  id: string; // e.g. "Chest / Thorax_PA (Posteroanterior)"
+  id: string; // e.g. "Chest / Thorax_PA (Posteroanterior)_0"
   examIndex: number;
   bodyPart: string;
   side?: string;
@@ -61,7 +61,7 @@ export default function UploadScans() {
     return availableCases.find((c) => c.id === selectedCaseId);
   }, [availableCases, selectedCaseId]);
 
-  // Flatten requested examinations into individual view items
+  // Flatten requested examinations into view items
   const flattenedViews = useMemo<FlattenedViewItem[]>(() => {
     if (!selectedCase || !selectedCase.requestedExaminations) return [];
     const items: FlattenedViewItem[] = [];
@@ -105,7 +105,6 @@ export default function UploadScans() {
 
   const totalViewsCount = flattenedViews.length;
   const completedViewsCount = flattenedViews.filter((v) => completedViewIds[v.id]).length;
-  const progressPercent = totalViewsCount > 0 ? Math.round((completedViewsCount / totalViewsCount) * 100) : 0;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -195,91 +194,89 @@ export default function UploadScans() {
 
         {selectedCase && (
           <>
-            {/* ── 1. ONBOARDING WIDGET INSPIRED EXAMINATION PROGRESS CHECKLIST ───────────────────────── */}
-            <div className="p-5 bg-surface-900 text-white rounded-2xl shadow-md border border-surface-800 space-y-4">
-              {/* Header & Progress Counter */}
-              <div className="flex items-center justify-between">
+            {/* ── 1. REQUESTED EXAMINATIONS CHECKLIST (Native Light Theme) ───────────────────────── */}
+            <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div>
-                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-emerald-400" />
-                    <span>{t('Examination Task Checklist', 'Senarai Tugas Imbasan')}</span>
+                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-[#0F4C42]" />
+                    <span>{t('Requested Examinations Checklist', 'Senarai Semak Ujian Dipesan')}</span>
                   </h2>
-                  <p className="text-[11px] text-surface-300 mt-0.5">
-                    {t('Check off acquired projections and attach DICOM scans per view', 'Tanda imbasan yang selesai dan lampirkan fail DICOM mengikut pandangan')}
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {t('Verify acquired projection views for the requested scan(s)', 'Sahkan pandangan imbasan bagi ujian yang dipesan')}
                   </p>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs font-mono font-bold bg-surface-800 text-emerald-400 px-2.5 py-1 rounded-full border border-surface-700">
-                    {completedViewsCount} / {totalViewsCount} {t('Views (', 'Pandangan (')}{progressPercent}%)
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                    {selectedCase.modality || 'X-Ray'}
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    {completedViewsCount} / {totalViewsCount} {t('Views Acquired', 'Pandangan Selesai')}
                   </span>
                 </div>
               </div>
 
-              {/* Animated Progress Bar */}
-              <div className="w-full bg-surface-800 h-2 rounded-full overflow-hidden p-0.5 border border-surface-700">
-                <div
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-
-              {/* Task Items List */}
-              {flattenedViews.length > 0 ? (
-                <div className="space-y-2 pt-2">
-                  {flattenedViews.map((item) => {
-                    const isDone = !!completedViewIds[item.id];
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => toggleViewCompleted(item.id)}
-                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                          isDone
-                            ? 'bg-surface-800/80 border-emerald-500/40 text-surface-200'
-                            : 'bg-surface-800/40 border-surface-700 text-surface-400 hover:bg-surface-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Round Checkbox */}
-                          <div
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                              isDone
-                                ? 'bg-emerald-500 border-emerald-500 text-surface-950 font-bold'
-                                : 'border-surface-600 bg-surface-900/50'
-                            }`}
-                          >
-                            {isDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                          </div>
-
-                          {/* Titles & Descriptions */}
-                          <div>
-                            <p className={`text-xs font-bold transition-all ${isDone ? 'line-through text-surface-300' : 'text-white'}`}>
-                              {item.bodyPart} {item.side && item.side !== 'N/A' ? `[${item.side}]` : ''} — <span className="text-emerald-400">{item.viewName}</span>
-                            </p>
-                            <p className="text-[11px] text-surface-400 mt-0.5">
-                              {item.notes ? item.notes : t('Required examination projection view', 'Pandangan imbasan pemeriksaan wajib')}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Status Badge & Direct Upload Trigger */}
-                        <div className="flex items-center gap-2">
-                          {isDone ? (
-                            <span className="text-[10px] font-bold bg-emerald-950 text-emerald-300 px-2.5 py-1 rounded-lg border border-emerald-800 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                              {t('Acquired', 'Selesai')}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-medium bg-surface-700 text-surface-300 px-2.5 py-1 rounded-lg">
-                              {t('Pending', 'Belum')}
-                            </span>
-                          )}
-                        </div>
+              {/* Grouped Examination Cards */}
+              {selectedCase.requestedExaminations && selectedCase.requestedExaminations.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedCase.requestedExaminations.map((ex, examIdx) => (
+                    <div key={ex.id || examIdx} className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-navy-900">
+                          #{examIdx + 1} — {ex.bodyPart} {ex.side && ex.side !== 'N/A' ? `[${ex.side}]` : ''}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {ex.viewsOrProtocol.length} Required View(s)
+                        </span>
                       </div>
-                    );
-                  })}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {ex.viewsOrProtocol.map((viewName) => {
+                          const key = `${ex.bodyPart}_${viewName}_${examIdx}`;
+                          const isChecked = !!completedViewIds[key];
+                          return (
+                            <label
+                              key={viewName}
+                              className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2.5 transition-all ${
+                                isChecked
+                                  ? 'bg-emerald-50/60 border-emerald-300 text-emerald-950'
+                                  : 'bg-slate-50/80 border-slate-200 text-slate-700 hover:bg-white'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleViewCompleted(key)}
+                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                                />
+                                <span className={`text-xs font-semibold ${isChecked ? 'line-through opacity-80' : ''}`}>
+                                  {viewName}
+                                </span>
+                              </div>
+
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                isChecked
+                                  ? 'bg-emerald-200/70 text-emerald-900'
+                                  : 'bg-slate-200/60 text-slate-600'
+                              }`}>
+                                {isChecked ? t('Acquired', 'Selesai') : t('Pending', 'Belum')}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      {ex.notes && (
+                        <p className="text-[11px] text-slate-500 italic bg-slate-50 p-2 rounded border border-slate-100">
+                          <strong>Instruction:</strong> {ex.notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="p-3 bg-surface-800 rounded-xl text-xs text-surface-300">
+                <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700">
                   {selectedCase.scanType}
                 </div>
               )}
