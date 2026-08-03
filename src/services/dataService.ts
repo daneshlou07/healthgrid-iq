@@ -97,39 +97,28 @@ export async function getPatientsByClinic(clinicId: string): Promise<Patient[]> 
 export async function createPatient(patient: Omit<Patient, 'id'>): Promise<Patient> {
   const id = generateId('patient');
   const newPatient: Patient = { ...patient, id };
-  
+
   if (useMock()) {
     mockPatients.push(newPatient);
     return newPatient;
   }
 
-  try {
-    const db = getFirestoreDb();
-    if (db) {
-      await setDoc(doc(db, 'patients', id), newPatient);
-    }
-  } catch (err) {
-    console.warn('Direct Firestore createPatient write failed, retaining local state:', err);
-  }
-
-  mockPatients.push(newPatient);
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await setDoc(doc(db, 'patients', id), newPatient);
   return newPatient;
 }
 
 export async function updatePatient(id: string, updates: Partial<Patient>): Promise<void> {
-  const idx = mockPatients.findIndex((p) => p.id === id);
-  if (idx !== -1) Object.assign(mockPatients[idx], updates);
-
-  if (!useMock()) {
-    try {
-      const db = getFirestoreDb();
-      if (db) {
-        await updateDoc(doc(db, 'patients', id), updates as any);
-      }
-    } catch (err) {
-      console.warn('Direct Firestore updatePatient write failed:', err);
-    }
+  if (useMock()) {
+    const idx = mockPatients.findIndex((p) => p.id === id);
+    if (idx !== -1) Object.assign(mockPatients[idx], updates);
+    return;
   }
+
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await updateDoc(doc(db, 'patients', id), updates as any);
 }
 
 // ==================== CASES ====================
@@ -187,35 +176,24 @@ export async function createCase(c: Omit<Case, 'id'>): Promise<Case> {
     return newCase;
   }
 
-  try {
-    const db = getFirestoreDb();
-    if (db) {
-      await setDoc(doc(db, 'cases', id), newCase);
-    }
-  } catch (err) {
-    console.warn('Direct Firestore createCase write failed, retaining local state:', err);
-  }
-
-  mockCases.push(newCase);
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await setDoc(doc(db, 'cases', id), newCase);
   return newCase;
 }
 
 export async function updateCase(id: string, updates: Partial<Case>): Promise<void> {
   if (!id) throw new Error('Update case failed: Missing document ID');
 
-  const idx = mockCases.findIndex((c) => c.id === id);
-  if (idx !== -1) Object.assign(mockCases[idx], updates);
-
-  if (!useMock()) {
-    try {
-      const db = getFirestoreDb();
-      if (db) {
-        await updateDoc(doc(db, 'cases', id), updates as any);
-      }
-    } catch (err) {
-      console.warn('Direct Firestore updateCase write failed:', err);
-    }
+  if (useMock()) {
+    const idx = mockCases.findIndex((c) => c.id === id);
+    if (idx !== -1) Object.assign(mockCases[idx], updates);
+    return;
   }
+
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await updateDoc(doc(db, 'cases', id), updates as any);
 }
 
 export async function updateCaseWorksheet(
@@ -261,35 +239,24 @@ export async function createReport(report: Omit<Report, 'id'>): Promise<Report> 
     return newReport;
   }
 
-  try {
-    const db = getFirestoreDb();
-    if (db) {
-      await setDoc(doc(db, 'reports', id), newReport);
-    }
-  } catch (err) {
-    console.warn('Direct Firestore createReport write failed, retaining local state:', err);
-  }
-
-  mockReports.push(newReport);
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await setDoc(doc(db, 'reports', id), newReport);
   return newReport;
 }
 
 export async function updateReport(id: string, updates: Partial<Report>): Promise<void> {
   if (!id) throw new Error('Update report failed: Missing document ID');
 
-  const idx = mockReports.findIndex((r) => r.id === id);
-  if (idx !== -1) Object.assign(mockReports[idx], updates);
-
-  if (!useMock()) {
-    try {
-      const db = getFirestoreDb();
-      if (db) {
-        await updateDoc(doc(db, 'reports', id), updates as any);
-      }
-    } catch (err) {
-      console.warn('Direct Firestore updateReport write failed:', err);
-    }
+  if (useMock()) {
+    const idx = mockReports.findIndex((r) => r.id === id);
+    if (idx !== -1) Object.assign(mockReports[idx], updates);
+    return;
   }
+
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await updateDoc(doc(db, 'reports', id), updates as any);
 }
 
 // ==================== PATIENT REQUESTS ====================
@@ -309,33 +276,22 @@ export async function createPatientRequest(req: Omit<PatientRequest, 'id'>): Pro
     return newReq;
   }
 
-  try {
-    const db = getFirestoreDb();
-    if (db) {
-      await setDoc(doc(db, 'patient_requests', id), newReq);
-    }
-  } catch (err) {
-    console.warn('Direct Firestore createPatientRequest write failed:', err);
-  }
-
-  mockPatientRequests.push(newReq);
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await setDoc(doc(db, 'patient_requests', id), newReq);
   return newReq;
 }
 
 export async function updatePatientRequest(id: string, updates: Partial<PatientRequest>): Promise<void> {
-  const idx = mockPatientRequests.findIndex((r) => r.id === id);
-  if (idx !== -1) Object.assign(mockPatientRequests[idx], updates);
-
-  if (!useMock()) {
-    try {
-      const db = getFirestoreDb();
-      if (db) {
-        await updateDoc(doc(db, 'patient_requests', id), updates as any);
-      }
-    } catch (err) {
-      console.warn('Direct Firestore updatePatientRequest write failed:', err);
-    }
+  if (useMock()) {
+    const idx = mockPatientRequests.findIndex((r) => r.id === id);
+    if (idx !== -1) Object.assign(mockPatientRequests[idx], updates);
+    return;
   }
+
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await updateDoc(doc(db, 'patient_requests', id), updates as any);
 }
 
 // ==================== AUDIT LOGS ====================
@@ -356,16 +312,9 @@ export async function createAuditLog(log: Omit<AuditLog, 'id'>): Promise<void> {
     return;
   }
 
-  try {
-    const db = getFirestoreDb();
-    if (db) {
-      await setDoc(doc(db, 'audit_logs', id), newLog);
-    }
-  } catch (err) {
-    console.warn('Direct Firestore createAuditLog write failed:', err);
-  }
-
-  mockAuditLogs.push(newLog);
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await setDoc(doc(db, 'audit_logs', id), newLog);
 }
 
 // ==================== MOBILE PACS VANS ====================
@@ -377,19 +326,15 @@ export async function getMobilePacsVans(): Promise<MobilePacsVan[]> {
 }
 
 export async function updateMobilePacsVan(id: string, updates: Partial<MobilePacsVan>): Promise<void> {
-  const idx = mockMobilePacsVans.findIndex((v) => v.id === id);
-  if (idx !== -1) Object.assign(mockMobilePacsVans[idx], updates);
-
-  if (!useMock()) {
-    try {
-      const db = getFirestoreDb();
-      if (db) {
-        await updateDoc(doc(db, 'mobile_pacs_vans', id), updates as any);
-      }
-    } catch (err) {
-      console.warn('Direct Firestore updateMobilePacsVan write failed:', err);
-    }
+  if (useMock()) {
+    const idx = mockMobilePacsVans.findIndex((v) => v.id === id);
+    if (idx !== -1) Object.assign(mockMobilePacsVans[idx], updates);
+    return;
   }
+
+  const db = getFirestoreDb();
+  if (!db) throw new Error('Firestore is not initialised');
+  await updateDoc(doc(db, 'mobile_pacs_vans', id), updates as any);
 }
 
 // ==================== RADIOGRAPHER SCHEDULES ====================

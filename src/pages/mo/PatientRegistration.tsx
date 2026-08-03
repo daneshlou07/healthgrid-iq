@@ -3,20 +3,36 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import type { Gender } from '../../types';
-import { Info, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { Info, CheckCircle, AlertCircle, Sparkles, Loader2, UserX } from 'lucide-react';
 
-import { parseMalaysianNric, normalizeNric, formatNric, JPN_STATE_CODES } from '../../utils/malaysianNric';
+import { parseMalaysianNric, normalizeNric } from '../../utils/malaysianNric';
 import { PredictiveAddressInput } from '../../components/ui/PredictiveAddressInput';
 
 type IdType = 'mykad' | 'passport';
+
+/**
+ * Generate a collision-resistant MRN using crypto.randomUUID (when available)
+ * or a high-entropy fallback. Format: MRN-YYYY-XXXXXXXX
+ */
+function generateMrn(): string {
+  const year = new Date().getFullYear();
+  let suffix: string;
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
+  } else {
+    suffix = (Date.now() % 100000000).toString().padStart(8, '0');
+  }
+  return `MRN-${year}-${suffix}`;
+}
 
 // --- Component ---
 
 export default function PatientRegistration() {
   const { currentUser } = useAuth();
-  const { clinics, addPatient, addAuditLog } = useData();
+  const { clinics, patients, addPatient, addAuditLog } = useData();
   const toast = useToast();
   const [idType, setIdType] = useState<IdType>('mykad');
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: '',
     idNumber: '',
@@ -53,9 +69,22 @@ export default function PatientRegistration() {
 
   const isNricLocked = idType === 'mykad' && nricResult?.valid === true;
 
+  // Real-time duplicate NRIC check — only for MyKad with a complete valid NRIC
+  const duplicatePatient = useMemo(() => {
+    if (idType !== 'mykad' || !nricResult?.valid) return null;
+    const nricToCheck = nricResult.formatted.replace(/-/g, '');
+    return patients.find((p) => p.nric.replace(/-/g, '') === nricToCheck) || null;
+  }, [idType, nricResult, patients]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!currentUser || submitting) return;
+
+    // Block submission if NRIC already registered
+    if (duplicatePatient) {
+      toast.error(`NRIC already registered to ${duplicatePatient.name} (${duplicatePatient.mrn}). Use the Patient Registry to update their record.`);
+      return;
+    }
 
     // Phone validation
     const cleanPhone = form.phone.replace(/[\s-]/g, '');
@@ -71,10 +100,11 @@ export default function PatientRegistration() {
       return;
     }
 
-    const mrnGenerated = `MRN-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+    const mrnGenerated = generateMrn();
     const preferredClinic = clinics.find((c) => c.id === form.preferredClinicId);
     const nricValue = idType === 'mykad' ? (nricResult?.formatted || form.idNumber) : form.idNumber;
 
+    setSubmitting(true);
     try {
       await addPatient({
         name: form.name,
@@ -107,6 +137,8 @@ export default function PatientRegistration() {
     } catch (err: any) {
       console.error('Patient registration error:', err);
       toast.error(err?.message || 'Failed to register patient. Please check NRIC and required fields.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -163,7 +195,7 @@ export default function PatientRegistration() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => { setIdType('mykad'); setForm((f) => ({ ...f, dob: '', gender: 'Male' })); }}
+                  onClick={() => { setIdType('mykad'); setForm((f) => ({ ...f, idNumber: '', dob: '', gender: 'Male' })); }}
                   className={`flex-1 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
                     idType === 'mykad'
                       ? 'bg-purple-900 text-white border-purple-900 shadow-md ring-2 ring-purple-200'
@@ -174,7 +206,7 @@ export default function PatientRegistration() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setIdType('passport'); setForm((f) => ({ ...f, dob: '', gender: 'Male' })); }}
+                  onClick={() => { setIdType('passport'); setForm((f) => ({ ...f, idNumber: '', dob: '', gender: 'Male' })); }}
                   className={`flex-1 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
                     idType === 'passport'
                       ? 'bg-purple-900 text-white border-purple-900 shadow-md ring-2 ring-purple-200'
@@ -197,13 +229,39 @@ export default function PatientRegistration() {
               <input
                 required
                 value={form.idNumber}
-                onChange={(e) => setForm({ ...form, idNumber: e.target.value })}
-                className={`input-field ${nricResult && !nricResult.valid && normalizeNric(form.idNumber).length >= 12 ? 'border-red-400 focus:ring-red-200' : ''} ${nricResult?.valid ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : ''}`}
-                placeholder={idType === 'mykad' ? 'e.g., 850312-01-5678 or 850312015678' : 'e.g., A12345678'}
-                maxLength={idType === 'mykad' ? 14 : 20}
+                onChange={(e) => {
+                  const val = idType === 'mykad'
+                    ? e.target.value.replace(/[^\d]/g, '')
+                    : e.target.value;
+                  setForm({ ...form, idNumber: val });
+                }}
+                className={`input-field font-mono
+                  ${nricResult && !nricResult.valid && normalizeNric(form.idNumber).length >= 12 ? 'border-red-400 focus:ring-red-200' : ''}
+                  ${nricResult?.valid && !duplicatePatient ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : ''}
+                  ${duplicatePatient ? 'border-red-400 bg-red-50/30 focus:ring-red-200' : ''}
+                `}
+                placeholder={idType === 'mykad' ? 'e.g., 850312015678 (digits only)' : 'e.g., A12345678'}
+                maxLength={idType === 'mykad' ? 12 : 20}
+                inputMode={idType === 'mykad' ? 'numeric' : 'text'}
               />
-              {/* NRIC validation feedback */}
-              {idType === 'mykad' && nricResult && (
+
+              {/* Duplicate NRIC warning — highest priority feedback */}
+              {duplicatePatient && (
+                <div className="mt-1.5 flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-2.5">
+                  <UserX className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-bold text-red-700">NRIC already registered</p>
+                    <p className="text-red-600">
+                      {duplicatePatient.name} &middot; <span className="font-mono">{duplicatePatient.mrn}</span>
+                      {duplicatePatient.dob && ` · DOB: ${duplicatePatient.dob}`}
+                    </p>
+                    <p className="text-red-500 text-[10px] mt-0.5">Use the Patient Registry to update this patient's record instead.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* NRIC validation feedback — only shown when no duplicate */}
+              {idType === 'mykad' && nricResult && !duplicatePatient && (
                 <div className="mt-1.5">
                   {nricResult.valid ? (
                     <div className="flex flex-wrap items-center gap-1.5 text-emerald-700 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
@@ -223,7 +281,7 @@ export default function PatientRegistration() {
                 </div>
               )}
               {idType === 'mykad' && (
-                <p className="text-[10px] text-slate-400 mt-1">Accepts format: YYMMDD-PB-####G or YYMMDDPB####G. DOB and Gender will be extracted automatically.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Enter 12 digits (e.g. 850312015678). DOB and Gender will be extracted automatically.</p>
               )}
             </div>
 
@@ -284,16 +342,16 @@ export default function PatientRegistration() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-surface-700 mb-1">Phone *</label>
-              <input 
-                required 
+              <input
+                required
                 type="tel"
-                value={form.phone} 
+                value={form.phone}
                 onChange={(e) => {
                   const numericOnly = e.target.value.replace(/[^\d+\s-]/g, '');
                   setForm({ ...form, phone: numericOnly });
-                }} 
-                className="input-field font-mono" 
-                placeholder="+60 12-345-6789" 
+                }}
+                className="input-field font-mono"
+                placeholder="+60 12-345-6789"
               />
               <p className="text-[10px] text-slate-400 mt-1">Digits only (e.g. +60 12-345-6789)</p>
             </div>
@@ -357,7 +415,20 @@ export default function PatientRegistration() {
         {/* Submit */}
         <div className="flex items-center justify-between pt-3 border-t border-surface-200">
           <p className="text-[10px] text-surface-400">Patient will be added to the Patient Registry. No clinic is assigned until scheduling.</p>
-          <button type="submit" className="btn-primary">Register Patient</button>
+          <button
+            type="submit"
+            disabled={submitting || !!duplicatePatient}
+            className="btn-primary flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Registering…
+              </>
+            ) : (
+              'Register Patient'
+            )}
+          </button>
         </div>
       </form>
     </div>

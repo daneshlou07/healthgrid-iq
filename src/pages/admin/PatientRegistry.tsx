@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getPatients, createAuditLog } from '../../services/dataService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ux/Toast';
+import { useDebounce } from '../../hooks/useDebounce';
 import type { Patient } from '../../types';
 import Modal from '../../components/ui/Modal';
 import { Search, Eye, Edit2, Archive, RotateCcw, Download, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -34,6 +35,7 @@ export default function PatientRegistry() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [archived, setArchived] = useState<Patient[]>([]);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 180);
   const [showView, setShowView] = useState<Patient | null>(null);
   const [showEdit, setShowEdit] = useState<Patient | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -47,10 +49,10 @@ export default function PatientRegistry() {
   useEffect(() => { getPatients().then(setPatients); }, []);
 
   const filtered = (showArchived ? archived : patients).filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.mrn.toLowerCase().includes(search.toLowerCase()) ||
-    p.nric.toLowerCase().includes(search.toLowerCase()) ||
-    p.address.toLowerCase().includes(search.toLowerCase())
+    p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    p.mrn.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    p.nric.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    p.address.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   // Pagination bounds

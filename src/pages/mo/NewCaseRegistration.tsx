@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
+import { useDebounce } from '../../hooks/useDebounce';
 import type { SeverityLevel, ExaminationRequest, ExaminationSide, MohYaTidak, MohPaymentCategory } from '../../types';
 import {
   getModalityRef,
@@ -1172,6 +1173,7 @@ function PatientSearchSelect({
   const [search, setSearch] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
+  const debouncedSearch = useDebounce(search, 180);
 
   React.useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1183,9 +1185,9 @@ function PatientSearchSelect({
 
   const selected = patients.find((p) => p.id === value);
   const filtered = patients.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.mrn.toLowerCase().includes(search.toLowerCase()) ||
-    p.nric.toLowerCase().includes(search.toLowerCase())
+    p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    p.mrn.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    p.nric.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   return (

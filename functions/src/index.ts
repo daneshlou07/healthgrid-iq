@@ -171,14 +171,31 @@ declare global {
 }
 
 // ---------------------------------------------------------------------------
+// ALLOWED_ORIGINS startup warning — misconfiguration guard
+// ---------------------------------------------------------------------------
+if (ALLOWED_ORIGINS.length === 0) {
+  console.warn(
+    '[CORS] WARNING: ALLOWED_ORIGINS environment variable is not set. ' +
+    'Only localhost origins are permitted. Set ALLOWED_ORIGINS to your ' +
+    'production domain (e.g. https://your-app.vercel.app) in Firebase ' +
+    'Functions config or environment variables.'
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Case state machine — enforce valid status transitions
 // ---------------------------------------------------------------------------
+// NO_SHOW and CANCELLED are terminal exception states that can be reached
+// from SCHEDULED (patient did not attend or appointment was cancelled).
+// They match the CaseStatus type defined in src/types/index.ts.
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  CREATED: ['SCHEDULED'],
-  SCHEDULED: ['SCANNED', 'CREATED'], // allow cancellation back to CREATED
-  SCANNED: ['REPORTED'],
+  CREATED: ['SCHEDULED', 'CANCELLED'],
+  SCHEDULED: ['SCANNED', 'CREATED', 'NO_SHOW', 'CANCELLED'],
+  SCANNED: ['REPORTED', 'CANCELLED'],
   REPORTED: ['FINALIZED'],
   FINALIZED: [], // terminal state
+  NO_SHOW: [],   // terminal exception state
+  CANCELLED: [], // terminal exception state
 };
 
 function isValidTransition(from: string, to: string): boolean {
@@ -295,14 +312,15 @@ app.get('/v1/api/patients', requireRole(...ALL_STAFF_ROLES), async (req, res) =>
 });
 
 const patientSchema = z.object({
-  name: z.string(),
-  dob: z.string(),
+  name: z.string().min(1),
+  dob: z.string().min(1),
   gender: z.enum(['Male', 'Female', 'Other']),
-  phone: z.string(),
-  email: z.string().email(),
-  address: z.string(),
-  nric: z.string(),
-  mrn: z.string(),
+  phone: z.string().min(1),
+  // Email is optional — not all patients provide one
+  email: z.string().email().optional().or(z.literal('')),
+  address: z.string().min(1),
+  nric: z.string().min(1),
+  mrn: z.string().min(1),
   medicalHistory: z.array(z.string()).default([]),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -311,6 +329,8 @@ const patientSchema = z.object({
   preferredClinicName: z.string().optional(),
   clinicId: z.string().optional(),
   clinicName: z.string().optional(),
+  ethnicity: z.string().optional(),
+  emergencyContact: z.string().optional(),
 });
 
 app.post('/v1/api/patients', requireRole(...CASE_MANAGEMENT_ROLES), async (req, res) => {
@@ -362,7 +382,7 @@ const caseSchema = z.object({
   registeredByName: z.string(),
   scanType: z.string(),
   notes: z.string(),
-  status: z.enum(['CREATED', 'SCHEDULED', 'SCANNED', 'REPORTED', 'FINALIZED']).default('CREATED'),
+  status: z.enum(['CREATED', 'SCHEDULED', 'SCANNED', 'REPORTED', 'FINALIZED', 'NO_SHOW', 'CANCELLED']).default('CREATED'),
   clinicId: z.string().optional(),
   clinicName: z.string().optional(),
   indication: z.string().optional(),
@@ -378,7 +398,7 @@ const caseSchema = z.object({
 });
 
 const caseUpdateSchema = z.object({
-  status: z.enum(['CREATED', 'SCHEDULED', 'SCANNED', 'REPORTED', 'FINALIZED']).optional(),
+  status: z.enum(['CREATED', 'SCHEDULED', 'SCANNED', 'REPORTED', 'FINALIZED', 'NO_SHOW', 'CANCELLED']).optional(),
   severity: z.enum(['Mild', 'Moderate', 'Severe', 'Critical']).optional(),
   notes: z.string().optional(),
   indication: z.string().optional(),
@@ -395,6 +415,10 @@ const caseUpdateSchema = z.object({
   images: z.array(z.string()).optional(),
   clinicId: z.string().optional(),
   clinicName: z.string().optional(),
+  // Exception state fields — set alongside NO_SHOW or CANCELLED status
+  noShowReason: z.string().optional(),
+  cancellationReason: z.string().optional(),
+  cancellationNotes: z.string().optional(),
 });
 
 app.get('/v1/api/cases', requireRole(...ALL_STAFF_ROLES), async (req, res) => {

@@ -111,7 +111,15 @@ interface DataContextValue {
   softDelete: (type: TrashItem['type'], id: string, deletedBy: string) => void;
   restoreFromTrash: (trashItemId: string) => void;
   permanentDelete: (trashItemId: string) => void;
-  // Exposed for admin pages that do optimistic local state updates
+  // Scoped local-state helpers — preferred over raw setters for individual item changes
+  updateUserLocally: (id: string, updates: Partial<User>) => void;
+  updateEquipmentLocally: (id: string, updates: Partial<MobilePacsVan>) => void;
+  updateClinicLocally: (id: string, updates: Partial<Clinic>) => void;
+  updatePatientLocally: (id: string, updates: Partial<Patient>) => void;
+  addUserLocally: (user: User) => void;
+  addEquipmentLocally: (van: MobilePacsVan) => void;
+  addClinicLocally: (clinic: Clinic) => void;
+  // Raw setters retained for admin pages that need to batch-replace full lists
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   setEquipment: React.Dispatch<React.SetStateAction<MobilePacsVan[]>>;
   setClinics: React.Dispatch<React.SetStateAction<Clinic[]>>;
@@ -197,13 +205,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Real-time Firestore listeners (merges live docs without replacing local state if empty)
+  // Real-time Firestore listeners — one subscription per collection, no duplicates
   useEffect(() => {
     if (!isFirebaseConfigured()) return;
     const db = getFirestoreDb();
     if (!db) return;
 
     const unsubscribers: (() => void)[] = [];
+
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, 'users'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+            setUsers((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('Users listener warning:', error)
+      )
+    );
+
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, 'clinics'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Clinic));
+            setClinics((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('Clinics listener warning:', error)
+      )
+    );
 
     unsubscribers.push(
       onSnapshot(
@@ -215,19 +249,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         },
         (error) => console.warn('Patients listener warning:', error)
-      )
-    );
-
-    unsubscribers.push(
-      onSnapshot(
-        collection(db, 'patient_requests'),
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as PatientRequest));
-            setPatientRequests((prev) => mergeItems(prev, items));
-          }
-        },
-        (error) => console.warn('PatientRequests listener warning:', error)
       )
     );
 
@@ -259,6 +280,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     unsubscribers.push(
       onSnapshot(
+        query(collection(db, 'patient_requests'), orderBy('dateSubmitted', 'desc')),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as PatientRequest));
+            setPatientRequests((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('PatientRequests listener warning:', error)
+      )
+    );
+
+    unsubscribers.push(
+      onSnapshot(
         collection(db, 'mobile_pacs_vans'),
         (snapshot) => {
           if (!snapshot.empty) {
@@ -283,61 +317,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       )
     );
 
-    unsubscribers.push(
-      onSnapshot(
-        collection(db, 'users'),
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
-            setUsers((prev) => mergeItems(prev, items));
-          }
-        },
-        (error) => console.warn('Users listener warning:', error)
-      )
-    );
-
-    // Missing real-time listeners — patients, clinics, and patient_requests were
-    // only loaded once on startup. Without these, changes from other users/devices
-    // never reach modules that rely on these collections.
-    unsubscribers.push(
-      onSnapshot(
-        collection(db, 'patients'),
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
-            setPatients((prev) => mergeItems(prev, items));
-          }
-        },
-        (error) => console.warn('Patients listener warning:', error)
-      )
-    );
-
-    unsubscribers.push(
-      onSnapshot(
-        collection(db, 'clinics'),
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Clinic));
-            setClinics((prev) => mergeItems(prev, items));
-          }
-        },
-        (error) => console.warn('Clinics listener warning:', error)
-      )
-    );
-
-    unsubscribers.push(
-      onSnapshot(
-        query(collection(db, 'patient_requests'), orderBy('dateSubmitted', 'desc')),
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as PatientRequest));
-            setPatientRequests((prev) => mergeItems(prev, items));
-          }
-        },
-        (error) => console.warn('PatientRequests listener warning:', error)
-      )
-    );
-
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
@@ -358,23 +337,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment]);
 
-  // Listen for updates from other tabs
+  // Listen for updates from other tabs — trigger a full reload instead of re-reading
+  // potentially stale localStorage, since the Firestore listeners are the source of truth.
   useEffect(() => {
     let bc: BroadcastChannel | null = null;
     try {
       bc = new BroadcastChannel('healthgrid_sync');
       bc.onmessage = (event) => {
         if (event.data?.type === 'DATA_UPDATED') {
-          const persisted = loadFromStorage();
-          if (persisted) {
-            setUsers(persisted.users);
-            setCases(persisted.cases);
-            setPatients(persisted.patients);
-            setClinics(persisted.clinics);
-            setReports(persisted.reports);
-            setPatientRequests(persisted.patientRequests);
-            setAuditLogs(persisted.auditLogs);
-            setEquipment(persisted.equipment);
+          // Only reload from localStorage when Firebase is not configured (demo mode).
+          // In live mode the onSnapshot listeners already deliver the latest data.
+          if (!isFirebaseConfigured()) {
+            const persisted = loadFromStorage();
+            if (persisted) {
+              setUsers(persisted.users);
+              setCases(persisted.cases);
+              setPatients(persisted.patients);
+              setClinics(persisted.clinics);
+              setReports(persisted.reports);
+              setPatientRequests(persisted.patientRequests);
+              setAuditLogs(persisted.auditLogs);
+              setEquipment(persisted.equipment);
+            }
           }
         }
       };
@@ -616,6 +600,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setTrash((prev) => { const next = prev.filter((t) => t.id !== trashItemId); saveTrash(next); return next; });
   };
 
+  // ---------------------------------------------------------------------------
+  // Scoped local-state helpers — update a single item without exposing raw setters
+  // ---------------------------------------------------------------------------
+  const updateUserLocally = (id: string, updates: Partial<User>) =>
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updates } : u)));
+
+  const updateEquipmentLocally = (id: string, updates: Partial<MobilePacsVan>) =>
+    setEquipment((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
+
+  const updateClinicLocally = (id: string, updates: Partial<Clinic>) =>
+    setClinics((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+
+  const updatePatientLocally = (id: string, updates: Partial<Patient>) =>
+    setPatients((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+
+  const addUserLocally = (user: User) =>
+    setUsers((prev) => [...prev.filter((u) => u.id !== user.id), user]);
+
+  const addEquipmentLocally = (van: MobilePacsVan) =>
+    setEquipment((prev) => [...prev.filter((v) => v.id !== van.id), van]);
+
+  const addClinicLocally = (clinic: Clinic) =>
+    setClinics((prev) => [...prev.filter((c) => c.id !== clinic.id), clinic]);
+
   return (
     <DataContext.Provider value={{
       users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment, loading,
@@ -624,6 +632,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addPatientRequest, editPatientRequest, addAuditLog,
       addComment, getCommentsForCase, addRecentItem,
       softDelete, restoreFromTrash, permanentDelete,
+      updateUserLocally, updateEquipmentLocally, updateClinicLocally,
+      updatePatientLocally, addUserLocally, addEquipmentLocally, addClinicLocally,
       setUsers, setEquipment, setClinics, setPatients, setPatientRequests,
       refresh: loadAll, clearStorage,
     }}>
