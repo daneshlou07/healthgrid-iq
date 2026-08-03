@@ -10,13 +10,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Read role from custom JWT claim first; fall back to the user's Firestore
-    // document if the claim is absent (e.g. Cloud Functions not yet deployed,
-    // or user signed up before claims were set).
+    // Read role from JWT custom claim (fast path, set by Cloud Functions).
+    // If not present, fall back to the user's Firestore document.
+    // The users collection is readable by any authenticated user,
+    // so this lookup is always permitted.
     function userRole() {
-      return request.auth.token.role != null
+      return request.auth.token.get('role', null) != null
         ? request.auth.token.role
-        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '');
     }
 
     function hasRole(role) {
@@ -27,12 +28,15 @@ service cloud.firestore {
       return hasRole('Administrator');
     }
 
-    function isOwner(userId) {
-      return isAuth() && request.auth.uid == userId;
+    function isClinicalStaff() {
+      return isAuth() && userRole() in [
+        'Medical Officer', 'Radiology Department',
+        'Radiographer', 'Radiologist', 'Administrator'
+      ];
     }
 
     // -----------------------------------------------------------------------
-    // Users collection
+    // Users collection — needed for role lookups above
     // -----------------------------------------------------------------------
     match /users/{userId} {
       allow read: if isAuth();
@@ -40,7 +44,7 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
-    // Clinics collection
+    // Clinics
     // -----------------------------------------------------------------------
     match /clinics/{clinicId} {
       allow read: if isAuth();
@@ -48,58 +52,53 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
-    // Patients collection
+    // Patients
     // -----------------------------------------------------------------------
     match /patients/{patientId} {
       allow read: if isAuth();
-      // Any authenticated staff can create/update patients.
-      // Role-based restriction is enforced at the API layer (Cloud Functions).
-      allow create, update: if isAuth();
+      allow create, update: if isClinicalStaff();
       allow delete: if isAdmin();
     }
 
     // -----------------------------------------------------------------------
-    // Cases collection
+    // Cases
     // -----------------------------------------------------------------------
     match /cases/{caseId} {
       allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      allow create, update: if isClinicalStaff();
       allow delete: if isAdmin();
     }
 
     // -----------------------------------------------------------------------
-    // Reports collection
+    // Reports
     // -----------------------------------------------------------------------
     match /reports/{reportId} {
       allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      allow create, update: if isClinicalStaff();
       allow delete: if isAdmin();
     }
 
     // -----------------------------------------------------------------------
-    // Case Comments collection
+    // Comments
     // -----------------------------------------------------------------------
     match /comments/{commentId} {
       allow read: if isAuth();
       allow create: if isAuth();
-      allow update: if isAdmin()
-        || (isAuth() && request.auth.uid == resource.data.userId);
+      allow update: if isAdmin() || (isAuth() && request.auth.uid == resource.data.userId);
       allow delete: if isAdmin();
     }
 
     // -----------------------------------------------------------------------
-    // Patient requests collection
+    // Patient requests
     // -----------------------------------------------------------------------
     match /patient_requests/{requestId} {
       allow read: if isAuth();
-      allow create, update: if isAuth();
+      allow create, update: if isClinicalStaff();
       allow delete: if isAdmin();
     }
 
     // -----------------------------------------------------------------------
-    // Audit logs — write-once, immutable
+    // Audit logs — append-only
     // -----------------------------------------------------------------------
     match /audit_logs/{logId} {
       allow read: if isAdmin();
@@ -108,7 +107,7 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
-    // Mobile PACS vans (equipment)
+    // Mobile PACS vans
     // -----------------------------------------------------------------------
     match /mobile_pacs_vans/{vanId} {
       allow read: if isAuth();
@@ -129,8 +128,7 @@ service cloud.firestore {
     // -----------------------------------------------------------------------
     match /scheduling_jobs/{jobId} {
       allow read: if isAuth();
-      allow create: if isAdmin() || hasRole('Radiology Department');
-      allow update: if isAdmin() || hasRole('Radiology Department');
+      allow create, update: if isAdmin() || hasRole('Radiology Department');
       allow delete: if isAdmin();
     }
 
@@ -146,8 +144,7 @@ service cloud.firestore {
     // Notifications
     // -----------------------------------------------------------------------
     match /notifications/{notificationId} {
-      allow read: if isAdmin()
-        || (isAuth() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
       allow create: if false;
       allow update: if isAdmin()
         || (isAuth()
@@ -160,13 +157,12 @@ service cloud.firestore {
     // Sessions
     // -----------------------------------------------------------------------
     match /sessions/{sessionId} {
-      allow read: if isAdmin()
-        || (isAuth() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
       allow create, update, delete: if false;
     }
 
     // -----------------------------------------------------------------------
-    // Trash / Soft deletes
+    // Trash
     // -----------------------------------------------------------------------
     match /trash/{trashItemId} {
       allow read, write: if isAdmin();
