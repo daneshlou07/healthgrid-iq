@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { mockUsers } from '../services/mockData';
 import { isDemoMode } from '../services/firebase';
 import type { UserRole } from '../types';
+import { SYSTEM_VERSION, LAST_UPDATED_DATE } from '../config/systemVersion';
 import {
   ShieldCheck,
   Mail,
@@ -67,7 +68,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false); // Default unchecked as requested
   const [error, setError] = useState('');
   const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
 
@@ -187,18 +188,21 @@ export default function LoginPage() {
       {/* ── LEFT PANEL — DARK CORPORATE BRANDING ──────────────────────────── */}
       <div className="hidden lg:flex lg:w-[46%] bg-[#0B192C] relative flex-col justify-between p-12 text-white overflow-hidden border-r border-slate-800">
         
-        {/* Subtle DICOM Grid Texture Background Overlay */}
+        {/* Subtle Background Pattern */}
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#10B981_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
         <div className="relative z-10 space-y-8">
-          {/* Theta Edge Logo Badge */}
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold tracking-tight text-white font-sans">theta</span>
-            <span className="text-[9px] uppercase tracking-widest text-slate-400 border-l border-slate-600 pl-2 font-mono">edge berhad</span>
+          {/* Theta Edge Logo Container */}
+          <div className="bg-white rounded-xl p-3 inline-block shadow-sm">
+            <img
+              src="/assets/theta-logo.png"
+              alt="Theta Edge Berhad — Technology & Telecommunication"
+              className="h-9 w-auto object-contain"
+            />
           </div>
 
           {/* Hero Branding */}
-          <div className="space-y-3 pt-4">
+          <div className="space-y-3 pt-2">
             <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight">
               HealthGrid <span className="text-[#10B981]">IQ</span>
             </h1>
@@ -272,7 +276,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-xs text-slate-500">
-            &copy; 2025 Theta Edge Berhad. All rights reserved.
+            &copy; 2026 Theta Edge Berhad. All rights reserved.
           </p>
         </div>
       </div>
@@ -283,8 +287,7 @@ export default function LoginPage() {
         {/* Top Header Badge Row */}
         <div className="flex items-center justify-between">
           <div className="lg:hidden flex items-center gap-2">
-            <span className="text-lg font-bold text-slate-900">theta</span>
-            <span className="text-[10px] text-slate-500 uppercase font-mono">edge berhad</span>
+            <img src="/assets/theta-logo.png" alt="Theta Edge" className="h-7 w-auto" />
           </div>
           <div className="ml-auto">
             <span className="border border-slate-200 bg-white text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xs">
@@ -357,7 +360,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember Me Checkbox */}
+            {/* Remember Me Checkbox (Default Unchecked) */}
             <div className="flex items-center gap-2 pt-1">
               <input
                 type="checkbox"
@@ -456,13 +459,13 @@ export default function LoginPage() {
 
         {/* Bottom Footer Bar */}
         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-slate-400" /> Version 2.3.1
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 font-medium">
+              <Info className="w-3.5 h-3.5 text-slate-400" /> Version {SYSTEM_VERSION}
             </span>
             <span>|</span>
-            <span className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" /> Last updated: 8 Jul 2025
+            <span className="flex items-center gap-1.5 font-medium">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" /> Last updated: {LAST_UPDATED_DATE}
             </span>
           </div>
 
