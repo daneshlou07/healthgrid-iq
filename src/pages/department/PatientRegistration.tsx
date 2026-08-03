@@ -71,21 +71,29 @@ export default function PatientRegistration() {
 
   const isNricLocked = idType === 'mykad' && nricResult?.valid === true;
 
-  // Real-time duplicate NRIC check — compare normalised raw digits both sides
+  // Real-time duplicate NRIC check — only active once the NRIC is valid.
+  // Uses a stable derived value to avoid flickering when patients list updates
+  // from Firestore snapshots after initial render.
+  const nricRawValid = nricResult?.valid ? normalizeNric(form.idNumber) : null;
   const duplicatePatient = useMemo(() => {
-    if (idType !== 'mykad' || !nricResult?.valid) return null;
-    const nricToCheck = normalizeNric(form.idNumber);
-    return patients.find((p) => p.nric && normalizeNric(p.nric) === nricToCheck) || null;
-  }, [idType, nricResult, patients, form.idNumber]);
+    if (!nricRawValid) return null;
+    return patients.find((p) => p.nric && normalizeNric(p.nric) === nricRawValid) || null;
+  }, [nricRawValid, patients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || submitting) return;
 
-    // Block submission if NRIC already registered
-    if (duplicatePatient) {
-      toast.error(`NRIC already registered to ${duplicatePatient.name} (${duplicatePatient.mrn}). Use the Patient Registry to update their record.`);
-      return;
+    // Re-check duplicate at submit time against the live patients list.
+    // This catches the case where duplicatePatient memo was null due to
+    // patients loading asynchronously after the first render.
+    if (idType === 'mykad' && nricResult?.valid) {
+      const nricToCheck = normalizeNric(form.idNumber);
+      const existingPatient = patients.find((p) => p.nric && normalizeNric(p.nric) === nricToCheck);
+      if (existingPatient) {
+        toast.error(`NRIC already registered to ${existingPatient.name} (${existingPatient.mrn}). Use the Patient Registry to update their record.`);
+        return;
+      }
     }
 
     // Phone validation
