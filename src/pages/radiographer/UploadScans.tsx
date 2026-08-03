@@ -24,6 +24,7 @@ import { saveImage } from '../../services/imageStorage';
 import { getEffectiveDoseForExam } from '../../data/effectiveDoseTable';
 import { analyzeImageWithVisionAi } from '../../services/visionAiAnalyzer';
 import { generateAiReportDraft } from '../../services/aiReportingCopilot';
+import PacsImageViewer from '../../components/ui/PacsImageViewer';
 
 interface FlattenedViewItem {
   id: string;
@@ -475,53 +476,19 @@ export default function UploadScans() {
                 </button>
               </div>
 
-              {/* Main Image Viewer Container */}
+              {/* ─── Full PACS Image Viewer (radiographer pre-upload mode) ─────── */}
               {previews.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Hero Main Image Display */}
-                  <div className="relative bg-black rounded-xl overflow-hidden border border-slate-300 shadow-inner flex items-center justify-center min-h-[380px] max-h-[480px]">
-                    <img
-                      src={previews[activePreviewIndex] || previews[0]}
-                      alt={`Scan view ${activePreviewIndex + 1}`}
-                      className="max-h-[460px] w-auto object-contain cursor-pointer"
-                      onClick={() => setLightboxSrc(previews[activePreviewIndex] || previews[0])}
-                    />
-
-                    {/* Expand Badge Overlay */}
-                    <button
-                      type="button"
-                      onClick={() => setLightboxSrc(previews[activePreviewIndex] || previews[0])}
-                      className="absolute top-3 right-3 bg-black/70 hover:bg-black/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors border border-white/20"
-                    >
-                      <ZoomIn className="w-3.5 h-3.5" />
-                      <span>{t('Full Screen Lightbox', 'Skrin Penuh')}</span>
-                    </button>
-
-                    <span className="absolute bottom-3 left-3 bg-black/80 text-white text-xs font-mono px-2.5 py-1 rounded-lg border border-white/10">
-                      Image #{activePreviewIndex + 1} of {previews.length}
-                    </span>
-                  </div>
-
-                  {/* Image Thumbnails Selector */}
-                  <div className="flex items-center gap-3 overflow-x-auto pb-1">
-                    {previews.map((src, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setActivePreviewIndex(i)}
-                        className={`relative rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 w-20 h-20 bg-black ${
-                          activePreviewIndex === i
-                            ? 'border-teal-600 ring-2 ring-teal-600/30'
-                            : 'border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100'
-                        }`}
-                      >
-                        <img src={src} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-contain" />
-                        <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-white text-[9px] font-mono px-1 rounded">
-                          #{i + 1}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="space-y-2">
+                  <PacsImageViewer
+                    previewUrls={previews}
+                    heightClass="h-[400px]"
+                    caseItem={selectedCase}
+                    onAiAnalyzed={(res) => {
+                      setRadiographerFindings(res.findings);
+                      setRadiographerImpression(res.impression);
+                      toast.success(`Vision AI analyzed image pixels (${res.confidenceScore}% confidence)`);
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="p-8 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-2">

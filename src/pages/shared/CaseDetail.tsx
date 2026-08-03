@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload } from 'lucide-react';
+import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload, QrCode, Smartphone } from 'lucide-react';
 import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 import RadiologyWorksheet from './RadiologyWorksheet';
@@ -59,6 +59,7 @@ export default function CaseDetail() {
   const [rescheduleReason, setRescheduleReason] = useState('');
 
   const [showSmsModal, setShowSmsModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Reassign Personnel modal state
   const [showReassignModal, setShowReassignModal] = useState(false);
@@ -239,7 +240,7 @@ export default function CaseDetail() {
                 className="h-9 px-3 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-purple-200 transition-colors whitespace-nowrap"
                 title="Send automated SMS / WhatsApp appointment alert to patient"
               >
-                <span>📱</span>
+                <Smartphone className="w-3.5 h-3.5" />
                 <span>Send SMS</span>
               </button>
               <button
@@ -261,6 +262,18 @@ export default function CaseDetail() {
             <FileText className="w-3.5 h-3.5" />
             <span>Export Dossier</span>
           </button>
+
+          {/* Share Report with Patient (only when finalized) */}
+          {caseItem.status === 'FINALIZED' && report && (
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="h-9 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
+              title="Share finalized report with patient via QR code or secure link"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Share Report</span>
+            </button>
+          )}
 
           <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
         </div>
@@ -823,6 +836,26 @@ export default function CaseDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* SMS Appointment Reminder Modal */}
+      {showSmsModal && (
+        <PatientSmsModal
+          caseItem={caseItem}
+          patient={patient}
+          defaultTab="appointment"
+          onClose={() => setShowSmsModal(false)}
+        />
+      )}
+
+      {/* Share Report with Patient Modal */}
+      {showReportModal && (
+        <PatientSmsModal
+          caseItem={caseItem}
+          patient={patient}
+          defaultTab="report"
+          onClose={() => setShowReportModal(false)}
+        />
       )}
     </div>
   );

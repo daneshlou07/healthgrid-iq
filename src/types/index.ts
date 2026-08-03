@@ -301,6 +301,8 @@ export interface Report {
   createdAt: string;
   signedAt?: string;
   imageKeys?: string[];
+  /** Short alphanumeric token for patient-facing report access via QR / secure link */
+  reportToken?: string;
 }
 
 // ---------------------------------------------------------------------------

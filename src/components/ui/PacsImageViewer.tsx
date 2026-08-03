@@ -20,12 +20,14 @@ import {
 
 interface Props {
   imageKeys?: string[];
+  /** Raw base64/blob preview URLs to show before images are saved to IndexedDB (radiographer upload flow) */
+  previewUrls?: string[];
   heightClass?: string;
   caseItem?: Case;
   onAiAnalyzed?: (result: VisionAiAnalysisResult) => void;
 }
 
-export default function PacsImageViewer({ imageKeys, heightClass = 'h-96', caseItem, onAiAnalyzed }: Props) {
+export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 'h-96', caseItem, onAiAnalyzed }: Props) {
   const [urls, setUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -48,6 +50,12 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96', caseI
   const [measureEnd, setMeasureEnd] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
+    // If raw preview URLs are provided (pre-upload mode), use them directly
+    if (previewUrls && previewUrls.length > 0) {
+      setUrls(previewUrls);
+      setActiveIdx(0);
+      return;
+    }
     if (!imageKeys || imageKeys.length === 0) {
       setUrls([]);
       return;
@@ -58,7 +66,7 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96', caseI
       setLoading(false);
       setActiveIdx(0);
     });
-  }, [imageKeys?.join(',')]);
+  }, [imageKeys?.join(','), previewUrls?.length]);
 
   // Reset tools
   const handleReset = () => {
@@ -112,7 +120,7 @@ export default function PacsImageViewer({ imageKeys, heightClass = 'h-96', caseI
     ? (Math.hypot(measureEnd.x - measureStart.x, measureEnd.y - measureStart.y) * 0.264).toFixed(1)
     : null;
 
-  if (!imageKeys || imageKeys.length === 0) {
+  if ((!imageKeys || imageKeys.length === 0) && (!previewUrls || previewUrls.length === 0)) {
     return (
       <div className="flex items-center justify-center py-10 bg-slate-900 rounded-xl text-slate-400 border border-slate-800">
         <div className="text-center space-y-1">

@@ -11,6 +11,7 @@ import PacsImageViewer from '../../components/ui/PacsImageViewer';
 import { generateAiReportDraft } from '../../services/aiReportingCopilot';
 import { Sparkles, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { analyzeImageWithVisionAi } from '../../services/visionAiAnalyzer';
+import { generateReportToken } from '../../utils/reportToken';
 
 /** Loads and displays images from IndexedDB keys stored on the case */
 function CaseImageViewer({ imageKeys }: { imageKeys?: string[] }) {
@@ -77,6 +78,7 @@ export default function Reporting() {
       suggestions: suggestions || undefined, status: 'Verified / Signed Off',
       createdAt: new Date().toISOString(), signedAt: new Date().toISOString(),
       imageKeys: selectedCase.images && selectedCase.images.length > 0 ? selectedCase.images : undefined,
+      reportToken: generateReportToken(selectedCase.id),
     });
 
     await editCase(selectedCase.id, {

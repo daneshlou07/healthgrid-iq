@@ -64,6 +64,7 @@ const TechStack = safeLazy(() => import('./pages/admin/TechStack'));
 const PatientRegistry = safeLazy(() => import('./pages/admin/PatientRegistry'));
 const RecycleBin = safeLazy(() => import('./pages/admin/RecycleBin'));
 const NotFound = safeLazy(() => import('./pages/shared/NotFound'));
+const PatientReportView = safeLazy(() => import('./pages/shared/PatientReportView'));
 
 const MoOnboarding = safeLazy(() => import('./pages/mo/Onboarding'));
 const MoPatientsList = safeLazy(() => import('./pages/mo/PatientsList'));
@@ -163,6 +164,9 @@ function AppRoutes() {
         <Route path="/tech-stack" element={<ProtectedRoute allowedRoles={['Administrator']}><TechStack /></ProtectedRoute>} />
         <Route path="/recycle-bin" element={<ProtectedRoute allowedRoles={['Administrator']}><RecycleBin /></ProtectedRoute>} />
       </Route>
+
+      {/* Public patient report access — no login required */}
+      <Route path="/report/:caseId/:token" element={<Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center"><div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>}><PatientReportView /></Suspense>} />
 
       {/* Catch-all — redirect root and unknown routes */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
