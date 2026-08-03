@@ -368,13 +368,81 @@ export function MOHFormPrintView({ caseItem, patient, report }: Props) {
 
         {/* RADIOGRAPHER COMMENTS */}
         {caseItem.komen && (
-          <div style={{ border: '1px solid #000', padding: '4px' }}>
+          <div style={{ border: '1px solid #000', padding: '4px', marginBottom: '6px' }}>
             <div style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', fontSize: '10px', padding: '3px 5px', marginBottom: '2px', border: '1px solid #999' }}>
               RADIOGRAPHER OPERATIONAL COMMENTS
             </div>
             <div style={{ fontSize: '10px', padding: '2px 4px' }}>{caseItem.komen}</div>
           </div>
         )}
+
+        {/* OFFICIAL MOH SENARAI DOS BERKESAN TABLE (Page 1 Footer Benchmark) */}
+        <div style={{ border: '1px solid #000', padding: '4px', marginTop: '4px' }}>
+          <div style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold', fontSize: '9px', padding: '2px 4px', textAlign: 'center', border: '1px solid #999', marginBottom: '3px' }}>
+            SENARAI DOS BERKESAN UNTUK PEMERIKSAAN RADIOLOGI<br />
+            <span style={{ fontWeight: 'normal', fontSize: '8px' }}>
+              Sumber: Health Physics Society Fact Sheet 2010, UNSCEAR 2008 Report Vol.1 and FA Mettler et al., Radiology 2008; 248:254-63
+            </span>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '7.5px', lineHeight: '1.2' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#e6e6e6', fontWeight: 'bold', textAlign: 'center' }}>
+                <th style={{ border: '1px solid #ccc', padding: '1px 2px' }}>Pemeriksaan</th>
+                <th style={{ border: '1px solid #ccc', padding: '1px 2px' }}>Dos (mSv)</th>
+                <th style={{ border: '1px solid #ccc', padding: '1px 2px' }}>Persamaan Chest(AP)</th>
+                <th style={{ border: '1px solid #ccc', padding: '1px 2px' }}>Pemeriksaan</th>
+                <th style={{ border: '1px solid #ccc', padding: '1px 2px' }}>Dos (mSv)</th>
+                <th style={{ border: '1px solid #ccc', padding: '1px 2px' }}>Persamaan Chest(AP)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>Chest (AP)</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>0.02</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>1</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>Barium Enema</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>7</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>350</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>Extremities (2 views)</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>0.01</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>0.5</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>CT Head / Brain</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>2</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>100</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>Lumbar Spine (AP)</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>0.7</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>35</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>CT Chest</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>8</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>400</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>Abdomen</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>1.2</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>60</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>CT Abdomen</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>10</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>500</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>IVU / IVP (5 films)</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>2.5</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>125</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px' }}>Coronary Angiogram</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>4.6 - 15.8</td>
+                <td style={{ border: '1px solid #eee', padding: '1px 2px', textAlign: 'center' }}>230 - 790</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ fontSize: '7px', color: '#666', marginTop: '2px' }}>
+            *13. Mengandung — Sila lengkapkan Borang Keizinan Pesakit Mengandung. *22. Media Kontras — Sila lengkapkan Borang Keizinan Media Kontras.
+          </div>
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════

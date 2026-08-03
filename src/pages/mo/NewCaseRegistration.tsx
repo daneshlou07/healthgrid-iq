@@ -9,6 +9,8 @@ import {
   MODALITY_REFERENCE_DATASET,
   getSideOptions,
 } from '../../data/modalityReference';
+import { getEffectiveDoseForExam, SENARAI_DOS_BERKESAN } from '../../data/effectiveDoseTable';
+import { calculateMohPaymentCategory, formatPaymentCategoryBadge } from '../../utils/paymentCategory';
 import {
   Info,
   Plus,
@@ -96,15 +98,23 @@ export default function NewCaseRegistration() {
     }
   };
 
+  // ── Step 1 Context (MOH Field 10 & 11) ────────────────────────────────
+  const [wardOrClinic, setWardOrClinic] = useState('Klinik Kesihatan / A&E');
+  const [disiplin, setDisiplin] = useState('Kesihatan Awam / General Medicine');
+
   // ── Step 2 State ─────────────────────────────────────────────────────
   const [modality, setModality] = useState('X-Ray');
   const [examCards, setExamCards] = useState<FormExamCard[]>([createBlankExamCard(1)]);
+  const [showDoseModal, setShowDoseModal] = useState(false);
 
   // ── Step 3 State (Clinical Screening & Notes) ─────────────────────────
   const [lmp, setLmp] = useState('');
   const [isPregnant, setIsPregnant] = useState<MohYaTidak | ''>('');
+  const [hasAsthma, setHasAsthma] = useState<MohYaTidak | ''>('');
   const [hasAllergy, setHasAllergy] = useState<MohYaTidak | ''>('');
   const [allergyDetails, setAllergyDetails] = useState('');
+  const [previousContrastReaction, setPreviousContrastReaction] = useState<MohYaTidak | ''>('');
+  const [previousContrastDetails, setPreviousContrastDetails] = useState('');
   const [hasMobileDevice, setHasMobileDevice] = useState<MohYaTidak | ''>('');
   const [isWarganegara, setIsWarganegara] = useState<MohYaTidak | ''>('');
   const [isPenjawatAwam, setIsPenjawatAwam] = useState<MohYaTidak | ''>('');
@@ -126,9 +136,35 @@ export default function NewCaseRegistration() {
   const [submitting, setSubmitting] = useState(false);
 
   const selectedPatient = patients.find((p) => p.id === patientId);
+
+  // Auto-populate patient demographics and payment attributes when patient is selected
+  React.useEffect(() => {
+    if (!selectedPatient) return;
+    if (selectedPatient.isWarganegara) setIsWarganegara(selectedPatient.isWarganegara);
+    if (selectedPatient.isPenjawatAwam) setIsPenjawatAwam(selectedPatient.isPenjawatAwam);
+    if (selectedPatient.isFpp) setIsFpp(selectedPatient.isFpp);
+    if (selectedPatient.paymentCategory) {
+      setPaymentCategory(selectedPatient.paymentCategory);
+    } else if (selectedPatient.isWarganegara) {
+      setPaymentCategory(calculateMohPaymentCategory(selectedPatient.isWarganegara, selectedPatient.isPenjawatAwam, selectedPatient.isFpp));
+    }
+    if (selectedPatient.hasAsthma) setHasAsthma(selectedPatient.hasAsthma);
+    if (selectedPatient.previousContrastReaction) {
+      setPreviousContrastReaction(selectedPatient.previousContrastReaction);
+      if (selectedPatient.previousContrastDetails) setPreviousContrastDetails(selectedPatient.previousContrastDetails);
+    }
+  }, [selectedPatient]);
+
   const modalityRef = useMemo(() => getModalityRef(modality), [modality]);
   const isFemalePatient = selectedPatient?.gender === 'Female';
   const requiresRenal = contrastMediaRequired;
+
+  // Estimated Dose for primary exam
+  const primaryExamDose = useMemo(() => {
+    const primaryCard = examCards[0];
+    if (!primaryCard || !primaryCard.bodyPart) return undefined;
+    return getEffectiveDoseForExam(modality, primaryCard.bodyPart);
+  }, [modality, examCards]);
 
   // Step 1 Validation
   const step1Valid = Boolean(patientId && indication.trim());
@@ -248,6 +284,8 @@ export default function NewCaseRegistration() {
         caseNumber,
         patientId,
         patientName: patient?.name || '',
+        wardOrClinic: wardOrClinic || undefined,
+        disiplin: disiplin || undefined,
         registeredById: currentUser.id,
         registeredByName: currentUser.name,
         clinicId: preferredClinicId || undefined,
@@ -266,8 +304,11 @@ export default function NewCaseRegistration() {
         officeMasaAppointment: workflowPriority === 'Non-Emergency' ? scheduledTime : undefined,
         lmp: lmp || undefined,
         isPregnant: isPregnant || undefined,
+        hasAsthma: hasAsthma || undefined,
         hasAllergy: hasAllergy || undefined,
         allergyDetails: allergyDetails.trim() || undefined,
+        previousContrastReaction: previousContrastReaction || undefined,
+        previousContrastDetails: previousContrastDetails.trim() || undefined,
         hasMobileDevice: hasMobileDevice || undefined,
         isWarganegara: isWarganegara || undefined,
         isPenjawatAwam: isPenjawatAwam || undefined,
@@ -591,6 +632,30 @@ export default function NewCaseRegistration() {
                 ))}
               </div>
             </div>
+
+            {/* Senarai Dos Berkesan Dose Indicator */}
+            {primaryExamDose && (
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Activity className="w-4 h-4 text-amber-700 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-amber-950">
+                      Senarai Dos Berkesan: {primaryExamDose.examination} — <span className="font-mono text-amber-800">{primaryExamDose.dosMsv} mSv</span>
+                    </p>
+                    <p className="text-[10px] text-amber-700">
+                      Equivalency: <strong>~{primaryExamDose.chestXrayRatio} Chest X-Ray(s)</strong> (MOH UNSCEAR benchmark)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDoseModal(true)}
+                  className="text-xs text-amber-900 font-bold underline hover:text-amber-950 px-2 py-1 bg-amber-100/60 rounded-lg hover:bg-amber-200/60 transition-colors shrink-0"
+                >
+                  View Full Dose Table
+                </button>
+              </div>
+            )}
 
             {/* Repeatable Exam Cards */}
             <div className="space-y-4 pt-2">
@@ -1157,6 +1222,75 @@ export default function NewCaseRegistration() {
           </div>
         )}
       </form>
+
+      {/* ── SENARAI DOS BERKESAN MODAL ─────────────────────────────────────── */}
+      {showDoseModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+            <div className="p-4 bg-navy-900 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-sm">SENARAI DOS BERKESAN UNTUK PEMERIKSAAN RADIOLOGI</h3>
+                <p className="text-[10px] text-navy-200">Kementerian Kesihatan Malaysia PER.SS-RA301 (Pind1/2018)</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDoseModal(false)}
+                className="w-7 h-7 rounded-full bg-navy-800 hover:bg-red-600 text-white flex items-center justify-center font-bold text-xs transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-3 text-xs">
+              <p className="text-slate-600 text-[11px] italic bg-slate-50 p-2 rounded-lg border border-slate-200">
+                Sumber: Health Physics Society Fact Sheet 2010, UNSCEAR 2008 Report Vol.1 and FA Mettler et al., Radiology 2008; 248:254-63
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse border border-slate-200 text-xs">
+                  <thead className="bg-slate-100 font-bold text-slate-800">
+                    <tr>
+                      <th className="p-2.5 border border-slate-200">Pemeriksaan (Radiology Examination)</th>
+                      <th className="p-2.5 border border-slate-200 text-center">Dos (mSv)</th>
+                      <th className="p-2.5 border border-slate-200 text-center">Persamaan Chest(AP)</th>
+                      <th className="p-2.5 border border-slate-200">Kategori</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SENARAI_DOS_BERKESAN.map((item) => (
+                      <tr key={item.id} className="hover:bg-amber-50/40 border-b border-slate-200">
+                        <td className="p-2.5 font-semibold text-slate-900 border border-slate-200">
+                          {item.examination}
+                          {item.notes && <span className="block text-[10px] text-amber-700 font-normal">{item.notes}</span>}
+                        </td>
+                        <td className="p-2.5 border border-slate-200 text-center font-mono font-bold text-navy-900">
+                          {item.dosMsv}
+                        </td>
+                        <td className="p-2.5 border border-slate-200 text-center font-mono font-bold text-emerald-700">
+                          ~{item.chestXrayRatio}
+                        </td>
+                        <td className="p-2.5 border border-slate-200 text-[11px] text-slate-600">
+                          {item.category}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDoseModal(false)}
+                className="btn-secondary text-xs px-4 py-2"
+              >
+                Close Reference Guide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

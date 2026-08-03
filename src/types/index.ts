@@ -78,6 +78,19 @@ export interface Patient {
   clinicName?: string;
   /** MOH Form — Field 7 Etnik */
   ethnicity?: string;
+  /** MOH Form — Field 16 Status Bayaran (Citizenship: Malaysian / Non-Malaysian) */
+  isWarganegara?: MohYaTidak;
+  /** MOH Form — Field 16 Status Bayaran (Penjawat Awam: Yes / No) */
+  isPenjawatAwam?: MohYaTidak;
+  /** MOH Form — Field 16 Status Bayaran (Full Paying Patient: Yes / No) */
+  isFpp?: MohYaTidak;
+  /** MOH Form — Field 16 Payment Category (Auto-calculated) */
+  paymentCategory?: MohPaymentCategory;
+  /** MOH Form — Field 14 Asma */
+  hasAsthma?: MohYaTidak;
+  /** MOH Form — Field 14 Reaksi Media Kontras */
+  previousContrastReaction?: MohYaTidak;
+  previousContrastDetails?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,6 +119,10 @@ export interface Case {
   caseNumber: string;
   patientId: string;
   patientName: string;
+  /** MOH Field 10 — Wad / Klinik / A&E / RH */
+  wardOrClinic?: string;
+  /** MOH Field 11 — Disiplin (Requesting Specialty / Department) */
+  disiplin?: string;
   /** Radiology Department staff member who registered the case. */
   registeredById?: string;
   registeredByName?: string;
@@ -138,10 +155,15 @@ export interface Case {
   lmp?: string;
   /** Field 13 — Pregnant Status — REQUIRED when patient is female */
   isPregnant?: MohYaTidak;
-  /** Field 14 — Asthma / Allergy / Contrast Media Reaction */
+  /** Field 14 — Asthma */
+  hasAsthma?: MohYaTidak;
+  /** Field 14 — Allergy */
   hasAllergy?: MohYaTidak;
   /** Free-text allergy / reaction details (shown when hasAllergy === 'Yes' or 'Ya') */
   allergyDetails?: string;
+  /** Field 14 — Previous Contrast Reaction */
+  previousContrastReaction?: MohYaTidak;
+  previousContrastDetails?: string;
   /** Field 15 — Mobile scanning required */
   hasMobileDevice?: MohYaTidak;
   /** Field 16 — Malaysian Citizen */
