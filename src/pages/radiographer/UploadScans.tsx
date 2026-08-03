@@ -337,19 +337,31 @@ export default function UploadScans() {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">kVp (Voltage)</label>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>kVp (Voltage)</span>
+                    <span className="text-[10px] text-slate-400 cursor-help" title="Peak Kilovoltage — Machine penetration power factor">(i)</span>
+                  </label>
                   <input type="text" value={doseKvp} onChange={(e) => setDoseKvp(e.target.value)} className="input-field text-xs font-mono" placeholder="e.g. 70" />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">mAs (Current)</label>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>mAs (Current)</span>
+                    <span className="text-[10px] text-slate-400 cursor-help" title="Milliampere-seconds — Machine tube current time exposure factor">(i)</span>
+                  </label>
                   <input type="text" value={doseMas} onChange={(e) => setDoseMas(e.target.value)} className="input-field text-xs font-mono" placeholder="e.g. 15" />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Radiation Dose (mSv)</label>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>Radiation Dose (mSv)</span>
+                    <span className="text-[10px] text-amber-600 font-bold cursor-help" title="Effective Radiation Dose in Millisieverts — MOH Safety Compliance">(i)</span>
+                  </label>
                   <input type="number" step="0.01" value={dosRadiasi} onChange={(e) => setDosRadiasi(e.target.value)} className="input-field text-xs font-mono text-amber-800 font-bold" placeholder="e.g. 0.02" />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Film / CD Count</label>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>Film / CD Count</span>
+                    <span className="text-[10px] text-slate-400 cursor-help" title="Physical media outputs delivered to patient or ward">(i)</span>
+                  </label>
                   <div className="flex gap-1">
                     <input type="number" value={bilanganFilem} onChange={(e) => setBilanganFilem(e.target.value)} className="input-field text-xs font-mono" placeholder="Films" title="Film count" />
                     <input type="number" value={bilanganCdDvd} onChange={(e) => setBilanganCdDvd(e.target.value)} className="input-field text-xs font-mono" placeholder="CDs" title="CD count" />

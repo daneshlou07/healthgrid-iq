@@ -5,9 +5,10 @@ import { useNotifications } from '../../context/NotificationContext';
 import type { Case } from '../../types';
 import { useSearchPalette } from '../ux/SearchPalette';
 import { useToast } from '../ux/Toast';
-import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe } from 'lucide-react';
+import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import Modal from '../ui/Modal';
+import ClinicalGlossaryModal from '../ui/ClinicalGlossaryModal';
 
 // Notification categories
 type NotifCategory = 'critical' | 'reports' | 'scheduling' | 'announcements' | 'system';
@@ -31,12 +32,13 @@ export default function Header() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const { cases } = useData();
   const { open: openSearch } = useSearchPalette();
-  const { language, toggleLanguage } = useLanguage();
+  const { language, toggleLanguage, t } = useLanguage();
   const toast = useToast();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showGlossaryModal, setShowGlossaryModal] = useState(false);
 
   const criticalCases = cases.filter((c: Case) => c.isCriticalFinding && c.status !== 'FINALIZED' && !c.criticalFindingAcknowledged);
   const [showCriticalModal, setShowCriticalModal] = useState(false);
@@ -175,6 +177,16 @@ export default function Header() {
           >
             <Globe className="w-3.5 h-3.5 text-[#0F4C42]" />
             <span className="font-mono text-[11px] uppercase">{language === 'en' ? 'EN | BM' : 'BM | EN'}</span>
+          </button>
+
+          {/* Medical Glossary Dictionary Modal Button */}
+          <button
+            onClick={() => setShowGlossaryModal(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#0F4C42] rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+            title="Open Medical & Clinical Glossary Dictionary"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-[#0F4C42]" />
+            <span className="hidden sm:inline">{t('Medical Glossary', 'Glosari Perubatan')}</span>
           </button>
 
           {/* Live System Clock */}
@@ -398,6 +410,12 @@ export default function Header() {
           </div>
         </div>
       </Modal>
+
+      {/* Clinical Terms Glossary Dictionary Modal */}
+      <ClinicalGlossaryModal
+        isOpen={showGlossaryModal}
+        onClose={() => setShowGlossaryModal(false)}
+      />
     </>
   );
 }

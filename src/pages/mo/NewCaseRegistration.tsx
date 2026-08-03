@@ -681,13 +681,15 @@ export default function NewCaseRegistration() {
               {/* Pregnancy Screening (For Female Patients) */}
               {isFemalePatient && (
                 <div className="p-4 bg-pink-50/70 border border-pink-200 rounded-xl space-y-3">
-                  <h3 className="text-xs font-bold text-pink-950 uppercase tracking-wider">
-                    {t('Pregnancy Screening (Field 13)', 'Saringan Kehamilan (Ruangan 13)')}
+                  <h3 className="text-xs font-bold text-pink-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>{t('Pregnancy Screening (Field 13)', 'Saringan Kehamilan (Ruangan 13)')}</span>
+                    <span className="text-[10px] text-pink-700 cursor-help" title="Radiation Safety Check — Prevents accidental X-Ray radiation exposure to fetus">(i)</span>
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
-                        {t('Is Patient Currently Pregnant?', 'Adakah Pesakit Mengandung?')} *
+                      <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+                        <span>{t('Is Patient Currently Pregnant?', 'Adakah Pesakit Mengandung?')} *</span>
+                        <span className="text-[10px] text-slate-400 cursor-help" title="Required for radiation safety protocol">(i)</span>
                       </label>
                       <select
                         required
@@ -702,8 +704,9 @@ export default function NewCaseRegistration() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
-                        {t('Last Menstrual Period (LMP)', 'Tarikh Haid Terakhir (LMP)')}
+                      <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+                        <span>{t('Last Menstrual Period (LMP)', 'Tarikh Haid Terakhir (LMP)')}</span>
+                        <span className="text-[10px] text-slate-400 cursor-help" title="Last Menstrual Period — Verifies radiation safety window">(i)</span>
                       </label>
                       <input
                         type="date"
