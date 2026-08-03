@@ -1,5 +1,6 @@
 import React from 'react';
 import type { CaseStatus, PatientRequestStatus, ReportStatus } from '../../types';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface Props {
   status: CaseStatus | PatientRequestStatus | ReportStatus | string;
@@ -17,21 +18,37 @@ function formatTime(isoString?: string): string {
   }
 }
 
-function formatStatusLabel(status: string): string {
-  const map: Record<string, string> = {
-    'CREATED': 'Pending',
-    'SCHEDULED': 'Scheduled',
-    'SCANNED': 'Scanned',
-    'REPORTED': 'Reported',
-    'FINALIZED': 'Finalized',
-    'NO_SHOW': 'No Show',
-    'CANCELLED': 'Cancelled',
-    'IN_PROGRESS': 'In Progress',
-  };
-  return map[status] || status;
-}
-
 export default function StatusBadge({ status, timestamp, showTimeInline = false }: Props) {
+  const { language } = useLanguage();
+  const isMs = language === 'ms';
+
+  const formatStatusLabel = (st: string): string => {
+    const mapEn: Record<string, string> = {
+      'CREATED': 'Pending',
+      'SCHEDULED': 'Scheduled',
+      'SCANNED': 'Scanned',
+      'REPORTED': 'Reported',
+      'FINALIZED': 'Finalized',
+      'NO_SHOW': 'No Show',
+      'CANCELLED': 'Cancelled',
+      'IN_PROGRESS': 'In Progress',
+    };
+    const mapMs: Record<string, string> = {
+      'CREATED': 'Belum Selesai',
+      'SCHEDULED': 'Dijadualkan',
+      'SCANNED': 'Diimbas',
+      'REPORTED': 'Dilaporkan',
+      'FINALIZED': 'Disahkan',
+      'NO_SHOW': 'Tidak Hadir',
+      'CANCELLED': 'Dibatalkan',
+      'IN_PROGRESS': 'Dalam Proses',
+      'Pending': 'Belum Selesai',
+    };
+
+    if (isMs) return mapMs[st] || st;
+    return mapEn[st] || st;
+  };
+
   const getClass = () => {
     switch (status) {
       case 'CREATED':
@@ -58,18 +75,14 @@ export default function StatusBadge({ status, timestamp, showTimeInline = false 
   };
 
   const formattedTime = formatTime(timestamp);
-  const displayLabel = formatStatusLabel(status);
-  const fullTooltip = timestamp ? `Status: ${displayLabel} (${new Date(timestamp).toLocaleString()})` : `Status: ${displayLabel}`;
 
   return (
-    <span
-      title={fullTooltip}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${getClass()}`}
-    >
-      <span>{displayLabel}</span>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs ${getClass()}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+      <span>{formatStatusLabel(status)}</span>
       {showTimeInline && formattedTime && (
-        <span className="text-[11px] opacity-75">
-          &bull; {formattedTime}
+        <span className="opacity-75 font-mono text-[10px] pl-1 border-l border-current/20">
+          {formattedTime}
         </span>
       )}
     </span>
