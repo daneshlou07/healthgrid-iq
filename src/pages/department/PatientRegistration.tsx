@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
+import { useLanguage } from '../../context/LanguageContext';
 import type { Gender, MohYaTidak } from '../../types';
 import { Info, CheckCircle, AlertCircle, Sparkles, Loader2, UserX, CreditCard, ShieldCheck } from 'lucide-react';
 
@@ -25,6 +26,7 @@ function generateMrn(): string {
 export default function PatientRegistration() {
   const { currentUser } = useAuth();
   const { clinics, patients, addPatient } = useData();
+  const { language, t } = useLanguage();
   const toast = useToast();
   const [idType, setIdType] = useState<IdType>('mykad');
   const [submitting, setSubmitting] = useState(false);
@@ -55,8 +57,8 @@ export default function PatientRegistration() {
   }, [form.isWarganegara, form.isPenjawatAwam, form.isFpp]);
 
   const paymentBadge = useMemo(() => {
-    return formatPaymentCategoryBadge(computedPaymentCategory);
-  }, [computedPaymentCategory]);
+    return formatPaymentCategoryBadge(computedPaymentCategory, language);
+  }, [computedPaymentCategory, language]);
 
   const nricResult = useMemo(() => {
     if (idType !== 'mykad') return null;
@@ -95,7 +97,7 @@ export default function PatientRegistration() {
     if (!currentUser || submitting) return;
 
     if (duplicatePatient) {
-      toast.error(`NRIC already registered to ${duplicatePatient.name} (${duplicatePatient.mrn}).`);
+      toast.error(`NRIC already registered to ${duplicatePatient.name} (${duplicatePatient.mrn}). Use the Patient Registry to update their record.`);
       return;
     }
 
@@ -162,25 +164,29 @@ export default function PatientRegistration() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Register New Patient</h1>
+        <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
+          {t('Register New Patient', 'Daftar Pesakit Baharu')}
+        </h1>
         <p className="text-xs text-surface-500 mt-1">
-          Create a new patient record in the master registry with billing classification and clinical profile.
+          {t('Create a new patient record in the master registry with billing classification and clinical profile.', 'Cipta rekod pesakit baharu dalam daftar induk.')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white border border-surface-200 rounded-xl p-6 shadow-sm space-y-6">
         <div>
-          <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Patient Identity & Demographics</h3>
+          <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
+            {t('Patient Identity & Demographics', 'Identiti & Demografi Pesakit')}
+          </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1">Full Name (Nama Penuh) *</label>
+              <label className="block text-sm font-medium text-surface-700 mb-1">{t('Full Name *', 'Nama Penuh *')}</label>
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field uppercase font-semibold" placeholder="e.g., SITI AMINAH BINTI HASSAN" />
             </div>
 
             <div className="md:col-span-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-700">Identification Document Type *</span>
+                <span className="text-xs font-bold text-slate-700">{t('Identification Document Type *', 'Jenis Dokumen Pengenalan *')}</span>
                 <div className="flex bg-white rounded-md border border-slate-200 p-0.5 text-xs font-semibold">
                   <button type="button" onClick={() => setIdType('mykad')} className={`px-3 py-1 rounded transition-colors ${idType === 'mykad' ? 'bg-navy-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>MyKad (Malaysian IC)</button>
                   <button type="button" onClick={() => setIdType('passport')} className={`px-3 py-1 rounded transition-colors ${idType === 'passport' ? 'bg-navy-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>Passport (Foreign National)</button>
@@ -229,55 +235,52 @@ export default function PatientRegistration() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">Date of Birth *</label>
-              <input required type="date" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} className="input-field" readOnly={isNricLocked} />
+              <label className="block text-xs font-bold text-slate-800 mb-1">{t('Date of Birth *', 'Tarikh Lahir *')}</label>
+              <input required type="date" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} className="input-field text-xs" readOnly={isNricLocked} />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">Gender *</label>
-              <select required value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value as Gender })} className="select-field" disabled={isNricLocked}>
-                <option value="Male">Male (Lelaki)</option>
-                <option value="Female">Female (Perempuan)</option>
+              <label className="block text-xs font-bold text-slate-800 mb-1">{t('Gender *', 'Jantina *')}</label>
+              <select required value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value as Gender })} className="select-field text-xs" disabled={isNricLocked}>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
                 <option value="Other">Other</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Phone Number *</label>
-              <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input-field font-mono" placeholder="e.g., +60 12-345 6789" />
+              <label className="block text-sm font-medium text-surface-700 mb-1">{t('Phone Number *', 'Nombor Telefon *')}</label>
+              <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input-field font-mono text-xs" placeholder="e.g., +60 12-345 6789" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Ethnicity (Etnik)</label>
-              <select value={form.ethnicity} onChange={(e) => setForm({ ...form, ethnicity: e.target.value })} className="select-field">
-                <option value="">— Select Ethnicity —</option>
+              <label className="block text-sm font-medium text-surface-700 mb-1">{t('Ethnicity', 'Etnik / Bangsa')}</label>
+              <select value={form.ethnicity} onChange={(e) => setForm({ ...form, ethnicity: e.target.value })} className="select-field text-xs">
+                <option value="">-- Select Ethnicity --</option>
                 {ETHNICITY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-surface-700 mb-1">Email</label>
-              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-field" placeholder="patient@email.com" />
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-field text-xs" placeholder="patient@email.com" />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1">Residential Address *</label>
+              <label className="block text-sm font-medium text-surface-700 mb-1">{t('Residential Address *', 'Alamat Kediaman *')}</label>
               <PredictiveAddressInput required value={form.address} onChange={(addressValue) => setForm({ ...form, address: addressValue })} />
-            </div>
-            
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-surface-700 mb-1">Emergency Contact <span className="text-surface-400 font-normal">(optional)</span></label>
-              <input value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} className="input-field" placeholder="Name — Relationship — Phone" />
             </div>
           </div>
         </div>
 
-        {/* Section: Master Payment & Billing Profile */}
+        {/* Master Payment Profile */}
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-navy-700" />
-              <h3 className="text-xs font-bold text-navy-900 uppercase tracking-wider">Payment & Billing Profile (MOH Status Bayaran - Field 16)</h3>
+              <h3 className="text-xs font-bold text-navy-900 uppercase tracking-wider">
+                {t('Master Payment & Billing Profile (Field 16)', 'Profil Bayaran Induk')}
+              </h3>
             </div>
             <span className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${paymentBadge.color}`}>
               {paymentBadge.label}
@@ -286,88 +289,36 @@ export default function PatientRegistration() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Citizenship (Warganegara)</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{t('Citizenship Status', 'Status Kewarganegaraan')}</label>
               <select value={form.isWarganegara} onChange={(e) => setForm({ ...form, isWarganegara: e.target.value as MohYaTidak })} className="select-field text-xs font-semibold">
-                <option value="Yes">Warganegara (Malaysian Citizen)</option>
-                <option value="No">Bukan Warganegara (Foreign National)</option>
+                <option value="Yes">{t('Malaysian Citizen', 'Warganegara Malaysia')}</option>
+                <option value="No">{t('Non-Citizen / Foreign National', 'Bukan Warganegara')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Government Employee (Penjawat Awam)</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{t('Civil Servant Status', 'Status Penjawat Awam')}</label>
               <select value={form.isPenjawatAwam} onChange={(e) => setForm({ ...form, isPenjawatAwam: e.target.value as MohYaTidak })} className="select-field text-xs font-semibold" disabled={form.isWarganegara === 'No'}>
-                <option value="No">No (Tidak)</option>
-                <option value="Yes">Yes (Ya - Penjawat Awam / Pesara)</option>
+                <option value="No">{t('No', 'Tidak')}</option>
+                <option value="Yes">{t('Yes (Civil Servant / Pensioner)', 'Ya (Penjawat Awam / Pesara)')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Full Paying Patient (FPP)</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{t('Full Paying Patient (FPP)', 'Skim Pesakit Bayar Penuh')}</label>
               <select value={form.isFpp} onChange={(e) => setForm({ ...form, isFpp: e.target.value as MohYaTidak })} className="select-field text-xs font-semibold" disabled={form.isWarganegara === 'No'}>
-                <option value="No">No (Tidak)</option>
-                <option value="Yes">Yes (Ya - Skim FPP)</option>
+                <option value="No">{t('No', 'Tidak')}</option>
+                <option value="Yes">{t('Yes (FPP Scheme)', 'Ya (Skim FPP)')}</option>
               </select>
             </div>
-          </div>
-          <p className="text-[10px] text-slate-500 flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0 inline" />
-            <span>MOH Payment Category is automatically calculated and auto-populates on every radiology referral case.</span>
-          </p>
-        </div>
-
-        {/* Section: Baseline Clinical Screening */}
-        <div>
-          <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Baseline Medical & Screening Profile</h3>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Asthma History (Asma - Field 14)</label>
-                <select value={form.hasAsthma} onChange={(e) => setForm({ ...form, hasAsthma: e.target.value as MohYaTidak })} className="select-field text-xs">
-                  <option value="No">No (Tidak)</option>
-                  <option value="Yes">Yes (Ya)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Previous Contrast Media Reaction (Field 14)</label>
-                <select value={form.previousContrastReaction} onChange={(e) => setForm({ ...form, previousContrastReaction: e.target.value as MohYaTidak })} className="select-field text-xs">
-                  <option value="No">No (Tidak)</option>
-                  <option value="Yes">Yes (Ya - Reaksi Kontras)</option>
-                </select>
-              </div>
-            </div>
-
-            {form.previousContrastReaction === 'Yes' && (
-              <div>
-                <label className="block text-xs font-bold text-amber-800 mb-1">Contrast Reaction Details</label>
-                <input value={form.previousContrastDetails} onChange={(e) => setForm({ ...form, previousContrastDetails: e.target.value })} className="input-field text-xs border-amber-300 bg-amber-50/40" placeholder="e.g. Mild urticaria, nausea, or anaphylaxis during prior CT contrast scan" />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">General Medical History <span className="text-surface-400 font-normal">(comma-separated)</span></label>
-              <textarea rows={2} value={form.medicalHistory} onChange={(e) => setForm({ ...form, medicalHistory: e.target.value })} className="input-field resize-none text-xs" placeholder="e.g., Hypertension, Type 2 Diabetes, Previous knee surgery" />
-            </div>
-          </div>
-        </div>
-
-        {/* Section: Preference */}
-        <div>
-          <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Preference</h3>
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-1">Preferred Healthcare Centre <span className="text-surface-400 font-normal">(optional)</span></label>
-            <select value={form.preferredClinicId} onChange={(e) => setForm({ ...form, preferredClinicId: e.target.value })} className="select-field">
-              <option value="">No preference — AI Scheduler will determine</option>
-              {clinics.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-3 border-t border-surface-200">
-          <p className="text-[10px] text-surface-400">Patient will be added to master registry with auto-calculated payment status.</p>
-          <button type="submit" disabled={submitting || !!duplicatePatient} className="btn-primary flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+          <p className="text-[10px] text-surface-400">{t('Patient will be registered into master registry.', 'Pesakit akan didaftarkan ke dalam pangkalan data.')}</p>
+          <button type="submit" disabled={submitting || !!duplicatePatient} className="btn-primary flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed text-xs px-4 py-2">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {submitting ? 'Registering Patient...' : 'Register Patient'}
+            {submitting ? t('Registering Patient...', 'Mendaftarkan Pesakit...') : t('Register Patient', 'Daftar Pesakit')}
           </button>
         </div>
       </form>

@@ -5,7 +5,8 @@ import { useNotifications } from '../../context/NotificationContext';
 import type { Case } from '../../types';
 import { useSearchPalette } from '../ux/SearchPalette';
 import { useToast } from '../ux/Toast';
-import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info } from 'lucide-react';
+import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 import Modal from '../ui/Modal';
 
 // Notification categories
@@ -30,6 +31,7 @@ export default function Header() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const { cases } = useData();
   const { open: openSearch } = useSearchPalette();
+  const { language, toggleLanguage } = useLanguage();
   const toast = useToast();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -165,6 +167,16 @@ export default function Header() {
         )}
 
         <div className="ml-auto flex items-center gap-3">
+          {/* Language Switcher Toggle */}
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#D8E5E1] hover:border-[#0F4C42] rounded-lg text-xs font-bold text-[#0F4C42] shadow-sm transition-all cursor-pointer"
+            title="Toggle Application UI Language (English / Bahasa Melayu)"
+          >
+            <Globe className="w-3.5 h-3.5 text-[#0F4C42]" />
+            <span className="font-mono text-[11px] uppercase">{language === 'en' ? 'EN | BM' : 'BM | EN'}</span>
+          </button>
+
           {/* Live System Clock */}
           <div
             className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-[#EDF4F2] border border-[#D8E5E1] rounded-lg text-xs font-medium text-[#2C524B]"

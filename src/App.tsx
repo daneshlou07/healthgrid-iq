@@ -171,24 +171,28 @@ function AppRoutes() {
   );
 }
 
+import { LanguageProvider } from './context/LanguageContext';
+
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <NotificationProvider>
-          <DataProvider>
-            <ToastProvider>
-              <SearchPaletteProvider>
-                <ConfirmProvider>
-                  <AppRoutes />
-                  <KeyboardShortcutsOverlay />
-                  <DevAccountSwitcher />
-                </ConfirmProvider>
-              </SearchPaletteProvider>
-            </ToastProvider>
-          </DataProvider>
-        </NotificationProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <DataProvider>
+              <ToastProvider>
+                <SearchPaletteProvider>
+                  <ConfirmProvider>
+                    <AppRoutes />
+                    <KeyboardShortcutsOverlay />
+                    <DevAccountSwitcher />
+                  </ConfirmProvider>
+                </SearchPaletteProvider>
+              </ToastProvider>
+            </DataProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }

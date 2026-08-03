@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useLanguage } from '../../context/LanguageContext';
 import type { SeverityLevel, ExaminationRequest, ExaminationSide, MohYaTidak, MohPaymentCategory } from '../../types';
 import {
   getModalityRef,
@@ -25,19 +26,11 @@ import {
   FileCheck2,
   Building2,
   Sparkles,
+  CreditCard,
+  ShieldCheck,
 } from 'lucide-react';
 
 const MODALITIES = Object.keys(MODALITY_REFERENCE_DATASET);
-
-const SYMPTOM_SUGGESTIONS = [
-  'Persistent cough', 'Chest pain', 'Shortness of breath',
-  'Headache or dizziness', 'Head injury', 'Neck pain',
-  'Back pain', 'Abdominal pain', 'Pelvic pain',
-  'Joint pain or swelling', 'Limb injury', 'Numbness or weakness',
-  'Suspected fracture', 'Post-operative follow-up',
-];
-
-const SEVERITIES: SeverityLevel[] = ['Mild', 'Moderate', 'Severe', 'Critical'];
 
 interface FormExamCard {
   id: string;
@@ -62,46 +55,31 @@ function createBlankExamCard(idSuffix: number): FormExamCard {
 export default function NewCaseRegistration() {
   const { currentUser } = useAuth();
   const { clinics, patients, addCase, addAuditLog } = useData();
+  const { language, t } = useLanguage();
   const toast = useToast();
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
 
   // ── Step 1 State ─────────────────────────────────────────────────────
   const [patientId, setPatientId] = useState('');
+  const [wardOrClinic, setWardOrClinic] = useState('Outpatient Clinic / A&E');
+  const [disiplin, setDisiplin] = useState('General Medicine');
   const [indication, setIndication] = useState('');
-  const [symptomOption, setSymptomOption] = useState('');
-  const [customIndication, setCustomIndication] = useState('');
   const [severity, setSeverity] = useState<SeverityLevel>('Moderate');
-  const [incubationPeriod, setIncubationPeriod] = useState('');
-
-  // ── Step 1 Context (MOH Field 10 & 11) ────────────────────────────────
-  const [wardOrClinic, setWardOrClinic] = useState('Klinik Kesihatan / A&E');
-  const [disiplin, setDisiplin] = useState('Kesihatan Awam / General Medicine');
 
   // ── Step 2 State ─────────────────────────────────────────────────────
   const [modality, setModality] = useState('X-Ray');
   const [examCards, setExamCards] = useState<FormExamCard[]>([createBlankExamCard(1)]);
   const [showDoseModal, setShowDoseModal] = useState(false);
 
-  // ── Step 3 State (Clinical Screening & Notes) ─────────────────────────
+  // ── Step 3 State (Case Screening) ────────────────────────────────────
   const [lmp, setLmp] = useState('');
   const [isPregnant, setIsPregnant] = useState<MohYaTidak | ''>('');
-  const [hasAsthma, setHasAsthma] = useState<MohYaTidak | ''>('');
-  const [hasAllergy, setHasAllergy] = useState<MohYaTidak | ''>('');
-  const [allergyDetails, setAllergyDetails] = useState('');
-  const [previousContrastReaction, setPreviousContrastReaction] = useState<MohYaTidak | ''>('');
-  const [previousContrastDetails, setPreviousContrastDetails] = useState('');
-  const [hasMobileDevice, setHasMobileDevice] = useState<MohYaTidak | ''>('');
-  const [isWarganegara, setIsWarganegara] = useState<MohYaTidak | ''>('');
-  const [isPenjawatAwam, setIsPenjawatAwam] = useState<MohYaTidak | ''>('');
-  const [isFpp, setIsFpp] = useState<MohYaTidak | ''>('');
-  const [paymentCategory, setPaymentCategory] = useState<MohPaymentCategory | ''>('');
+  const [hasMobileDevice, setHasMobileDevice] = useState<MohYaTidak | ''>('No');
   const [renalFunctionDate, setRenalFunctionDate] = useState('');
   const [creatinine, setCreatinine] = useState('');
   const [egfr, setEgfr] = useState('');
   const [contrastMediaRequired, setContrastMediaRequired] = useState(false);
-  const [contrastMediaName, setContrastMediaName] = useState('');
-  const [contrastMediaVolumeMl, setContrastMediaVolumeMl] = useState('');
   const [clinicalNotes, setClinicalNotes] = useState('');
 
   // ── Step 4 State ─────────────────────────────────────────────────────
@@ -113,22 +91,15 @@ export default function NewCaseRegistration() {
 
   const selectedPatient = patients.find((p) => p.id === patientId);
 
-  React.useEffect(() => {
-    if (!selectedPatient) return;
-    if (selectedPatient.isWarganegara) setIsWarganegara(selectedPatient.isWarganegara);
-    if (selectedPatient.isPenjawatAwam) setIsPenjawatAwam(selectedPatient.isPenjawatAwam);
-    if (selectedPatient.isFpp) setIsFpp(selectedPatient.isFpp);
-    if (selectedPatient.paymentCategory) {
-      setPaymentCategory(selectedPatient.paymentCategory);
-    } else if (selectedPatient.isWarganegara) {
-      setPaymentCategory(calculateMohPaymentCategory(selectedPatient.isWarganegara, selectedPatient.isPenjawatAwam, selectedPatient.isFpp));
-    }
-    if (selectedPatient.hasAsthma) setHasAsthma(selectedPatient.hasAsthma);
-    if (selectedPatient.previousContrastReaction) {
-      setPreviousContrastReaction(selectedPatient.previousContrastReaction);
-      if (selectedPatient.previousContrastDetails) setPreviousContrastDetails(selectedPatient.previousContrastDetails);
-    }
-  }, [selectedPatient]);
+  const paymentBadge = useMemo(() => {
+    if (!selectedPatient) return null;
+    const cat = selectedPatient.paymentCategory || calculateMohPaymentCategory(
+      selectedPatient.isWarganegara,
+      selectedPatient.isPenjawatAwam,
+      selectedPatient.isFpp
+    );
+    return formatPaymentCategoryBadge(cat, language);
+  }, [selectedPatient, language]);
 
   const modalityRef = useMemo(() => getModalityRef(modality), [modality]);
   const isFemalePatient = selectedPatient?.gender === 'Female';
@@ -152,11 +123,9 @@ export default function NewCaseRegistration() {
   const step3Valid = useMemo(() => {
     if (!patientId) return true;
     if (isFemalePatient && !isPregnant) return false;
-    if (!hasAllergy) return false;
-    if ((hasAllergy === 'Yes' || hasAllergy === 'Ya') && !allergyDetails.trim()) return false;
     if (requiresRenal && (!renalFunctionDate || !creatinine || !egfr)) return false;
     return true;
-  }, [patientId, isFemalePatient, isPregnant, hasAllergy, allergyDetails, requiresRenal, renalFunctionDate, creatinine, egfr]);
+  }, [patientId, isFemalePatient, isPregnant, requiresRenal, renalFunctionDate, creatinine, egfr]);
 
   const isFormValid = step1Valid && step2Valid && step3Valid;
 
@@ -215,7 +184,7 @@ export default function NewCaseRegistration() {
     if (!isFormValid || !currentUser) return;
     setSubmitting(true);
 
-    const patient = patients.find((p) => p.id === patientId);
+    const patient = selectedPatient;
     const preferredClinic = clinics.find((c) => c.id === preferredClinicId);
     const caseNumber = `XR${new Date().getFullYear()}${String(Date.now()).slice(-6)}`;
 
@@ -255,16 +224,13 @@ export default function NewCaseRegistration() {
         createdAt: new Date().toISOString(),
         lmp: lmp || undefined,
         isPregnant: isPregnant || undefined,
-        hasAsthma: hasAsthma || undefined,
-        hasAllergy: hasAllergy || undefined,
-        allergyDetails: allergyDetails.trim() || undefined,
-        previousContrastReaction: previousContrastReaction || undefined,
-        previousContrastDetails: previousContrastDetails.trim() || undefined,
+        hasAsthma: patient?.hasAsthma || 'No',
+        previousContrastReaction: patient?.previousContrastReaction || 'No',
         hasMobileDevice: hasMobileDevice || undefined,
-        isWarganegara: isWarganegara || undefined,
-        isPenjawatAwam: isPenjawatAwam || undefined,
-        isFpp: isFpp || undefined,
-        paymentCategory: paymentCategory || undefined,
+        isWarganegara: patient?.isWarganegara || 'Yes',
+        isPenjawatAwam: patient?.isPenjawatAwam || 'No',
+        isFpp: patient?.isFpp || 'No',
+        paymentCategory: patient?.paymentCategory || 'Kerajaan',
         officeNoPemeriksaan: caseNumber,
       });
 
@@ -274,14 +240,14 @@ export default function NewCaseRegistration() {
         userRole: currentUser.role,
         action: 'CASE_CREATED',
         target: `cases/${caseNumber}`,
-        details: `Department Registered ${caseNumber} for ${patient?.name}`,
+        details: `Registered ${caseNumber} for ${patient?.name}`,
         timestamp: new Date().toISOString(),
       });
 
-      toast.success(`Case ${caseNumber} registered successfully — pending AI Scheduler`);
+      toast.success(t(`Case ${caseNumber} registered successfully`, `Kes ${caseNumber} berjaya didaftarkan`));
       setPatientId(''); setIndication(''); setExamCards([createBlankExamCard(1)]); setCurrentStep(1);
     } catch {
-      toast.error('Failed to create case.');
+      toast.error(t('Failed to create case.', 'Gagal mendaftarkan kes.'));
     } finally {
       setSubmitting(false);
     }
@@ -290,44 +256,77 @@ export default function NewCaseRegistration() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Register New Radiology Case</h1>
-        <p className="text-xs text-surface-500 mt-1">Official MOH PER.SS-RA301 Radiology Referral &amp; Examination Request Form.</p>
+        <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
+          {t('Register New Radiology Case', 'Daftar Kes Radiologi Baharu')}
+        </h1>
+        <p className="text-xs text-surface-500 mt-1">
+          {t('MOH PER.SS-RA301 Radiology Referral & Examination Request Form', 'Borang Permohonan Pemeriksaan Radiologi KKM PER.SS-RA301')}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="card space-y-6 bg-white border border-slate-200 rounded-xl p-6 shadow-md">
         {currentStep === 1 && (
           <div className="space-y-4">
-            <h2 className="text-base font-bold text-slate-900">Step 1: Patient &amp; Clinical Indication</h2>
+            <h2 className="text-base font-bold text-slate-900">
+              {t('Step 1: Patient & Clinical Indication', 'Langkah 1: Pesakit & Indikasi Klinikal')}
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">Field 10: Ward / Clinic / A&amp;E</label>
-                <input value={wardOrClinic} onChange={(e) => setWardOrClinic(e.target.value)} className="input-field text-xs" />
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  {t('Location (Ward / Clinic / A&E)', 'Lokasi (Wad / Klinik / A&E)')}
+                </label>
+                <input value={wardOrClinic} onChange={(e) => setWardOrClinic(e.target.value)} className="input-field text-xs" required />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">Field 11: Requesting Specialty (Disiplin)</label>
-                <input value={disiplin} onChange={(e) => setDisiplin(e.target.value)} className="input-field text-xs" />
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  {t('Requesting Specialty / Department', 'Jabatan Pemohon')}
+                </label>
+                <input value={disiplin} onChange={(e) => setDisiplin(e.target.value)} className="input-field text-xs" required />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-800 mb-1">Select Patient *</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  {t('Select Registered Patient *', 'Pilih Pesakit Berdaftar *')}
+                </label>
                 <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="select-field text-xs" required>
-                  <option value="">— Select Patient —</option>
+                  <option value="">-- Select Patient --</option>
                   {patients.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.mrn}) — {p.nric}</option>)}
                 </select>
               </div>
+
+              {selectedPatient && (
+                <div className="md:col-span-2 p-3 bg-navy-50/60 border border-navy-200 rounded-xl flex items-center justify-between">
+                  <div className="text-xs text-navy-900">
+                    <span className="font-bold">{selectedPatient.name}</span> &middot; MRN: <span className="font-mono font-bold">{selectedPatient.mrn}</span> &middot; NRIC: <span className="font-mono">{selectedPatient.nric}</span>
+                  </div>
+                  {paymentBadge && (
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${paymentBadge.color}`}>
+                      {paymentBadge.label}
+                    </span>
+                  )}
+                </div>
+              )}
+
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-800 mb-1">Presenting Clinical Indication *</label>
-                <textarea required rows={2} value={indication} onChange={(e) => setIndication(e.target.value)} className="input-field text-xs" placeholder="e.g. Cough for 2 weeks with fever" />
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  {t('Clinical Indication *', 'Indikasi Klinikal *')}
+                </label>
+                <textarea required rows={2} value={indication} onChange={(e) => setIndication(e.target.value)} className="input-field text-xs" placeholder="Presenting symptoms and history..." />
               </div>
             </div>
             <div className="flex justify-end">
-              <button type="button" disabled={!step1Valid} onClick={() => setCurrentStep(2)} className="btn-primary text-xs flex items-center gap-1">Next: Modality <ChevronRight className="w-4 h-4" /></button>
+              <button type="button" disabled={!step1Valid} onClick={() => setCurrentStep(2)} className="btn-primary text-xs flex items-center gap-1">
+                <span>{t('Next: Modality', 'Seterusnya: Modaliti')}</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
 
         {currentStep === 2 && (
           <div className="space-y-4">
-            <h2 className="text-base font-bold text-slate-900">Step 2: Modality &amp; Examination Request</h2>
+            <h2 className="text-base font-bold text-slate-900">
+              {t('Step 2: Modality & Examination Request', 'Langkah 2: Modaliti & Ujian')}
+            </h2>
             <div className="grid grid-cols-5 gap-2">
               {MODALITIES.map((m) => (
                 <button key={m} type="button" onClick={() => handleModalityChange(m)} className={`py-2 rounded-lg text-xs font-bold border ${modality === m ? 'bg-navy-800 text-white' : 'bg-white'}`}>{m}</button>
@@ -337,7 +336,9 @@ export default function NewCaseRegistration() {
             {primaryExamDose && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-xs">
                 <div>
-                  <p className="font-bold text-amber-900">Senarai Dos Berkesan: {primaryExamDose.examination} — {primaryExamDose.dosMsv} mSv</p>
+                  <p className="font-bold text-amber-900">
+                    {t('Effective Radiation Dose:', 'Dos Berkesan:')} {primaryExamDose.examination} — {primaryExamDose.dosMsv} mSv
+                  </p>
                   <p className="text-amber-700 text-[10px]">Equivalency: ~{primaryExamDose.chestXrayRatio} Chest X-Rays</p>
                 </div>
                 <button type="button" onClick={() => setShowDoseModal(true)} className="text-amber-900 font-bold underline text-xs">View Dose Table</button>
@@ -345,29 +346,45 @@ export default function NewCaseRegistration() {
             )}
 
             <div className="flex justify-between">
-              <button type="button" onClick={() => setCurrentStep(1)} className="btn-secondary text-xs"><ChevronLeft className="w-4 h-4" /> Back</button>
-              <button type="button" disabled={!step2Valid} onClick={() => setCurrentStep(3)} className="btn-primary text-xs">Next: Screening <ChevronRight className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setCurrentStep(1)} className="btn-secondary text-xs"><ChevronLeft className="w-4 h-4" /> {t('Back', 'Kembali')}</button>
+              <button type="button" disabled={!step2Valid} onClick={() => setCurrentStep(3)} className="btn-primary text-xs">{t('Next: Screening', 'Seterusnya: Saringan')} <ChevronRight className="w-4 h-4" /></button>
             </div>
           </div>
         )}
 
         {currentStep === 3 && (
           <div className="space-y-4 text-xs">
-            <h2 className="text-base font-bold text-slate-900">Step 3: Clinical Screening (MOH PER.SS-RA301)</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="font-bold block mb-1">Asthma (Field 14)</label>
-                <select value={hasAsthma} onChange={(e) => setHasAsthma(e.target.value as MohYaTidak)} className="select-field text-xs"><option value="No">No</option><option value="Yes">Yes</option></select>
+            <h2 className="text-base font-bold text-slate-900">
+              {t('Step 3: Clinical Screening (MOH PER.SS-RA301)', 'Langkah 3: Saringan Klinikal')}
+            </h2>
+
+            {selectedPatient && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-slate-800">{selectedPatient.name}</span> ({selectedPatient.mrn}) &middot; Gender: {selectedPatient.gender}
+                </div>
+                {paymentBadge && (
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${paymentBadge.color}`}>
+                    {paymentBadge.label}
+                  </span>
+                )}
               </div>
-              <div>
-                <label className="font-bold block mb-1">Allergies (Field 14) *</label>
-                <select value={hasAllergy} onChange={(e) => setHasAllergy(e.target.value as MohYaTidak)} className="select-field text-xs" required><option value="">Select...</option><option value="No">No</option><option value="Yes">Yes</option></select>
+            )}
+
+            {isFemalePatient && (
+              <div className="p-3 bg-pink-50/70 border border-pink-200 rounded-xl space-y-2">
+                <label className="font-bold text-pink-950 block">Pregnancy Screening (Field 13) *</label>
+                <select value={isPregnant} onChange={(e) => setIsPregnant(e.target.value as MohYaTidak)} className="select-field text-xs" required>
+                  <option value="">Select...</option>
+                  <option value="No">No (Tidak)</option>
+                  <option value="Yes">Yes (Ya)</option>
+                </select>
               </div>
-            </div>
-            {hasAllergy === 'Yes' && <input value={allergyDetails} onChange={(e) => setAllergyDetails(e.target.value)} className="input-field text-xs" placeholder="Allergy details..." required />}
+            )}
+
             <div className="flex justify-between pt-4">
-              <button type="button" onClick={() => setCurrentStep(2)} className="btn-secondary text-xs"><ChevronLeft className="w-4 h-4" /> Back</button>
-              <button type="submit" disabled={!isFormValid || submitting} className="btn-primary text-xs">Submit Case Referral</button>
+              <button type="button" onClick={() => setCurrentStep(2)} className="btn-secondary text-xs"><ChevronLeft className="w-4 h-4" /> {t('Back', 'Kembali')}</button>
+              <button type="submit" disabled={!isFormValid || submitting} className="btn-primary text-xs">{t('Submit Case Referral', 'Hantar Rujukan Kes')}</button>
             </div>
           </div>
         )}
@@ -376,7 +393,7 @@ export default function NewCaseRegistration() {
       {showDoseModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-4 space-y-4">
-            <h3 className="font-bold text-sm">SENARAI DOS BERKESAN UNTUK PEMERIKSAAN RADIOLOGI</h3>
+            <h3 className="font-bold text-sm">EFFECTIVE RADIATION DOSE REFERENCE LIST</h3>
             <div className="max-h-60 overflow-y-auto text-xs">
               <table className="w-full border-collapse border border-slate-200">
                 <thead className="bg-slate-100 font-bold"><tr><th className="p-2 border">Exam</th><th className="p-2 border">Dose (mSv)</th><th className="p-2 border">Chest X-Ray Ratio</th></tr></thead>
