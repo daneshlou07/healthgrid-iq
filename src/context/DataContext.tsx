@@ -17,6 +17,10 @@ import {
   getUsers, getCases, getPatients, getClinics, getReports,
   getPatientRequests, getAuditLogs, getMobilePacsVans,
 } from '../services/dataService';
+import {
+  mockUsers, mockClinics, mockPatients, mockCases, mockReports,
+  mockPatientRequests, mockMobilePacsVans,
+} from '../services/mockData';
 import type { User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, MobilePacsVan, Comment } from '../types';
 
 // --- LocalStorage Persistence Layer ---
