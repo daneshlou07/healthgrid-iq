@@ -3,11 +3,19 @@ import { getPatients, createAuditLog } from '../../services/dataService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ux/Toast';
 import { useDebounce } from '../../hooks/useDebounce';
+import { normalizeNric, formatNric } from '../../utils/malaysianNric';
 import type { Patient } from '../../types';
 import Modal from '../../components/ui/Modal';
 import { Search, Eye, Edit2, Archive, RotateCcw, Download, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { exportToCSV } from '../../utils/exportUtils';
 import { Link } from 'react-router-dom';
+
+/** Display helper — formats raw 12-digit NRICs as YYMMDD-PB-#### for readability */
+function displayNric(nric: string): string {
+  if (!nric) return '—';
+  const digits = normalizeNric(nric);
+  return digits.length === 12 ? formatNric(digits) : nric;
+}
 
 function getInitials(name: string): string {
   if (!name) return 'PT';
@@ -66,7 +74,7 @@ export default function PatientRegistry() {
       filtered.map((p) => ({
         MRN: p.mrn,
         Name: p.name,
-        NRIC: p.nric,
+        NRIC: displayNric(p.nric),
         Gender: p.gender,
         DOB: p.dob,
         Phone: p.phone,
@@ -220,7 +228,7 @@ export default function PatientRegistry() {
                     </td>
 
                     {/* NRIC */}
-                    <td className="py-3.5 px-4 text-xs text-surface-600 whitespace-nowrap font-medium">{p.nric}</td>
+                    <td className="py-3.5 px-4 text-xs text-surface-600 whitespace-nowrap font-medium">{displayNric(p.nric)}</td>
 
                     {/* Gender */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
@@ -355,7 +363,7 @@ export default function PatientRegistry() {
           <div className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-3 p-3 bg-surface-50 rounded-lg">
               <div><span className="text-surface-500 block">MRN</span><span className="font-mono font-bold text-navy-700">{showView.mrn}</span></div>
-              <div><span className="text-surface-500 block">NRIC</span><span className="font-mono">{showView.nric}</span></div>
+              <div><span className="text-surface-500 block">NRIC</span><span className="font-mono">{displayNric(showView.nric)}</span></div>
               <div><span className="text-surface-500 block">Gender</span><span>{showView.gender}</span></div>
               <div><span className="text-surface-500 block">DOB</span><span>{showView.dob}</span></div>
               <div><span className="text-surface-500 block">Phone</span><span>{showView.phone}</span></div>

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, Firestore } from 'firebase/firestore';
 import {
   getAuth,
   Auth,
@@ -58,15 +58,22 @@ export function getFirebaseApp(): FirebaseApp | null {
  * Ensures Firebase Auth is initialised first so the Firestore SDK has
  * access to the current user's token for security rule evaluation.
  */
+let _dbInstance: Firestore | null = null;
 export function getFirestoreDb(): Firestore | null {
   const app = getFirebaseApp();
   if (!app) return null;
   // Ensure auth instance exists so the Firestore SDK can attach the token.
-  // getAuth() is synchronous and returns the existing instance if already created.
   if (!_authInstance) {
     _authInstance = getAuth(app);
   }
-  return getFirestore(app);
+  if (!_dbInstance) {
+    try {
+      _dbInstance = initializeFirestore(app, { ignoreUndefinedProperties: true });
+    } catch {
+      _dbInstance = getFirestore(app);
+    }
+  }
+  return _dbInstance;
 }
 
 /**

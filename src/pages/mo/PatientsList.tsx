@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Users, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { normalizeNric, formatNric } from '../../utils/malaysianNric';
+
+function displayNric(nric: string): string {
+  if (!nric) return '—';
+  const digits = normalizeNric(nric);
+  return digits.length === 12 ? formatNric(digits) : nric;
+}
 
 export default function PatientsList() {
   const { patients, cases } = useData();

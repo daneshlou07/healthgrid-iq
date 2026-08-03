@@ -384,16 +384,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Tries apiClient first (Cloud Functions), falls back to direct Firestore.
   // If both fail the optimistic state update is reverted and the error rethrown.
   // -------------------------------------------------------------------------
-  // Utility: strip undefined values so Firestore never receives them
-  const clean = <T extends object>(obj: T): T =>
-    Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+  // Utility: recursively strip undefined values so Firestore never receives them anywhere in nested objects/arrays
+  const clean = <T extends unknown>(val: T): T => {
+    if (val === null || val === undefined) return val;
+    if (Array.isArray(val)) {
+      return val.map((item) => clean(item)).filter((item) => item !== undefined) as unknown as T;
+    }
+    if (typeof val === 'object' && val.constructor === Object) {
+      const res: Record<string, any> = {};
+      for (const [k, v] of Object.entries(val)) {
+        if (v !== undefined) {
+          res[k] = clean(v);
+        }
+      }
+      return res as T;
+    }
+    return val;
+  };
 
   const addCase = async (c: Omit<Case, 'id'>): Promise<Case> => {
     const id = `case-${Date.now()}`;
     const data = clean({ ...c, id, createdAt: new Date().toISOString() }) as Case;
     setCases((prev) => [...prev, data]);
     const db = getFirestoreDb();
-    if (db) await setDoc(doc(db, 'cases', id), data).catch((e) => console.warn('[addCase]', e));
+    if (db) {
+      try {
+        await setDoc(doc(db, 'cases', id), data);
+      } catch (e) {
+        console.warn('[addCase] Firestore write warning:', e);
+      }
+    }
     return data;
   };
 
@@ -401,7 +421,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const data = clean(updates);
     setCases((prev) => prev.map((c) => (c.id === id ? { ...c, ...data } : c)));
     const db = getFirestoreDb();
-    if (db) await updateDoc(doc(db, 'cases', id), data).catch((e) => console.warn('[editCase]', e));
+    if (db) {
+      try {
+        await updateDoc(doc(db, 'cases', id), data as any);
+      } catch (e) {
+        console.warn('[editCase] Firestore write warning:', e);
+      }
+    }
   };
 
   const addPatient = async (p: Omit<Patient, 'id'>): Promise<Patient> => {
@@ -409,7 +435,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const data = clean({ ...p, id }) as Patient;
     setPatients((prev) => [...prev, data]);
     const db = getFirestoreDb();
-    if (db) await setDoc(doc(db, 'patients', id), data).catch((e) => console.warn('[addPatient]', e));
+    if (db) {
+      try {
+        await setDoc(doc(db, 'patients', id), data);
+      } catch (e) {
+        console.warn('[addPatient] Firestore write warning:', e);
+      }
+    }
     return data;
   };
 
@@ -417,7 +449,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const data = clean(updates);
     setPatients((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
     const db = getFirestoreDb();
-    if (db) await updateDoc(doc(db, 'patients', id), data).catch((e) => console.warn('[editPatient]', e));
+    if (db) {
+      try {
+        await updateDoc(doc(db, 'patients', id), data as any);
+      } catch (e) {
+        console.warn('[editPatient] Firestore write warning:', e);
+      }
+    }
   };
 
   const addReport = async (r: Omit<Report, 'id'>): Promise<Report> => {
@@ -425,7 +463,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const data = clean({ ...r, id, createdAt: new Date().toISOString() }) as Report;
     setReports((prev) => [...prev, data]);
     const db = getFirestoreDb();
-    if (db) await setDoc(doc(db, 'reports', id), data).catch((e) => console.warn('[addReport]', e));
+    if (db) {
+      try {
+        await setDoc(doc(db, 'reports', id), data);
+      } catch (e) {
+        console.warn('[addReport] Firestore write warning:', e);
+      }
+    }
     return data;
   };
 
@@ -433,7 +477,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const data = clean(updates);
     setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
     const db = getFirestoreDb();
-    if (db) await updateDoc(doc(db, 'reports', id), data).catch((e) => console.warn('[editReport]', e));
+    if (db) {
+      try {
+        await updateDoc(doc(db, 'reports', id), data as any);
+      } catch (e) {
+        console.warn('[editReport] Firestore write warning:', e);
+      }
+    }
   };
 
   const addPatientRequest = async (r: Omit<PatientRequest, 'id'>): Promise<PatientRequest> => {
@@ -441,7 +491,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const data = clean({ ...r, id, dateSubmitted: (r as any).dateSubmitted || new Date().toISOString() }) as PatientRequest;
     setPatientRequests((prev) => [...prev, data]);
     const db = getFirestoreDb();
-    if (db) await setDoc(doc(db, 'patient_requests', id), data).catch((e) => console.warn('[addPatientRequest]', e));
+    if (db) {
+      try {
+        await setDoc(doc(db, 'patient_requests', id), data);
+      } catch (e) {
+        console.warn('[addPatientRequest] Firestore write warning:', e);
+      }
+    }
     return data;
   };
 
@@ -449,33 +505,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const data = clean(updates);
     setPatientRequests((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
     const db = getFirestoreDb();
-    if (db) await updateDoc(doc(db, 'patient_requests', id), data).catch((e) => console.warn('[editPatientRequest]', e));
+    if (db) {
+      try {
+        await updateDoc(doc(db, 'patient_requests', id), data as any);
+      } catch (e) {
+        console.warn('[editPatientRequest] Firestore write warning:', e);
+      }
+    }
   };
 
   const addAuditLog = async (log: Omit<AuditLog, 'id'>) => {
     const id = `audit-${Date.now()}`;
-    const newLog: AuditLog = { ...log, id, timestamp: (log as any).timestamp || new Date().toISOString() };
-    // Audit logs are append-only — no rollback needed, failure is non-fatal
+    const newLog: AuditLog = clean({ ...log, id, timestamp: (log as any).timestamp || new Date().toISOString() });
     setAuditLogs((prev) => [newLog, ...prev]);
-    try {
-      await apiClient.createAuditLog(log as Omit<AuditLog, 'id' | 'timestamp'>);
-    } catch {
+    const db = getFirestoreDb();
+    if (db) {
       try {
-        const db = getFirestoreDb();
-        if (db) await setDoc(doc(db, 'audit_logs', id), newLog);
-      } catch (fErr) { console.warn('Audit log write failed (non-fatal):', fErr); }
+        await setDoc(doc(db, 'audit_logs', id), newLog);
+      } catch (fErr) {
+        console.warn('Audit log write failed (non-fatal):', fErr);
+      }
     }
   };
 
   // Comments
   const addComment = async (comment: Omit<CaseComment, 'id' | 'timestamp'>) => {
-    if (!USE_DEMO_STORAGE) {
-      const created = await apiClient.addComment(comment.caseId, { message: comment.message });
-      setComments((prev) => mergeItems(prev, [created]));
-      return;
-    }
-    const newComment: CaseComment = { ...comment, id: `comment-${Date.now()}`, timestamp: new Date().toISOString() };
+    const id = `comment-${Date.now()}`;
+    const newComment: CaseComment = clean({ ...comment, id, timestamp: new Date().toISOString() });
     setComments((prev) => { const next = [...prev, newComment]; saveComments(next); return next; });
+    const db = getFirestoreDb();
+    if (db) {
+      try {
+        await setDoc(doc(db, 'comments', id), newComment);
+      } catch (fErr) {
+        console.warn('Comment write failed (non-fatal):', fErr);
+      }
+    }
   };
 
   const getCommentsForCase = (caseId: string) => comments.filter((c) => c.caseId === caseId);

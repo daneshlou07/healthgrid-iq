@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Users, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { normalizeNric, formatNric } from '../../utils/malaysianNric';
+
+function displayNric(nric: string): string {
+  if (!nric) return '—';
+  const digits = normalizeNric(nric);
+  return digits.length === 12 ? formatNric(digits) : nric;
+}
 
 export default function PatientsList() {
   const { patients, cases } = useData();
@@ -43,7 +50,7 @@ export default function PatientsList() {
                   <td className="table-cell">
                     <Link to={`/patient/${patient.id}`} className="font-medium text-surface-800 hover:text-navy-700 hover:underline">{patient.name}</Link>
                   </td>
-                  <td className="table-cell text-surface-500 font-mono text-xs">{patient.nric}</td>
+                  <td className="table-cell text-surface-500 font-mono text-xs">{displayNric(patient.nric)}</td>
                   <td className="table-cell">
                     <span className="text-emerald-600 font-semibold">{caseCount}</span>
                   </td>

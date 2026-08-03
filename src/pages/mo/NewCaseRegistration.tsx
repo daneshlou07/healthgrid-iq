@@ -303,7 +303,8 @@ export default function NewCaseRegistration() {
       setPaymentCategory(''); setRenalFunctionDate(''); setCreatinine(''); setEgfr('');
       setContrastMediaRequired(false); setContrastMediaName(''); setContrastMediaVolumeMl('');
       setCurrentStep(1);
-    } catch {
+    } catch (err) {
+      console.error('[MO NewCaseRegistration] Failed to create case:', err);
       toast.error('Failed to create case.');
     } finally {
       setSubmitting(false);
