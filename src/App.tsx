@@ -10,7 +10,6 @@ import KeyboardShortcutsOverlay from './components/ux/KeyboardShortcuts';
 import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
-import DashboardRouter from './pages/DashboardRouter';
 import PageLoader from './components/ux/PageLoader';
 import DevAccountSwitcher from './components/ux/DevAccountSwitcher';
 
@@ -34,6 +33,7 @@ function safeLazy<T extends React.ComponentType<any>>(importFn: () => Promise<{ 
 }
 
 // Lazy-loaded pages (code splitting per workspace)
+const DashboardRouter = safeLazy(() => import('./pages/DashboardRouter'));
 const PatientsList = safeLazy(() => import('./pages/department/PatientsList'));
 const PatientRegistration = safeLazy(() => import('./pages/department/PatientRegistration'));
 const NewCaseRegistration = safeLazy(() => import('./pages/department/NewCaseRegistration'));
@@ -76,66 +76,31 @@ const MoTrackStatus = safeLazy(() => import('./pages/mo/TrackStatus'));
 const MoReviewQueue = safeLazy(() => import('./pages/mo/ReviewQueue'));
 const MoReporting = safeLazy(() => import('./pages/mo/Reporting'));
 
+// ---------------------------------------------------------------------------
+// Role-aware page router
+// Replaces the 10 individual *Router functions with a single lookup table.
+// Each entry maps a UserRole to its MO-specific component; when the current
+// user is not a Medical Officer the default (department/radiologist) page is
+// rendered instead.
+// ---------------------------------------------------------------------------
+function RoleRouter({
+  moPage,
+  defaultPage: Default,
+}: {
+  moPage: React.ComponentType;
+  defaultPage: React.ComponentType;
+}) {
+  const { currentUser } = useAuth();
+  const Mo = moPage;
+  return currentUser?.role === 'Medical Officer' ? <Mo /> : <Default />;
+}
+
 function OnboardingRouter() {
   const { currentUser } = useAuth();
   if (currentUser?.role === 'Radiographer') return <RadiogrOnboarding />;
   if (currentUser?.role === 'Radiologist') return <RadiologistOnboarding />;
   if (currentUser?.role === 'Medical Officer') return <MoOnboarding />;
   return <Navigate to="/dashboard" replace />;
-}
-
-function PatientsRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoPatientsList />;
-  return <PatientsList />;
-}
-
-function PatientRegRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoPatientRegistration />;
-  return <PatientRegistration />;
-}
-
-function CasesRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoAllCases />;
-  return <AllCases />;
-}
-
-function NewCaseRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoNewCaseRegistration />;
-  return <NewCaseRegistration />;
-}
-
-function ReportsRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoDepartmentReports />;
-  return <DepartmentReports />;
-}
-
-function RequestsRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoPatientRequests />;
-  return <PatientRequests />;
-}
-
-function TrackStatusRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoTrackStatus />;
-  return <TrackStatus />;
-}
-
-function ReviewQueueRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoReviewQueue />;
-  return <ReviewQueue />;
-}
-
-function ReportingRouter() {
-  const { currentUser } = useAuth();
-  if (currentUser?.role === 'Medical Officer') return <MoReporting />;
-  return <Reporting />;
 }
 
 function AppRoutes() {
@@ -155,18 +120,18 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        {/* Shared dashboard route */}
-        <Route path="/dashboard" element={<DashboardRouter />} />
+        {/* Shared dashboard route — lazy loaded to avoid remount on role switch */}
+        <Route path="/dashboard" element={<Suspense fallback={<PageLoader />}><DashboardRouter /></Suspense>} />
         <Route path="/case/:caseId" element={<CaseDetail />} />
         <Route path="/patient/:patientId" element={<PatientDetail />} />
 
         {/* Radiology Department & Medical Officer routes */}
-        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><PatientsRouter /></ProtectedRoute>} />
-        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><PatientRegRouter /></ProtectedRoute>} />
-        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><CasesRouter /></ProtectedRoute>} />
-        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><NewCaseRouter /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Radiologist']}><ReportsRouter /></ProtectedRoute>} />
-        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><RequestsRouter /></ProtectedRoute>} />
+        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><RoleRouter moPage={MoPatientsList} defaultPage={PatientsList} /></ProtectedRoute>} />
+        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><RoleRouter moPage={MoPatientRegistration} defaultPage={PatientRegistration} /></ProtectedRoute>} />
+        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><RoleRouter moPage={MoAllCases} defaultPage={AllCases} /></ProtectedRoute>} />
+        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><RoleRouter moPage={MoNewCaseRegistration} defaultPage={NewCaseRegistration} /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Radiologist']}><RoleRouter moPage={MoDepartmentReports} defaultPage={DepartmentReports} /></ProtectedRoute>} />
+        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><RoleRouter moPage={MoPatientRequests} defaultPage={PatientRequests} /></ProtectedRoute>} />
         <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
 
         {/* Radiographer routes */}
@@ -175,14 +140,14 @@ function AppRoutes() {
         <Route path="/upload" element={<ProtectedRoute allowedRoles={['Radiographer']}><UploadScans /></ProtectedRoute>} />
 
         {/* Radiologist & Medical Officer review and reporting routes */}
-        <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><ReviewQueueRouter /></ProtectedRoute>} />
-        <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><ReportingRouter /></ProtectedRoute>} />
+        <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><RoleRouter moPage={MoReviewQueue} defaultPage={ReviewQueue} /></ProtectedRoute>} />
+        <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><RoleRouter moPage={MoReporting} defaultPage={Reporting} /></ProtectedRoute>} />
 
         {/* Onboarding routes */}
         <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
 
         {/* Track Status route */}
-        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><TrackStatusRouter /></ProtectedRoute>} />
+        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><RoleRouter moPage={MoTrackStatus} defaultPage={TrackStatus} /></ProtectedRoute>} />
 
         {/* Administrator routes (full CRUD access) */}
         <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />

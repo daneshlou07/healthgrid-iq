@@ -366,41 +366,61 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => { bc?.close(); };
   }, []);
 
-  // -------------------------------------------------------------------------
-  // Mutations — tries apiClient first, falls back to direct Firestore/local
+  // Clear clinical data from localStorage when the tab/window is closed.
+  // This protects shared workstations — a closed session leaves no cached
+  // patient records readable by the next user of that browser.
+  // Note: 'pagehide' fires more reliably than 'beforeunload' on mobile/Safari.
+  useEffect(() => {
+    const clearOnClose = () => {
+      // Only clear in demo/local mode. In live Firebase mode the Firestore
+      // listeners are the source of truth and localStorage is just a warm cache.
+      if (!isFirebaseConfigured()) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    };
+    window.addEventListener('pagehide', clearOnClose);
+    return () => window.removeEventListener('pagehide', clearOnClose);
+  }, []);
+  // Tries apiClient first (Cloud Functions), falls back to direct Firestore.
+  // If both fail the optimistic state update is reverted and the error rethrown.
   // -------------------------------------------------------------------------
   const addCase = async (c: Omit<Case, 'id'>): Promise<Case> => {
     const id = `case-${Date.now()}`;
     const newCase: Case = { ...c, id, createdAt: new Date().toISOString() };
+    // Optimistic add
     setCases((prev) => [...prev, newCase]);
 
     try {
       await apiClient.createCase(c);
-    } catch (err) {
-      console.warn('apiClient.createCase failed, attempting Firestore:', err);
+      return newCase;
+    } catch {
+      // API failed — try direct Firestore
+      try {
+        const db = getFirestoreDb();
+        if (db) { await setDoc(doc(db, 'cases', id), newCase); return newCase; }
+      } catch { /* fall through to rollback */ }
+      // Both failed — rollback and rethrow
+      setCases((prev) => prev.filter((item) => item.id !== id));
+      throw new Error('Failed to save case. Please check your connection and try again.');
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await setDoc(doc(db, 'cases', id), newCase);
-    } catch (fErr) { console.warn('Firestore setDoc failed:', fErr); }
-
-    return newCase;
   };
 
   const editCase = async (id: string, updates: Partial<Case>) => {
+    const previous = cases.find((c) => c.id === id);
     setCases((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
 
     try {
       await apiClient.updateCase(id, updates);
-    } catch (err) {
-      console.warn('apiClient.updateCase failed, attempting Firestore:', err);
+      return;
+    } catch {
+      try {
+        const db = getFirestoreDb();
+        if (db) { await updateDoc(doc(db, 'cases', id), updates); return; }
+      } catch { /* fall through to rollback */ }
+      // Rollback
+      if (previous) setCases((prev) => prev.map((c) => (c.id === id ? previous : c)));
+      throw new Error('Failed to update case. Please check your connection and try again.');
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await updateDoc(doc(db, 'cases', id), updates);
-    } catch (fErr) { console.warn('Firestore updateDoc failed:', fErr); }
   };
 
   const addPatient = async (p: Omit<Patient, 'id'>): Promise<Patient> => {
@@ -410,31 +430,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     try {
       await apiClient.createPatient(p);
-    } catch (err) {
-      console.warn('apiClient.createPatient failed, attempting Firestore:', err);
+      return newPatient;
+    } catch {
+      try {
+        const db = getFirestoreDb();
+        if (db) { await setDoc(doc(db, 'patients', id), newPatient); return newPatient; }
+      } catch { /* fall through to rollback */ }
+      setPatients((prev) => prev.filter((item) => item.id !== id));
+      throw new Error('Failed to save patient. Please check your connection and try again.');
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await setDoc(doc(db, 'patients', id), newPatient);
-    } catch (fErr) { console.warn('Firestore setDoc failed:', fErr); }
-
-    return newPatient;
   };
 
   const editPatient = async (id: string, updates: Partial<Patient>) => {
+    const previous = patients.find((p) => p.id === id);
     setPatients((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
 
     try {
       await apiClient.updatePatient(id, updates);
-    } catch (err) {
-      console.warn('apiClient.updatePatient failed, attempting Firestore:', err);
+      return;
+    } catch {
+      try {
+        const db = getFirestoreDb();
+        if (db) { await updateDoc(doc(db, 'patients', id), updates); return; }
+      } catch { /* fall through to rollback */ }
+      if (previous) setPatients((prev) => prev.map((p) => (p.id === id ? previous : p)));
+      throw new Error('Failed to update patient. Please check your connection and try again.');
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await updateDoc(doc(db, 'patients', id), updates);
-    } catch (fErr) { console.warn('Firestore updateDoc failed:', fErr); }
   };
 
   const addReport = async (r: Omit<Report, 'id'>): Promise<Report> => {
@@ -444,31 +465,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     try {
       await apiClient.createReport(r);
-    } catch (err) {
-      console.warn('apiClient.createReport failed, attempting Firestore:', err);
+      return newReport;
+    } catch {
+      try {
+        const db = getFirestoreDb();
+        if (db) { await setDoc(doc(db, 'reports', id), newReport); return newReport; }
+      } catch { /* fall through to rollback */ }
+      setReports((prev) => prev.filter((item) => item.id !== id));
+      throw new Error('Failed to save report. Please check your connection and try again.');
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await setDoc(doc(db, 'reports', id), newReport);
-    } catch (fErr) { console.warn('Firestore setDoc failed:', fErr); }
-
-    return newReport;
   };
 
   const editReport = async (id: string, updates: Partial<Report>) => {
+    const previous = reports.find((r) => r.id === id);
     setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
 
     try {
       await apiClient.updateReport(id, updates);
-    } catch (err) {
-      console.warn('apiClient.updateReport failed, attempting Firestore:', err);
+      return;
+    } catch {
+      try {
+        const db = getFirestoreDb();
+        if (db) { await updateDoc(doc(db, 'reports', id), updates); return; }
+      } catch { /* fall through to rollback */ }
+      if (previous) setReports((prev) => prev.map((r) => (r.id === id ? previous : r)));
+      throw new Error('Failed to update report. Please check your connection and try again.');
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await updateDoc(doc(db, 'reports', id), updates);
-    } catch (fErr) { console.warn('Firestore updateDoc failed:', fErr); }
   };
 
   const addPatientRequest = async (r: Omit<PatientRequest, 'id'>): Promise<PatientRequest> => {
@@ -478,48 +500,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     try {
       await apiClient.createPatientRequest(r);
-    } catch (err) {
-      console.warn('apiClient.createPatientRequest failed, attempting Firestore:', err);
+      return newReq;
+    } catch {
+      try {
+        const db = getFirestoreDb();
+        if (db) { await setDoc(doc(db, 'patient_requests', id), newReq); return newReq; }
+      } catch { /* fall through to rollback */ }
+      setPatientRequests((prev) => prev.filter((item) => item.id !== id));
+      throw new Error('Failed to save request. Please check your connection and try again.');
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await setDoc(doc(db, 'patient_requests', id), newReq);
-    } catch (fErr) { console.warn('Firestore setDoc failed:', fErr); }
-
-    return newReq;
   };
 
   const editPatientRequest = async (id: string, updates: Partial<PatientRequest>) => {
+    const previous = patientRequests.find((r) => r.id === id);
     setPatientRequests((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
 
     try {
       await apiClient.updatePatientRequest(id, updates);
-    } catch (err) {
-      console.warn('apiClient.updatePatientRequest failed, attempting Firestore:', err);
+      return;
+    } catch {
+      try {
+        const db = getFirestoreDb();
+        if (db) { await updateDoc(doc(db, 'patient_requests', id), updates); return; }
+      } catch { /* fall through to rollback */ }
+      if (previous) setPatientRequests((prev) => prev.map((r) => (r.id === id ? previous : r)));
+      throw new Error('Failed to update request. Please check your connection and try again.');
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await updateDoc(doc(db, 'patient_requests', id), updates);
-    } catch (fErr) { console.warn('Firestore updateDoc failed:', fErr); }
   };
 
   const addAuditLog = async (log: Omit<AuditLog, 'id'>) => {
     const id = `audit-${Date.now()}`;
     const newLog: AuditLog = { ...log, id, timestamp: (log as any).timestamp || new Date().toISOString() };
+    // Audit logs are append-only — no rollback needed, failure is non-fatal
     setAuditLogs((prev) => [newLog, ...prev]);
-
     try {
       await apiClient.createAuditLog(log as Omit<AuditLog, 'id' | 'timestamp'>);
-    } catch (err) {
-      console.warn('apiClient.createAuditLog failed, attempting Firestore:', err);
+    } catch {
+      try {
+        const db = getFirestoreDb();
+        if (db) await setDoc(doc(db, 'audit_logs', id), newLog);
+      } catch (fErr) { console.warn('Audit log write failed (non-fatal):', fErr); }
     }
-
-    try {
-      const db = getFirestoreDb();
-      if (db) await setDoc(doc(db, 'audit_logs', id), newLog);
-    } catch (fErr) { console.warn('Firestore setDoc failed:', fErr); }
   };
 
   // Comments

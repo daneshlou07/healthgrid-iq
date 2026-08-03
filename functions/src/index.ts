@@ -336,9 +336,21 @@ const patientSchema = z.object({
 app.post('/v1/api/patients', requireRole(...CASE_MANAGEMENT_ROLES), async (req, res) => {
   try {
     const data = patientSchema.parse(req.body);
+    const actor = await getActor(req);
     const docRef = await db.collection('patients').add({
       ...data,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Server-side audit log — written here so it cannot be skipped or faked client-side
+    await db.collection('audit_logs').add({
+      userId: actor.id,
+      userName: actor.name,
+      userRole: actor.role,
+      action: 'PATIENT_REGISTER',
+      target: `patients/${docRef.id}`,
+      details: `Registered new patient: ${data.name} (MRN: ${data.mrn})`,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     res.status(201).json({ id: docRef.id, ...data });

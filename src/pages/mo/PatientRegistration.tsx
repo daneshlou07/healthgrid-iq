@@ -29,7 +29,7 @@ function generateMrn(): string {
 
 export default function PatientRegistration() {
   const { currentUser } = useAuth();
-  const { clinics, patients, addPatient, addAuditLog } = useData();
+  const { clinics, patients, addPatient } = useData();
   const toast = useToast();
   const [idType, setIdType] = useState<IdType>('mykad');
   const [submitting, setSubmitting] = useState(false);
@@ -69,12 +69,12 @@ export default function PatientRegistration() {
 
   const isNricLocked = idType === 'mykad' && nricResult?.valid === true;
 
-  // Real-time duplicate NRIC check — only for MyKad with a complete valid NRIC
+  // Real-time duplicate NRIC check — compare normalised raw digits both sides
   const duplicatePatient = useMemo(() => {
     if (idType !== 'mykad' || !nricResult?.valid) return null;
-    const nricToCheck = nricResult.formatted.replace(/-/g, '');
-    return patients.find((p) => p.nric.replace(/-/g, '') === nricToCheck) || null;
-  }, [idType, nricResult, patients]);
+    const nricToCheck = normalizeNric(form.idNumber);
+    return patients.find((p) => normalizeNric(p.nric) === nricToCheck) || null;
+  }, [idType, nricResult, patients, form.idNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +102,11 @@ export default function PatientRegistration() {
 
     const mrnGenerated = generateMrn();
     const preferredClinic = clinics.find((c) => c.id === form.preferredClinicId);
-    const nricValue = idType === 'mykad' ? (nricResult?.formatted || form.idNumber) : form.idNumber;
+    // Always store NRIC as raw 12-digit string (no hyphens) for consistent querying.
+    // The formatted display (850312-01-5678) is only used in the UI badge.
+    const nricValue = idType === 'mykad'
+      ? normalizeNric(form.idNumber)
+      : form.idNumber.trim();
 
     setSubmitting(true);
     try {
@@ -120,16 +124,6 @@ export default function PatientRegistration() {
         emergencyContact: form.emergencyContact || undefined,
         preferredClinicId: form.preferredClinicId || undefined,
         preferredClinicName: preferredClinic?.name || undefined,
-      });
-
-      await addAuditLog({
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userRole: currentUser.role,
-        action: 'PATIENT_REGISTER',
-        target: `patients/${mrnGenerated}`,
-        details: `Registered new patient: ${form.name} (${mrnGenerated})`,
-        timestamp: new Date().toISOString(),
       });
 
       toast.success(`${form.name} registered successfully — MRN: ${mrnGenerated}`);
