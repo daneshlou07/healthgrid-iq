@@ -42,10 +42,10 @@ export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { cases, patients, reports, getCommentsForCase, addComment, addRecentItem } = useData();
+  const { cases, patients, reports, clinics, users, addComment, getCommentsForCase, addRecentItem, addAuditLog, editCase } = useData();
+  const [activeTab, setActiveTab] = useState<'overview' | 'worksheet'>('overview');
   const [newMessage, setNewMessage] = useState('');
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'worksheet'>('overview');
 
   // No-Show & Reschedule modal state
   const [showNoShowModal, setShowNoShowModal] = useState(false);
@@ -59,6 +59,11 @@ export default function CaseDetail() {
   const [rescheduleReason, setRescheduleReason] = useState('');
 
   const [showSmsModal, setShowSmsModal] = useState(false);
+
+  // Reassign Personnel modal state
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [reassignRadId, setReassignRadId] = useState('');
+  const [reassignRadlogistId, setReassignRadlogistId] = useState('');
 
   const caseItem = cases.find((c) => c.id === caseId);
   if (!caseItem) return <div className="text-center py-20 text-surface-400">Case not found.</div>;
@@ -125,6 +130,39 @@ export default function CaseDetail() {
       setShowRescheduleModal(false);
     } catch (err) {
       console.error('Failed to reschedule case:', err);
+    }
+  };
+
+  const handleConfirmReassign = async () => {
+    try {
+      const selectedRad = users.find((u) => u.id === reassignRadId);
+      const selectedRadlogist = users.find((u) => u.id === reassignRadlogistId);
+
+      const updates: Partial<Case> = {};
+      if (selectedRad) {
+        updates.radiographerId = selectedRad.id;
+        updates.radiographerName = selectedRad.name;
+      }
+      if (selectedRadlogist) {
+        updates.radiologistId = selectedRadlogist.id;
+        updates.radiologistName = selectedRadlogist.name;
+      }
+
+      await editCase(caseItem.id, updates);
+
+      await addAuditLog({
+        userId: currentUser?.id || 'system',
+        userName: currentUser?.name || 'Administrator',
+        userRole: currentUser?.role || 'Administrator',
+        action: 'CASE_REASSIGNED',
+        target: `cases/${caseItem.caseNumber}`,
+        details: `Reassigned personnel for ${caseItem.caseNumber} to Radiographer: ${selectedRad?.name || caseItem.radiographerName || 'N/A'}, Radiologist: ${selectedRadlogist?.name || caseItem.radiologistName || 'N/A'}`,
+        timestamp: new Date().toISOString(),
+      });
+
+      setShowReassignModal(false);
+    } catch (err) {
+      console.error('Failed to reassign case:', err);
     }
   };
 
@@ -386,11 +424,47 @@ export default function CaseDetail() {
 
           {/* Personnel */}
           <div className="card">
-            <h2 className="section-title mb-4">Assigned Personnel</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="section-title">Assigned Personnel</h2>
+              {['Administrator', 'Medical Officer', 'Radiology Department'].includes(currentUser?.role || '') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReassignRadId(caseItem.radiographerId || '');
+                    setReassignRadlogistId(caseItem.radiologistId || '');
+                    setShowReassignModal(true);
+                  }}
+                  className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold border border-purple-200 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Reassign Staff</span>
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <PersonnelCard label="Registered by" name={getCaseRegistrar(caseItem)} icon={<User className="w-4 h-4" />} />
-              <PersonnelCard label="Radiographer" name={caseItem.radiographerName || 'Not Assigned'} icon={<User className="w-4 h-4" />} />
-              <PersonnelCard label="Radiologist" name={caseItem.radiologistName || 'Not Assigned'} icon={<User className="w-4 h-4" />} />
+              <PersonnelCard
+                label="Radiographer"
+                name={caseItem.radiographerName || 'Not Assigned'}
+                icon={<User className="w-4 h-4" />}
+                canReassign={['Administrator', 'Medical Officer', 'Radiology Department'].includes(currentUser?.role || '')}
+                onReassign={() => {
+                  setReassignRadId(caseItem.radiographerId || '');
+                  setReassignRadlogistId(caseItem.radiologistId || '');
+                  setShowReassignModal(true);
+                }}
+              />
+              <PersonnelCard
+                label="Radiologist"
+                name={caseItem.radiologistName || 'Not Assigned'}
+                icon={<User className="w-4 h-4" />}
+                canReassign={['Administrator', 'Medical Officer', 'Radiology Department'].includes(currentUser?.role || '')}
+                onReassign={() => {
+                  setReassignRadId(caseItem.radiographerId || '');
+                  setReassignRadlogistId(caseItem.radiologistId || '');
+                  setShowReassignModal(true);
+                }}
+              />
             </div>
           </div>
 
@@ -680,23 +754,108 @@ export default function CaseDetail() {
         </div>
       )}
 
-      {/* ── MODAL: Patient SMS / WhatsApp Reminder Simulator ── */}
-      {showSmsModal && (
-        <PatientSmsModal
-          caseItem={caseItem}
-          patient={patient}
-          onClose={() => setShowSmsModal(false)}
-        />
+      {/* ── MODAL: Reassign Personnel ── */}
+      {showReassignModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-bold text-base text-navy-900">Reassign Personnel</h3>
+              <button onClick={() => setShowReassignModal(false)} className="text-surface-400 hover:text-surface-600 font-bold text-sm">✕</button>
+            </div>
+
+            <p className="text-xs text-surface-500">
+              Select available healthcare staff to reassign responsibility for case <strong className="text-navy-900 font-mono">{caseItem.caseNumber}</strong>.
+            </p>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-surface-800 mb-1">Assign Radiographer</label>
+                <select
+                  value={reassignRadId}
+                  onChange={(e) => setReassignRadId(e.target.value)}
+                  className="select-field text-xs"
+                >
+                  <option value="">-- Select Radiographer --</option>
+                  {users
+                    .filter((u) => u.role === 'Radiographer' || u.role === 'Administrator')
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-surface-800 mb-1">Assign Radiologist</label>
+                <select
+                  value={reassignRadlogistId}
+                  onChange={(e) => setReassignRadlogistId(e.target.value)}
+                  className="select-field text-xs"
+                >
+                  <option value="">-- Select Radiologist --</option>
+                  {users
+                    .filter((u) => u.role === 'Radiologist' || u.role === 'Administrator')
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setShowReassignModal(false)}
+                className="btn-secondary text-xs px-3.5 py-1.5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReassign}
+                className="btn-primary text-xs px-4 py-1.5"
+              >
+                Save Reassignment
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function PersonnelCard({ label, name, icon }: { label: string; name: string; icon: React.ReactNode }) {
+function PersonnelCard({
+  label,
+  name,
+  icon,
+  canReassign = false,
+  onReassign,
+}: {
+  label: string;
+  name: string;
+  icon: React.ReactNode;
+  canReassign?: boolean;
+  onReassign?: () => void;
+}) {
   return (
-    <div className="p-3 bg-surface-100 rounded-lg border border-surface-200">
-      <div className="flex items-center gap-2 mb-1 text-surface-500">{icon}<span className="text-[10px] uppercase font-semibold">{label}</span></div>
-      <p className="text-sm font-medium text-surface-800">{name}</p>
+    <div className="p-3 bg-surface-100 rounded-lg border border-surface-200 flex items-center justify-between">
+      <div>
+        <div className="flex items-center gap-2 mb-1 text-surface-500">{icon}<span className="text-[10px] uppercase font-semibold">{label}</span></div>
+        <p className="text-sm font-medium text-surface-800">{name}</p>
+      </div>
+      {canReassign && onReassign && (
+        <button
+          type="button"
+          onClick={onReassign}
+          className="text-[11px] text-purple-700 hover:text-purple-900 font-bold bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded transition-colors"
+        >
+          Reassign
+        </button>
+      )}
     </div>
   );
 }
