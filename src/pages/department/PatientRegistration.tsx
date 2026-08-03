@@ -135,7 +135,7 @@ export default function PatientRegistration() {
 
     setSubmitting(true);
     try {
-      await addPatient({
+      const patientData: Omit<Parameters<typeof addPatient>[0], never> = {
         name: form.name,
         dob: form.dob,
         gender: form.gender,
@@ -144,12 +144,15 @@ export default function PatientRegistration() {
         address: form.address,
         nric: nricValue,
         mrn: mrnGenerated,
-        ethnicity: form.ethnicity || undefined,
         medicalHistory: form.medicalHistory.split(',').map((s) => s.trim()).filter(Boolean),
-        emergencyContact: form.emergencyContact || undefined,
-        preferredClinicId: form.preferredClinicId || undefined,
-        preferredClinicName: preferredClinic?.name || undefined,
-      });
+      };
+      if (form.ethnicity) patientData.ethnicity = form.ethnicity;
+      if (form.emergencyContact) patientData.emergencyContact = form.emergencyContact;
+      if (form.preferredClinicId) {
+        patientData.preferredClinicId = form.preferredClinicId;
+        if (preferredClinic?.name) patientData.preferredClinicName = preferredClinic.name;
+      }
+      await addPatient(patientData);
 
       toast.success(`${form.name} registered successfully — MRN: ${mrnGenerated}`);
       setForm({ name: '', idNumber: '', dob: '', gender: 'Male', phone: '', email: '', address: '', medicalHistory: '', emergencyContact: '', preferredClinicId: '', ethnicity: '' });

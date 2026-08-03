@@ -386,23 +386,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // -------------------------------------------------------------------------
   const addCase = async (c: Omit<Case, 'id'>): Promise<Case> => {
     const id = `case-${Date.now()}`;
-    const newCase: Case = { ...c, id, createdAt: new Date().toISOString() };
-    // Optimistic add
-    setCases((prev) => [...prev, newCase]);
+    // Strip undefined values — Firestore rejects documents with undefined fields
+    const sanitized = Object.fromEntries(
+      Object.entries({ ...c, id, createdAt: new Date().toISOString() }).filter(([, v]) => v !== undefined)
+    ) as Case;
+    setCases((prev) => [...prev, sanitized]);
 
     try {
       await apiClient.createCase(c);
-      return newCase;
+      return sanitized;
     } catch (apiErr) {
       console.warn('[addCase] apiClient failed, trying direct Firestore:', apiErr);
-      // API failed — try direct Firestore
       try {
         const db = getFirestoreDb();
-        if (db) { await setDoc(doc(db, 'cases', id), newCase); return newCase; }
+        if (db) { await setDoc(doc(db, 'cases', id), sanitized); return sanitized; }
       } catch (fsErr) {
         console.error('[addCase] Firestore direct write failed:', fsErr);
       }
-      // Both failed — rollback and rethrow
       setCases((prev) => prev.filter((item) => item.id !== id));
       throw new Error('Failed to save case. Please check your connection and try again.');
     }
@@ -428,17 +428,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addPatient = async (p: Omit<Patient, 'id'>): Promise<Patient> => {
     const id = `patient-${Date.now()}`;
-    const newPatient: Patient = { ...p, id };
-    setPatients((prev) => [...prev, newPatient]);
+    // Strip undefined values — Firestore rejects documents with undefined fields
+    const sanitized = Object.fromEntries(
+      Object.entries({ ...p, id }).filter(([, v]) => v !== undefined)
+    ) as Patient;
+    setPatients((prev) => [...prev, sanitized]);
 
     try {
       await apiClient.createPatient(p);
-      return newPatient;
+      return sanitized;
     } catch (apiErr) {
       console.warn('[addPatient] apiClient failed, trying direct Firestore:', apiErr);
       try {
         const db = getFirestoreDb();
-        if (db) { await setDoc(doc(db, 'patients', id), newPatient); return newPatient; }
+        if (db) { await setDoc(doc(db, 'patients', id), sanitized); return sanitized; }
       } catch (fsErr) {
         console.error('[addPatient] Firestore direct write failed:', fsErr);
       }
@@ -466,16 +469,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addReport = async (r: Omit<Report, 'id'>): Promise<Report> => {
     const id = `report-${Date.now()}`;
-    const newReport: Report = { ...r, id, createdAt: new Date().toISOString() };
-    setReports((prev) => [...prev, newReport]);
+    const sanitized = Object.fromEntries(
+      Object.entries({ ...r, id, createdAt: new Date().toISOString() }).filter(([, v]) => v !== undefined)
+    ) as Report;
+    setReports((prev) => [...prev, sanitized]);
 
     try {
       await apiClient.createReport(r);
-      return newReport;
+      return sanitized;
     } catch {
       try {
         const db = getFirestoreDb();
-        if (db) { await setDoc(doc(db, 'reports', id), newReport); return newReport; }
+        if (db) { await setDoc(doc(db, 'reports', id), sanitized); return sanitized; }
       } catch { /* fall through to rollback */ }
       setReports((prev) => prev.filter((item) => item.id !== id));
       throw new Error('Failed to save report. Please check your connection and try again.');
