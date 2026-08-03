@@ -4,13 +4,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
 import { useLanguage } from '../../context/LanguageContext';
-import { Upload, Image as ImageIcon, X, CheckSquare, Zap, ShieldCheck, FileText, Sparkles } from 'lucide-react';
+import { Upload, Image as ImageIcon, X, CheckSquare, Zap, ShieldCheck, FileText, Sparkles, Loader, ZoomIn } from 'lucide-react';
 import { saveImage } from '../../services/imageStorage';
 import { getEffectiveDoseForExam } from '../../data/effectiveDoseTable';
+import { analyzeImageWithVisionAi } from '../../services/visionAiAnalyzer';
 import { generateAiReportDraft } from '../../services/aiReportingCopilot';
 
 interface FlattenedViewItem {
-  id: string; // e.g. "Chest / Thorax_PA (Posteroanterior)_0"
+  id: string;
   examIndex: number;
   bodyPart: string;
   side?: string;
@@ -32,6 +33,9 @@ export default function UploadScans() {
   const [uploading, setUploading] = useState(false);
   const [routedToRole, setRoutedToRole] = useState<'Medical Officer' | 'Radiologist'>('Medical Officer');
 
+  // Lightbox state
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
   // Technical Exposure Factors (MOH PER.SS-RA301 Section 19 & 20)
   const [doseKvp, setDoseKvp] = useState('');
   const [doseMas, setDoseMas] = useState('');
@@ -43,6 +47,7 @@ export default function UploadScans() {
   // Radiographer Findings (preliminary image observations)
   const [radiographerFindings, setRadiographerFindings] = useState('');
   const [radiographerImpression, setRadiographerImpression] = useState('');
+  const [analyzingImage, setAnalyzingImage] = useState(false);
 
   // Quality Assurance Checklist State
   const [qaPatientIdVerified, setQaPatientIdVerified] = useState(true);
@@ -73,14 +78,7 @@ export default function UploadScans() {
     selectedCase.requestedExaminations.forEach((ex, examIndex) => {
       ex.viewsOrProtocol.forEach((viewName) => {
         const id = `${ex.bodyPart}_${viewName}_${examIndex}`;
-        items.push({
-          id,
-          examIndex,
-          bodyPart: ex.bodyPart,
-          side: ex.side,
-          viewName,
-          notes: ex.notes,
-        });
+        items.push({ id, examIndex, bodyPart: ex.bodyPart, side: ex.side, viewName, notes: ex.notes });
       });
     });
     return items;
@@ -90,17 +88,12 @@ export default function UploadScans() {
   useEffect(() => {
     if (!selectedCase) return;
     const initialChecked: Record<string, boolean> = {};
-    flattenedViews.forEach((v) => {
-      initialChecked[v.id] = false;
-    });
+    flattenedViews.forEach((v) => { initialChecked[v.id] = false; });
     setCompletedViewIds(initialChecked);
 
-    // Dose lookup
     if (selectedCase.requestedExaminations && selectedCase.requestedExaminations[0]) {
       const benchmark = getEffectiveDoseForExam(selectedCase.modality || 'X-Ray', selectedCase.requestedExaminations[0].bodyPart);
-      if (benchmark) {
-        setDosRadiasi(String(benchmark.dosMsv));
-      }
+      if (benchmark) setDosRadiasi(String(benchmark.dosMsv));
     }
   }, [selectedCase, flattenedViews]);
 
@@ -124,6 +117,40 @@ export default function UploadScans() {
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
     setPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAiDraft = async () => {
+    if (!selectedCase) return;
+    setAnalyzingImage(true);
+    try {
+      if (previews.length > 0) {
+        // Image-based analysis using the first uploaded image
+        const result = await analyzeImageWithVisionAi(previews[0], selectedCase);
+        setRadiographerFindings(result.findings);
+        setRadiographerImpression(result.impression);
+        toast.success(
+          t(
+            `Image analysed — ${result.confidenceScore}% confidence (${result.processingTimeMs}ms)`,
+            `Imej dianalisis — ${result.confidenceScore}% keyakinan`
+          )
+        );
+      } else {
+        // Fallback: text-based draft from case metadata
+        const draft = generateAiReportDraft(selectedCase);
+        setRadiographerFindings(draft.findings);
+        setRadiographerImpression(draft.impression);
+        toast.success(
+          t(
+            `Draft generated from case data (${draft.confidenceScore}% confidence). Upload an image for image-based analysis.`,
+            `Draf dijana dari data kes. Muat naik imej untuk analisis berasaskan imej.`
+          )
+        );
+      }
+    } catch {
+      toast.error(t('AI analysis failed. Please try again.', 'Analisis AI gagal. Sila cuba lagi.'));
+    } finally {
+      setAnalyzingImage(false);
+    }
   };
 
   const handleUpload = async (e: React.FormEvent) => {
@@ -173,19 +200,22 @@ export default function UploadScans() {
     setFiles([]);
     setPreviews([]);
     setSelectedCaseId('');
+    setRadiographerFindings('');
+    setRadiographerImpression('');
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="page-title">{t('Upload Scans & Route Case', 'Muat Naik Imbasan & Hantar Kes')}</h1>
+        <h1 className="page-title">{t('Upload Scans & Document Findings', 'Muat Naik Imbasan & Rekod Penemuan')}</h1>
         <p className="page-subtitle">
-          {t('Upload DICOM/medical images, verify examination checklist, log exposure factors, and route case.', 'Muat naik imbasan perubatan, sahkan senarai ujian, catat faktor pendedahan, dan hantar kes.')}
+          {t('Upload scan images, review them, document your preliminary findings, and route the case.', 'Muat naik imbasan, semak imej, rekod penemuan awal, dan hantar kes.')}
         </p>
       </div>
 
       <form onSubmit={handleUpload} className="card space-y-6 bg-white p-6 border border-slate-200 rounded-xl shadow-sm">
-        {/* Case Selector */}
+
+        {/* ── 1. CASE SELECTOR ──────────────────────────────────────────── */}
         <div>
           <label className="block text-xs font-bold text-slate-800 mb-1">{t('Select Scheduled Case *', 'Pilih Kes Dijadualkan *')}</label>
           <select required value={selectedCaseId} onChange={(e) => setSelectedCaseId(e.target.value)} className="select-field text-xs">
@@ -201,7 +231,7 @@ export default function UploadScans() {
 
         {selectedCase && (
           <>
-            {/* ── 1. REQUESTED EXAMINATIONS CHECKLIST (Native Light Theme) ───────────────────────── */}
+            {/* ── 2. REQUESTED EXAMINATIONS CHECKLIST ───────────────────── */}
             <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div>
@@ -210,7 +240,7 @@ export default function UploadScans() {
                     <span>{t('Requested Examinations Checklist', 'Senarai Semak Ujian Dipesan')}</span>
                   </h2>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    {t('Verify acquired projection views for the requested scan(s)', 'Sahkan pandangan imbasan bagi ujian yang dipesan')}
+                    {t('Tick each view as you acquire it during the scan', 'Tandakan setiap pandangan semasa imbasan dijalankan')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -223,7 +253,6 @@ export default function UploadScans() {
                 </div>
               </div>
 
-              {/* Grouped Examination Cards */}
               {selectedCase.requestedExaminations && selectedCase.requestedExaminations.length > 0 ? (
                 <div className="space-y-3">
                   {selectedCase.requestedExaminations.map((ex, examIdx) => (
@@ -236,7 +265,6 @@ export default function UploadScans() {
                           {ex.viewsOrProtocol.length} Required View(s)
                         </span>
                       </div>
-
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {ex.viewsOrProtocol.map((viewName) => {
                           const key = `${ex.bodyPart}_${viewName}_${examIdx}`;
@@ -261,11 +289,8 @@ export default function UploadScans() {
                                   {viewName}
                                 </span>
                               </div>
-
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                isChecked
-                                  ? 'bg-emerald-200/70 text-emerald-900'
-                                  : 'bg-slate-200/60 text-slate-600'
+                                isChecked ? 'bg-emerald-200/70 text-emerald-900' : 'bg-slate-200/60 text-slate-600'
                               }`}>
                                 {isChecked ? t('Acquired', 'Selesai') : t('Pending', 'Belum')}
                               </span>
@@ -273,7 +298,6 @@ export default function UploadScans() {
                           );
                         })}
                       </div>
-
                       {ex.notes && (
                         <p className="text-[11px] text-slate-500 italic bg-slate-50 p-2 rounded border border-slate-100">
                           <strong>Instruction:</strong> {ex.notes}
@@ -288,12 +312,210 @@ export default function UploadScans() {
                 </div>
               )}
             </div>
+          </>
+        )}
 
-            {/* ── 2. ROUTING DECISION ────────────────────────────────────── */}
+        {/* ── 3. UPLOAD IMAGES & PREVIEW ─────────────────────────────────── */}
+        <div className="space-y-3">
+          <label className="block text-xs font-bold text-slate-800">
+            {t('Medical Images / DICOM Files *', 'Imbasan Perubatan / Fail DICOM *')}
+          </label>
+          <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-slate-400 transition-colors bg-slate-50/50">
+            <ImageIcon className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+            <p className="text-xs text-slate-500 mb-3 font-medium">Drop DICOM / image files here or click to browse</p>
+            <input type="file" multiple accept="image/*,.dcm" onChange={handleFileChange} className="hidden" id="scan-upload" />
+            <label htmlFor="scan-upload" className="btn-secondary text-xs cursor-pointer inline-block px-4 py-2 font-semibold">
+              Choose Image Files
+            </label>
+          </div>
+
+          {/* Image Preview Grid — larger, clickable */}
+          {previews.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  {t('Uploaded Scans', 'Imbasan Dimuat Naik')} ({previews.length})
+                </p>
+                <p className="text-[11px] text-slate-500">{t('Click any image to expand', 'Klik imej untuk besarkan')}</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {previews.map((src, i) => (
+                  <div
+                    key={i}
+                    className="relative group rounded-xl overflow-hidden border border-slate-200 bg-black shadow-sm cursor-pointer"
+                    style={{ aspectRatio: '4/3' }}
+                    onClick={() => setLightboxSrc(src)}
+                  >
+                    <img src={src} alt={`Scan ${i + 1}`} className="w-full h-full object-contain" />
+                    {/* Expand overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                      <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                      className="absolute top-1.5 right-1.5 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                      title="Remove image"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <span className="absolute bottom-1.5 left-1.5 bg-black/70 text-white text-[9px] font-mono px-1.5 py-0.5 rounded">
+                      Image #{i + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {selectedCase && (
+          <>
+            {/* ── 4. RADIOGRAPHER FINDINGS ──────────────────────────────── */}
+            <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-blue-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-blue-700" />
+                  {t('Radiographer Findings', 'Penemuan Radiografer')}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAiDraft}
+                  disabled={analyzingImage}
+                  className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border border-purple-300 disabled:opacity-60"
+                  title={previews.length > 0 ? 'Analyse uploaded image with AI' : 'Generate draft from case data (upload an image for image analysis)'}
+                >
+                  {analyzingImage
+                    ? <><Loader className="w-3.5 h-3.5 animate-spin" />{t('Analysing...', 'Menganalisis...')}</>
+                    : <><Sparkles className="w-3.5 h-3.5" />{t('AI Copilot Draft', 'Draf Kopilot AI')}</>
+                  }
+                </button>
+              </div>
+
+              {previews.length > 0 ? (
+                <p className="text-[11px] text-blue-700 bg-blue-100/60 px-3 py-1.5 rounded-lg border border-blue-200">
+                  {t(
+                    'Review the uploaded scans above, then document your preliminary observations below. Use AI Copilot to analyse the image.',
+                    'Semak imbasan di atas, kemudian rekodkan pemerhatian awal anda. Gunakan AI Kopilot untuk menganalisis imej.'
+                  )}
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-500">
+                  {t(
+                    'Upload an image above first for image-based AI analysis. Or write your findings manually.',
+                    'Muat naik imej di atas dahulu untuk analisis AI berasaskan imej. Atau tulis penemuan anda secara manual.'
+                  )}
+                </p>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {t('Image Findings / Observations', 'Penemuan Imej / Pemerhatian')}
+                </label>
+                <textarea
+                  rows={5}
+                  value={radiographerFindings}
+                  onChange={(e) => setRadiographerFindings(e.target.value)}
+                  className="input-field resize-none text-xs"
+                  placeholder={t(
+                    'Describe what is visible in the scan (e.g. Lung fields clear, no consolidation. Cardiothoracic ratio normal...)',
+                    'Huraikan apa yang kelihatan dalam imbasan...'
+                  )}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {t('Preliminary Impression / Technical Note', 'Tanggapan Awal / Nota Teknikal')}
+                </label>
+                <textarea
+                  rows={2}
+                  value={radiographerImpression}
+                  onChange={(e) => setRadiographerImpression(e.target.value)}
+                  className="input-field resize-none text-xs"
+                  placeholder={t(
+                    'Short summary or technical note for the reviewing clinician...',
+                    'Ringkasan pendek atau nota teknikal untuk doktor penyemak...'
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* ── 5. TECHNICAL EXPOSURE PARAMETERS ─────────────────────── */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 text-xs">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-600" />
+                {t('Technical Exposure Parameters (MOH PER.SS-RA301 Section 19 & 20)', 'Parameter Pendedahan Teknikal (KKM PER.SS-RA301)')}
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>kVp (Voltage)</span>
+                    <span className="text-[10px] text-slate-400 cursor-help" title="Peak Kilovoltage — Machine penetration power factor">(i)</span>
+                  </label>
+                  <input type="text" value={doseKvp} onChange={(e) => setDoseKvp(e.target.value)} className="input-field text-xs font-mono" placeholder="e.g. 70" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>mAs (Current)</span>
+                    <span className="text-[10px] text-slate-400 cursor-help" title="Milliampere-seconds — Machine tube current time exposure factor">(i)</span>
+                  </label>
+                  <input type="text" value={doseMas} onChange={(e) => setDoseMas(e.target.value)} className="input-field text-xs font-mono" placeholder="e.g. 15" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>Radiation Dose (mSv)</span>
+                    <span className="text-[10px] text-amber-600 font-bold cursor-help" title="Effective Radiation Dose in Millisieverts — MOH Safety Compliance">(i)</span>
+                  </label>
+                  <input type="number" step="0.01" value={dosRadiasi} onChange={(e) => setDosRadiasi(e.target.value)} className="input-field text-xs font-mono text-amber-800 font-bold" placeholder="e.g. 0.02" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>Film / CD Count</span>
+                    <span className="text-[10px] text-slate-400 cursor-help" title="Physical media outputs delivered to patient or ward">(i)</span>
+                  </label>
+                  <div className="flex gap-1">
+                    <input type="number" value={bilanganFilem} onChange={(e) => setBilanganFilem(e.target.value)} className="input-field text-xs font-mono" placeholder="Films" title="Film count" />
+                    <input type="number" value={bilanganCdDvd} onChange={(e) => setBilanganCdDvd(e.target.value)} className="input-field text-xs font-mono" placeholder="CDs" title="CD count" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Radiographer Comments / Remarks</label>
+                <input type="text" value={komen} onChange={(e) => setKomen(e.target.value)} className="input-field text-xs" placeholder="e.g. Patient upright PA, good inspiration, optimal exposure" />
+              </div>
+            </div>
+
+            {/* ── 6. QUALITY CONTROL (QA) ───────────────────────────────── */}
+            <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-2 text-xs">
+              <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                {t('Radiographer Quality Control (QA)', 'Kawalan Kualiti Imbasan (QA)')}
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 font-medium text-emerald-900">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={qaPatientIdVerified} onChange={(e) => setQaPatientIdVerified(e.target.checked)} className="rounded text-emerald-600" />
+                  <span>Patient Identity Verified</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={qaMarkerVerified} onChange={(e) => setQaMarkerVerified(e.target.checked)} className="rounded text-emerald-600" />
+                  <span>Anatomical Marker (L/R) Correct</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={qaQualityVerified} onChange={(e) => setQaQualityVerified(e.target.checked)} className="rounded text-emerald-600" />
+                  <span>No Motion Artifacts</span>
+                </label>
+              </div>
+            </div>
+
+            {/* ── 7. ROUTING DECISION ───────────────────────────────────── */}
             <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2">
               <label className="block text-xs font-bold text-purple-950 uppercase tracking-wider">
                 {t('Route Completed Scan To *', 'Hantar Imbasan Selesai Ke *')}
               </label>
+              <p className="text-[11px] text-purple-700">
+                {t('Based on your findings above, decide where this case should be reviewed.', 'Berdasarkan penemuan anda di atas, tentukan ke mana kes ini perlu disemak.')}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold">
                 <label className={`p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 transition-all ${
                   routedToRole === 'Medical Officer'
@@ -334,180 +556,8 @@ export default function UploadScans() {
                 </label>
               </div>
             </div>
-
-            {/* ── 3. TECHNICAL EXPOSURE FACTORS (MOH PER.SS-RA301) ────────── */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 text-xs">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-amber-600" />
-                {t('Technical Exposure Parameters (MOH PER.SS-RA301 Section 19 & 20)', 'Parameter Pendedahan Teknikal (KKM PER.SS-RA301)')}
-              </span>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <span>kVp (Voltage)</span>
-                    <span className="text-[10px] text-slate-400 cursor-help" title="Peak Kilovoltage — Machine penetration power factor">(i)</span>
-                  </label>
-                  <input type="text" value={doseKvp} onChange={(e) => setDoseKvp(e.target.value)} className="input-field text-xs font-mono" placeholder="e.g. 70" />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <span>mAs (Current)</span>
-                    <span className="text-[10px] text-slate-400 cursor-help" title="Milliampere-seconds — Machine tube current time exposure factor">(i)</span>
-                  </label>
-                  <input type="text" value={doseMas} onChange={(e) => setDoseMas(e.target.value)} className="input-field text-xs font-mono" placeholder="e.g. 15" />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <span>Radiation Dose (mSv)</span>
-                    <span className="text-[10px] text-amber-600 font-bold cursor-help" title="Effective Radiation Dose in Millisieverts — MOH Safety Compliance">(i)</span>
-                  </label>
-                  <input type="number" step="0.01" value={dosRadiasi} onChange={(e) => setDosRadiasi(e.target.value)} className="input-field text-xs font-mono text-amber-800 font-bold" placeholder="e.g. 0.02" />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <span>Film / CD Count</span>
-                    <span className="text-[10px] text-slate-400 cursor-help" title="Physical media outputs delivered to patient or ward">(i)</span>
-                  </label>
-                  <div className="flex gap-1">
-                    <input type="number" value={bilanganFilem} onChange={(e) => setBilanganFilem(e.target.value)} className="input-field text-xs font-mono" placeholder="Films" title="Film count" />
-                    <input type="number" value={bilanganCdDvd} onChange={(e) => setBilanganCdDvd(e.target.value)} className="input-field text-xs font-mono" placeholder="CDs" title="CD count" />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Radiographer Comments / Remarks</label>
-                <input type="text" value={komen} onChange={(e) => setKomen(e.target.value)} className="input-field text-xs" placeholder="e.g. Patient upright PA, good inspiration, optimal exposure" />
-              </div>
-            </div>
-
-            {/* ── 4. QUALITY ASSURANCE CHECKLIST ───────────────────────────── */}
-            <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-2 text-xs">
-              <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                {t('Radiographer Quality Control (QA)', 'Kawalan Kualiti Imbasan (QA)')}
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 font-medium text-emerald-900">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={qaPatientIdVerified} onChange={(e) => setQaPatientIdVerified(e.target.checked)} className="rounded text-emerald-600" />
-                  <span>Patient Identity Verified</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={qaMarkerVerified} onChange={(e) => setQaMarkerVerified(e.target.checked)} className="rounded text-emerald-600" />
-                  <span>Anatomical Marker (L/R) Correct</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={qaQualityVerified} onChange={(e) => setQaQualityVerified(e.target.checked)} className="rounded text-emerald-600" />
-                  <span>No Motion Artifacts</span>
-                </label>
-              </div>
-            </div>
-
-            {/* ── 5. RADIOGRAPHER FINDINGS ──────────────────────────────────── */}
-            <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-blue-950 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-blue-700" />
-                  {t('Radiographer Findings', 'Penemuan Radiografer')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!selectedCase) return;
-                    const draft = generateAiReportDraft(selectedCase);
-                    setRadiographerFindings(draft.findings);
-                    setRadiographerImpression(draft.impression);
-                    toast.success(t(`AI draft generated (${draft.confidenceScore}% confidence)`, `Draf AI dijana (${draft.confidenceScore}% keyakinan)`));
-                  }}
-                  className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border border-purple-300"
-                  title="AI Preliminary Impression Generator"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {t('AI Copilot Draft', 'Draf Kopilot AI')}
-                </button>
-              </div>
-              <p className="text-[11px] text-blue-700">
-                {t(
-                  'Document your preliminary image observations. These notes are passed to the reviewing MO or Radiologist as context.',
-                  'Rekodkan pemerhatian imej awal anda. Nota ini akan dikemukakan kepada MO atau Pakar Radiologi yang menyemak.'
-                )}
-              </p>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {t('Image Findings / Observations', 'Penemuan Imej / Pemerhatian')} *
-                </label>
-                <textarea
-                  rows={4}
-                  value={radiographerFindings}
-                  onChange={(e) => setRadiographerFindings(e.target.value)}
-                  className="input-field resize-none text-xs"
-                  placeholder={t(
-                    'Describe what is visible in the scan (e.g. Lung fields clear, no consolidation. Cardiothoracic ratio normal...)',
-                    'Huraikan apa yang kelihatan dalam imbasan...'
-                  )}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {t('Preliminary Impression / Technical Note', 'Tanggapan Awal / Nota Teknikal')}
-                </label>
-                <textarea
-                  rows={2}
-                  value={radiographerImpression}
-                  onChange={(e) => setRadiographerImpression(e.target.value)}
-                  className="input-field resize-none text-xs"
-                  placeholder={t(
-                    'Short summary or technical note for reviewing clinician...',
-                    'Ringkasan pendek atau nota teknikal untuk doktor penyemak...'
-                  )}
-                />
-              </div>
-            </div>
           </>
         )}
-
-        {/* Image Dropzone & Previews */}
-        <div>
-          <label className="block text-xs font-bold text-slate-800 mb-2">
-            {t('Medical Images / DICOM Files *', 'Imbasan Perubatan / Fail DICOM *')}
-          </label>
-          <div className="border-2 border-dashed border-surface-300 rounded-xl p-8 text-center hover:border-navy-400 transition-colors bg-slate-50/50">
-            <ImageIcon className="w-8 h-8 text-surface-400 mx-auto mb-2" />
-            <p className="text-xs text-surface-600 mb-2 font-medium">Drop DICOM / image files here or click to browse</p>
-            <input type="file" multiple accept="image/*,.dcm" onChange={handleFileChange} className="hidden" id="scan-upload" />
-            <label htmlFor="scan-upload" className="btn-secondary text-xs cursor-pointer inline-block px-4 py-2 font-semibold">
-              Choose Image Files
-            </label>
-          </div>
-
-          {previews.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-xs font-bold text-surface-700 uppercase tracking-wider">
-                Uploaded Image Previews ({previews.length})
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {previews.map((src, i) => (
-                  <div key={i} className="relative group rounded-lg overflow-hidden border border-surface-300 bg-black aspect-square shadow-sm">
-                    <img src={src} alt="" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity"
-                      title="Remove image"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] font-mono px-1.5 py-0.5 rounded">
-                      Image #{i + 1}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
 
         <div className="flex justify-end pt-3 border-t">
           <button
@@ -520,6 +570,27 @@ export default function UploadScans() {
           </button>
         </div>
       </form>
+
+      {/* ── LIGHTBOX MODAL ──────────────────────────────────────────────── */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+            onClick={() => setLightboxSrc(null)}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={lightboxSrc}
+            alt="Expanded scan"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
