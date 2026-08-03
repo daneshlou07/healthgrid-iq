@@ -137,12 +137,46 @@ export function findNearestClinic(
 }
 
 /**
- * Geocode a Malaysian address to approximate lat/lng.
- * Uses Nominatim (OpenStreetMap) with fallback to keyword-based estimation.
- * Optimized: 2s timeout, races against fallback for instant response.
+ * Geocode a Malaysian address to lat/lng.
+ * 1. Tries OpenStreetMap Nominatim API for real-time accurate geocoding of custom addresses.
+ * 2. Fallbacks to keyword matching with deterministic hash offset (NO Math.random jitter).
  */
 export async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
-  const lower = address.toLowerCase();
+  const trimmed = address.trim();
+  if (!trimmed) return null;
+
+  // 1. Query Nominatim API for real geocoding of custom typed address
+  try {
+    const queryStr = trimmed.toLowerCase().includes('malaysia') ? trimmed : `${trimmed}, Malaysia`;
+    const encoded = encodeURIComponent(queryStr);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&countrycodes=my&limit=1`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        if (!isNaN(lat) && !isNaN(lon) && lat > 0 && lon > 0) {
+          return { lat, lon };
+        }
+      }
+    }
+  } catch (err) {
+    // Gracefully handle timeout/offline network
+  }
+
+  // 2. Deterministic Hash Function for stable fallback coordinates (prevents random pin jumping)
+  const lower = trimmed.toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < lower.length; i++) {
+    hash = (hash << 5) - hash + lower.charCodeAt(i);
+    hash |= 0;
+  }
+  const positiveHash = Math.abs(hash);
+  const detLatOffset = ((positiveHash % 1000) / 1000 - 0.5) * 0.008;
+  const detLonOffset = (((positiveHash >> 3) % 1000) / 1000 - 0.5) * 0.008;
+
+  // 3. Keyword-based town lookup fallback
   const locations: { keywords: string[]; lat: number; lon: number }[] = [
     { keywords: ['tanjong karang', 'tanjung karang'], lat: 3.4242, lon: 101.1824 },
     { keywords: ['jeram'], lat: 3.2072, lon: 101.4633 },
@@ -178,11 +212,9 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; lo
 
   for (const loc of locations) {
     if (loc.keywords.some((kw) => lower.includes(kw))) {
-      const jitter = () => (Math.random() - 0.5) * 0.01;
-      return { lat: loc.lat + jitter(), lon: loc.lon + jitter() };
+      return { lat: loc.lat + detLatOffset, lon: loc.lon + detLonOffset };
     }
   }
 
-  const jitter = () => (Math.random() - 0.5) * 0.05;
-  return { lat: 3.0 + jitter(), lon: 101.65 + jitter() };
+  return { lat: 3.0 + detLatOffset * 2, lon: 101.65 + detLonOffset * 2 };
 }

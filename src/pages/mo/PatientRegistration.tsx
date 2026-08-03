@@ -8,6 +8,7 @@ import { Info, CheckCircle, AlertCircle, Sparkles, Loader2, UserX, CreditCard, S
 
 import { parseMalaysianNric, normalizeNric, formatNric } from '../../utils/malaysianNric';
 import { PredictiveAddressInput } from '../../components/ui/PredictiveAddressInput';
+import { geocodeAddress } from '../../services/routingService';
 import { calculateMohPaymentCategory, formatPaymentCategoryBadge } from '../../utils/paymentCategory';
 
 type IdType = 'mykad' | 'passport';
@@ -92,6 +93,8 @@ export default function PatientRegistration() {
     setDuplicatePatient(found);
   }, [form.idNumber, idType]);
 
+  const [patientGeo, setPatientGeo] = useState<{ lat?: number; lon?: number }>({});
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || submitting) return;
@@ -122,6 +125,17 @@ export default function PatientRegistration() {
 
     setSubmitting(true);
     try {
+      // Resolve lat/lon for custom typed address if not selected from suggestions
+      let resolvedLat = patientGeo.lat;
+      let resolvedLon = patientGeo.lon;
+      if (!resolvedLat || !resolvedLon) {
+        const geo = await geocodeAddress(trimmedAddr);
+        if (geo) {
+          resolvedLat = geo.lat;
+          resolvedLon = geo.lon;
+        }
+      }
+
       const patientData: Omit<Parameters<typeof addPatient>[0], never> = {
         name: form.name,
         dob: form.dob,
@@ -129,6 +143,8 @@ export default function PatientRegistration() {
         phone: form.phone,
         email: form.email,
         address: form.address,
+        latitude: resolvedLat,
+        longitude: resolvedLon,
         nric: nricValue,
         mrn: mrnGenerated,
         medicalHistory: form.medicalHistory.split(',').map((s) => s.trim()).filter(Boolean),
@@ -154,6 +170,7 @@ export default function PatientRegistration() {
         medicalHistory: '', emergencyContact: '', preferredClinicId: '', ethnicity: '',
         isWarganegara: 'Yes', isPenjawatAwam: 'No', isFpp: 'No', hasAsthma: 'No', previousContrastReaction: 'No', previousContrastDetails: ''
       });
+      setPatientGeo({});
     } catch (err: any) {
       toast.error(err?.message || 'Failed to register patient.');
     } finally {
@@ -270,7 +287,14 @@ export default function PatientRegistration() {
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-surface-700 mb-1">{t('Residential Address *', 'Alamat Kediaman *')}</label>
-              <PredictiveAddressInput required value={form.address} onChange={(addressValue) => setForm({ ...form, address: addressValue })} />
+              <PredictiveAddressInput
+                required
+                value={form.address}
+                onChange={(addressValue, details) => {
+                  setForm({ ...form, address: addressValue });
+                  if (details) setPatientGeo(details);
+                }}
+              />
             </div>
             
             <div className="md:col-span-2">
