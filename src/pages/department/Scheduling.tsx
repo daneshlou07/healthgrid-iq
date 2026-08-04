@@ -109,7 +109,7 @@ export default function Scheduling() {
                       {c.scheduledAt && ` · ${new Date(c.scheduledAt).toLocaleString()}`}
                     </p>
                   ) : (
-                    <p className="text-xs text-amber-500 mt-1">⚠ No radiographer assigned yet</p>
+                    <p className="text-xs text-amber-500 mt-1">No radiographer assigned yet</p>
                   )}
                 </div>
                 <button

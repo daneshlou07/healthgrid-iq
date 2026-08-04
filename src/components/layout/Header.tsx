@@ -361,7 +361,7 @@ export default function Header() {
       </Modal>
 
       {/* Emergency Critical Findings Modal */}
-      <Modal isOpen={showCriticalModal} onClose={() => setShowCriticalModal(false)} title="🚨 Emergency Critical Red Flag Findings">
+      <Modal isOpen={showCriticalModal} onClose={() => setShowCriticalModal(false)} title="Emergency Critical Red Flag Findings">
         <div className="space-y-4">
           <p className="text-xs text-slate-600">
             The following cases contain active emergency critical findings requiring urgent clinical attention:

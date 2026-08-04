@@ -24,11 +24,6 @@ const DEMO_RADIOGRAPHERS = [
 
 
 const OTHER_ROLES = ['Administrator', 'Radiology Department', 'Radiologist'] as const;
-const ROLE_EMOJI: Record<string, string> = {
-  'Administrator': '🛡',
-  'Radiology Department': '🏥',
-  'Radiologist': '🔬',
-};
 
 export default function DevAccountSwitcher() {
   const { currentUser, loginAsUser } = useAuth();

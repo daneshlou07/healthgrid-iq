@@ -30,10 +30,10 @@ function getSlaInfo(createdAt: string, status: string): { isOverdue: boolean; la
   const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
 
   if (status === 'CREATED' && elapsedHours >= 24) {
-    return { isOverdue: true, label: `⚠️ Overdue (${elapsedHours}h)` };
+    return { isOverdue: true, label: `Overdue (${elapsedHours}h)` };
   }
   if (status === 'SCANNED' && elapsedHours >= 12) {
-    return { isOverdue: true, label: `⚠️ Report Delayed (${elapsedHours}h)` };
+    return { isOverdue: true, label: `Report Delayed (${elapsedHours}h)` };
   }
   return { isOverdue: false, label: `${elapsedHours}h ago` };
 }
@@ -170,12 +170,12 @@ export default function TrackStatus() {
           </button>
 
           {/* Sort Order Selector */}
-          <div className="flex items-center gap-1 bg-surface-100 border border-surface-300 rounded-lg px-2.5 py-1 text-xs text-surface-700">
-            <ArrowUpDown className="w-3.5 h-3.5 text-surface-500 shrink-0" />
+          <div className="relative inline-flex items-center">
+            <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-              className="bg-transparent font-medium focus:outline-none cursor-pointer"
+              className="bg-surface-100 border border-surface-300 hover:border-navy-400 text-surface-700 font-medium rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-navy-200 cursor-pointer transition-colors"
             >
               <option value="newest">Sort: Newest First</option>
               <option value="oldest">Sort: Oldest First</option>
@@ -185,12 +185,12 @@ export default function TrackStatus() {
           </div>
 
           {/* Date Filter Selector */}
-          <div className="flex items-center gap-1 bg-surface-100 border border-surface-300 rounded-lg px-2.5 py-1 text-xs text-surface-700">
-            <Calendar className="w-3.5 h-3.5 text-surface-500 shrink-0" />
+          <div className="relative inline-flex items-center">
+            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value as DateFilter)}
-              className="bg-transparent font-medium focus:outline-none cursor-pointer"
+              className="bg-surface-100 border border-surface-300 hover:border-navy-400 text-surface-700 font-medium rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-navy-200 cursor-pointer transition-colors"
             >
               <option value="all">Date: All Time</option>
               <option value="today">Date: Today Only</option>

@@ -183,7 +183,7 @@ export default function Reporting() {
             )}
             {selectedCase.isEscalated && (
               <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs space-y-1">
-                <p className="font-bold text-red-900">⚠️ Escalated by {selectedCase.escalatedBy || 'Medical Officer'}</p>
+                <p className="font-bold text-red-900">Escalated by {selectedCase.escalatedBy || 'Medical Officer'}</p>
                 <p className="text-red-700">Reason: {selectedCase.escalationReason}</p>
               </div>
             )}
