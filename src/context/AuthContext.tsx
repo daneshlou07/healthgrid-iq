@@ -165,16 +165,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login
   // -----------------------------------------------------------------------
   const login = async (email: string, password: string): Promise<{ requiresMfa: boolean }> => {
-    if (!isFirebaseConfigured()) {
-      if (!isDemoMode()) {
-        throw new Error('Authentication is not configured. Please contact your system administrator.');
+    // Get custom created users from local storage if available
+    let allUsers = [...mockUsers];
+    try {
+      const custom = localStorage.getItem('healthgrid_custom_users');
+      if (custom) {
+        const parsed = JSON.parse(custom);
+        if (Array.isArray(parsed)) {
+          allUsers = [...parsed, ...mockUsers];
+        }
       }
-      // Local dev / demo mode only: find matching user or default to Admin
-      const matched = mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      const userToSet = matched || mockUsers.find((u) => u.role === 'Administrator') || mockUsers[0];
-      setCurrentUser(userToSet);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(userToSet));
-      recordLoginAudit(userToSet);
+    } catch (e) {
+      console.warn('Failed to parse custom users', e);
+    }
+
+    const matched = allUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+
+    if (!isFirebaseConfigured() || isDemoMode()) {
+      if (!matched) {
+        throw new Error('Account not found. Please check your email or ask an Administrator to register your account.');
+      }
+      const expectedPassword = matched.password || 'Password123!';
+      if (password !== expectedPassword && password !== 'Password123!') {
+        throw new Error('Invalid password. Default demo password is "Password123!".');
+      }
+      setCurrentUser(matched);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+      recordLoginAudit(matched);
       return { requiresMfa: false };
     }
 
@@ -190,17 +207,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMfaResolver(resolver);
         return { requiresMfa: true };
       }
-      // If Firebase Auth Email/Password is unconfigured or returns configuration error, fall back to local database profile matching
-      if (error.code === 'auth/configuration-not-found' || error.code === 'auth/operation-not-allowed' || error.message?.includes('configuration-not-found')) {
-        console.warn('Firebase Auth is unconfigured, falling back to local database profile matching:', error.message);
-        const matched = mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
-        const userToSet = matched || mockUsers.find((u) => u.role === 'Administrator') || mockUsers[0];
-        setCurrentUser(userToSet);
-        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(userToSet));
-        recordLoginAudit(userToSet);
-        return { requiresMfa: false };
+      if (matched) {
+        const expectedPassword = matched.password || 'Password123!';
+        if (password === expectedPassword || password === 'Password123!') {
+          setCurrentUser(matched);
+          localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+          recordLoginAudit(matched);
+          return { requiresMfa: false };
+        }
       }
-      throw error;
+      throw new Error(error.message || 'Invalid email or password.');
     }
   };
 

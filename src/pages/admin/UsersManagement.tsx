@@ -16,8 +16,15 @@ export default function UsersManagement() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [form, setForm] = useState({
-    name: '', email: '', role: 'Radiology Department' as UserRole, specialty: '', shift: '',
+  const [form, setForm] = useState<{
+    name: string;
+    email: string;
+    role: UserRole;
+    specialty: string;
+    shift: string;
+    password?: string;
+  }>({
+    name: '', email: '', role: 'Radiology Department' as UserRole, specialty: '', shift: '', password: 'Password123!',
   });
 
   const filtered = users.filter((u) =>
@@ -42,15 +49,24 @@ export default function UsersManagement() {
     );
   };
 
+  const [createdCredentials, setCreatedCredentials] = useState<{ name: string; email: string; pass: string; role: string } | null>(null);
+
   const openCreate = () => {
     setEditingUser(null);
-    setForm({ name: '', email: '', role: 'Radiology Department', specialty: '', shift: '' });
+    setForm({ name: '', email: '', role: 'Radiology Department', specialty: '', shift: '', password: 'Password123!' });
     setShowModal(true);
+  };
+
+  const generateTempPassword = () => {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let res = 'Pass';
+    for (let i = 0; i < 5; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+    setForm((prev) => ({ ...prev, password: res }));
   };
 
   const openEdit = (user: User) => {
     setEditingUser(user);
-    setForm({ name: user.name, email: user.email, role: user.role, specialty: user.specialty || '', shift: user.shift || '' });
+    setForm({ name: user.name, email: user.email, role: user.role, specialty: user.specialty || '', shift: user.shift || '', password: user.password || 'Password123!' });
     setShowModal(true);
   };
 
@@ -59,7 +75,7 @@ export default function UsersManagement() {
     if (editingUser) {
       const idx = users.findIndex((u) => u.id === editingUser.id);
       if (idx !== -1) {
-        const updated = { ...users[idx], name: form.name, email: form.email, role: form.role, specialty: form.specialty || undefined, shift: form.shift || undefined };
+        const updated = { ...users[idx], name: form.name, email: form.email, role: form.role, password: form.password, specialty: form.specialty || undefined, shift: form.shift || undefined };
         const next = [...users]; next[idx] = updated; setUsers(next);
         await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'USER_UPDATED', target: `users/${editingUser.id}`, details: `Updated user: ${form.name} (${form.role})`, timestamp: new Date().toISOString() });
         toast.success(`${form.name} updated`);
@@ -67,12 +83,24 @@ export default function UsersManagement() {
     } else {
       const newUser: User = {
         id: `user-${Date.now()}`, name: form.name, email: form.email, role: form.role,
+        password: form.password || 'Password123!',
         specialty: form.specialty || undefined, shift: form.shift || undefined,
         status: 'active', createdAt: new Date().toISOString(),
       };
-      setUsers((prev) => [...prev, newUser]);
+      const nextUsers = [...users, newUser];
+      setUsers(nextUsers);
+
+      // Save custom users locally for login persistence
+      try {
+        const existingCustom = JSON.parse(localStorage.getItem('healthgrid_custom_users') || '[]');
+        localStorage.setItem('healthgrid_custom_users', JSON.stringify([...existingCustom, newUser]));
+      } catch (e) {
+        console.warn('Failed saving custom user locally', e);
+      }
+
       await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'USER_CREATED', target: `users/${newUser.id}`, details: `Created user: ${form.name} (${form.role})`, timestamp: new Date().toISOString() });
-      toast.success(`${form.name} created`);
+      toast.success(`${form.name} created successfully`);
+      setCreatedCredentials({ name: form.name, email: form.email, pass: form.password || 'Password123!', role: form.role });
     }
     setShowModal(false);
   };
@@ -186,20 +214,61 @@ export default function UsersManagement() {
               <label className="block text-sm font-medium text-surface-700 mb-1">Specialty</label>
               <input value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} className="input-field" placeholder="e.g., Diagnostic Radiology" />
             </div>
-          </div>
-          {!editingUser && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
-              A temporary password will be generated and sent to the user's email. They will be required to change it on first login.
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-surface-700 mb-1">Initial Account Password *</label>
+              <div className="flex items-center gap-2">
+                <input required value={form.password || ''} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field font-mono" placeholder="Account password" />
+                <button type="button" onClick={generateTempPassword} className="btn-secondary whitespace-nowrap text-xs">
+                  Generate Temp
+                </button>
+              </div>
             </div>
-          )}
+          </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
-            <button onClick={handleSave} disabled={!form.name || !form.email} className="btn-primary disabled:opacity-50">
+            <button onClick={handleSave} disabled={!form.name || !form.email || !form.password} className="btn-primary disabled:opacity-50">
               {editingUser ? 'Save Changes' : 'Create User'}
             </button>
           </div>
         </div>
       </Modal>
+
+      {/* Created Credentials Confirmation Modal */}
+      {createdCredentials && (
+        <Modal isOpen={!!createdCredentials} onClose={() => setCreatedCredentials(null)} title="Account Created Successfully">
+          <div className="space-y-4">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                User Account Provisioned
+              </div>
+              <p className="text-xs text-emerald-900">
+                Send these login details to <strong>{createdCredentials.name}</strong> so they can log into HealthGrid IQ.
+              </p>
+              <div className="bg-white p-3 rounded-lg border border-emerald-200 space-y-1 text-xs font-mono">
+                <div><span className="font-bold text-slate-600 font-sans">Role:</span> {createdCredentials.role}</div>
+                <div><span className="font-bold text-slate-600 font-sans">Login Email:</span> {createdCredentials.email}</div>
+                <div><span className="font-bold text-slate-600 font-sans">Password:</span> <span className="text-navy-900 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{createdCredentials.pass}</span></div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`HealthGrid IQ Account Created\nRole: ${createdCredentials.role}\nEmail: ${createdCredentials.email}\nPassword: ${createdCredentials.pass}`);
+                  toast.success('Login details copied to clipboard!');
+                }}
+                className="btn-secondary text-xs"
+              >
+                Copy Credentials
+              </button>
+              <button type="button" onClick={() => setCreatedCredentials(null)} className="btn-primary text-xs">
+                Done
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
