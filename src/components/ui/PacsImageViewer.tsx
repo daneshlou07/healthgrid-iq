@@ -162,17 +162,19 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Run AI DICOM Vision Scan Button */}
           <button
+            type="button"
             onClick={handleRunVisionAi}
             disabled={isAiScanning}
-            className="px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 bg-gradient-to-r from-purple-700 to-indigo-700 text-white border-purple-500 shadow-md hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50"
+            className="px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 bg-purple-800 text-white border-purple-500 shadow-md hover:bg-purple-700 disabled:opacity-50"
             title="Inspect image pixels using Multimodal Vision AI Model"
           >
             <Brain className={`w-3.5 h-3.5 ${isAiScanning ? 'animate-pulse text-amber-300' : 'text-purple-200'}`} />
-            {isAiScanning ? 'Scanning Image Pixels...' : '🧠 Run AI Vision Scan'}
+            {isAiScanning ? 'Scanning Image Pixels...' : 'Run AI Vision Scan'}
           </button>
 
           {/* Fullscreen Theater Mode Button */}
           <button
+            type="button"
             onClick={() => setIsTheaterMode(!isTheaterMode)}
             className={`p-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1 ${
               isTheaterMode ? 'bg-amber-600 text-white border-amber-500 ring-2 ring-amber-400/30' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
@@ -185,6 +187,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
           {/* Zoom controls */}
           <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
             <button
+              type="button"
               onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
               className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-300"
               title="Zoom Out"
@@ -193,6 +196,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
             </button>
             <span className="px-1.5 text-[10px] font-mono font-bold text-purple-300">{Math.round(scale * 100)}%</span>
             <button
+              type="button"
               onClick={() => setScale((s) => Math.min(4.0, s + 0.2))}
               className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-300"
               title="Zoom In"
@@ -203,6 +207,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
 
           {/* Rotate */}
           <button
+            type="button"
             onClick={() => setRotation((r) => (r + 90) % 360)}
             className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 transition-colors"
             title="Rotate 90°"
@@ -212,6 +217,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
 
           {/* Grayscale Invert */}
           <button
+            type="button"
             onClick={() => setIsInverted(!isInverted)}
             className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
               isInverted ? 'bg-purple-600 text-white border-purple-500' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
@@ -224,6 +230,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
 
           {/* AI CAD Lesion Heatmap Toggle */}
           <button
+            type="button"
             onClick={() => setShowAiOverlay(!showAiOverlay)}
             className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
               showAiOverlay ? 'bg-amber-600 text-white border-amber-500 shadow-xs' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
@@ -239,6 +246,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
 
           {/* Linear Distance Measurement Tool */}
           <button
+            type="button"
             onClick={() => {
               setIsMeasuring(!isMeasuring);
               setMeasureStart(null);
@@ -255,6 +263,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
 
           {/* Reset All */}
           <button
+            type="button"
             onClick={handleReset}
             className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
             title="Reset All Viewport Adjustments"
@@ -415,13 +424,14 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
           {urls.map((url, idx) => (
             <button
               key={idx}
+              type="button"
               onClick={() => setActiveIdx(idx)}
-              className={`relative rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
+              className={`relative rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
                 activeIdx === idx ? 'border-purple-500 shadow-md scale-105' : 'border-slate-800 opacity-60 hover:opacity-100'
               }`}
             >
-              <img src={url} alt={`Thumb ${idx + 1}`} className="w-12 h-12 object-cover bg-black" />
-              <span className="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-mono px-1 font-bold">
+              <img src={url} alt={`Thumb ${idx + 1}`} className="w-12 h-12 object-cover bg-black pointer-events-none" />
+              <span className="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-mono px-1 font-bold pointer-events-none">
                 {idx + 1}
               </span>
             </button>
