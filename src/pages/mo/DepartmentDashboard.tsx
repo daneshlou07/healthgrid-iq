@@ -37,32 +37,6 @@ export default function DepartmentDashboard() {
         <p className="page-subtitle">Medical Officer Command Center &middot; Monitor imaging referrals, track case progress, and review pending sign-offs.</p>
       </div>
 
-      {/* Executive Operations KPI Summary Banner */}
-      <div className="bg-white border border-surface-300 rounded-xl p-4 shadow-xs grid grid-cols-2 md:grid-cols-4 gap-4 divide-y md:divide-y-0 md:divide-x divide-surface-200">
-        <div className="space-y-1">
-          <p className="text-[11px] font-bold text-surface-500 uppercase tracking-wider">Avg Turnaround Time</p>
-          <p className="text-xl font-bold text-navy-900 font-mono">42 <span className="text-xs font-normal text-surface-600">mins</span></p>
-          <p className="text-[10px] text-emerald-700 font-semibold">18% faster than SLA benchmark</p>
-        </div>
-        <div className="space-y-1 md:pl-4 pt-2 md:pt-0">
-          <p className="text-[11px] font-bold text-surface-500 uppercase tracking-wider">Active Intake Volume</p>
-          <p className="text-xl font-bold text-navy-900 font-mono">{cases.length} <span className="text-xs font-normal text-surface-600">cases</span></p>
-          <p className="text-[10px] text-navy-700 font-semibold">Across MOH referral clinics</p>
-        </div>
-        <div className="space-y-1 md:pl-4 pt-2 md:pt-0">
-          <p className="text-[11px] font-bold text-surface-500 uppercase tracking-wider">SLA Overdue Threshold</p>
-          <p className="text-xl font-bold text-red-700 font-mono">{overdue.length} <span className="text-xs font-normal text-surface-600">breached</span></p>
-          <p className="text-[10px] text-surface-500 font-semibold">Requires immediate scheduling</p>
-        </div>
-        <div className="space-y-1 md:pl-4 pt-2 md:pt-0">
-          <p className="text-[11px] font-bold text-surface-500 uppercase tracking-wider">System Operational Status</p>
-          <p className="text-xl font-bold text-emerald-700 font-mono flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span> 100% ONLINE
-          </p>
-          <p className="text-[10px] text-surface-500 font-semibold">PACS / DICOM Gateway active</p>
-        </div>
-      </div>
-
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard title="Pending Scheduling" value={pending.length} icon={<Clock className="w-5 h-5" />} color="amber" />
