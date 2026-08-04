@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import { Link } from 'react-router-dom';
-import { Search, AlertTriangle, Clock, ArrowRight, Filter, X, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Search, AlertTriangle, Clock, ArrowRight, Filter, X, CheckCircle2, RefreshCw, ArrowUpDown, Calendar } from 'lucide-react';
 import { getCaseIndication } from '../../utils/caseDisplay';
 
 function getInitials(name: string): string {
@@ -38,27 +38,70 @@ function getSlaInfo(createdAt: string, status: string): { isOverdue: boolean; la
   return { isOverdue: false, label: `${elapsedHours}h ago` };
 }
 
+type SortOrder = 'newest' | 'oldest' | 'severity' | 'slaBreach';
+type DateFilter = 'all' | 'today' | '7days' | '30days';
+
 export default function TrackStatus() {
   const { cases } = useData();
   const [search, setSearch] = useState('');
   const [onlyOverdue, setOnlyOverdue] = useState(false);
   const [selectedModality, setSelectedModality] = useState<string>('All');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
 
-  const filteredCases = cases.filter((c) => {
-    const searchLower = search.toLowerCase().trim();
-    const searchMatch =
-      !searchLower ||
-      c.caseNumber.toLowerCase().includes(searchLower) ||
-      c.patientName.toLowerCase().includes(searchLower) ||
-      getCaseIndication(c).toLowerCase().includes(searchLower);
+  const filteredCases = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
 
-    const modalityMatch = selectedModality === 'All' || c.scanType === selectedModality;
+    return cases
+      .filter((c) => {
+        const searchLower = search.toLowerCase().trim();
+        const searchMatch =
+          !searchLower ||
+          c.caseNumber.toLowerCase().includes(searchLower) ||
+          c.patientName.toLowerCase().includes(searchLower) ||
+          getCaseIndication(c).toLowerCase().includes(searchLower);
 
-    const slaInfo = getSlaInfo(c.createdAt, c.status);
-    const overdueMatch = !onlyOverdue || slaInfo.isOverdue;
+        const modalityMatch = selectedModality === 'All' || c.scanType === selectedModality || c.modality === selectedModality;
 
-    return searchMatch && modalityMatch && overdueMatch;
-  });
+        const slaInfo = getSlaInfo(c.createdAt, c.status);
+        const overdueMatch = !onlyOverdue || slaInfo.isOverdue;
+
+        let dateMatch = true;
+        if (dateFilter === 'today') {
+          const caseDateStr = new Date(c.createdAt).toISOString().split('T')[0];
+          dateMatch = caseDateStr === todayStr;
+        } else if (dateFilter === '7days') {
+          const diffMs = now.getTime() - new Date(c.createdAt).getTime();
+          dateMatch = diffMs <= 7 * 24 * 60 * 60 * 1000;
+        } else if (dateFilter === '30days') {
+          const diffMs = now.getTime() - new Date(c.createdAt).getTime();
+          dateMatch = diffMs <= 30 * 24 * 60 * 60 * 1000;
+        }
+
+        return searchMatch && modalityMatch && overdueMatch && dateMatch;
+      })
+      .sort((a, b) => {
+        if (sortOrder === 'newest') {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        if (sortOrder === 'oldest') {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+        if (sortOrder === 'severity') {
+          const severityRank: Record<string, number> = { Critical: 4, Severe: 3, Moderate: 2, Mild: 1 };
+          const rankA = severityRank[a.severity || 'Moderate'] || 2;
+          const rankB = severityRank[b.severity || 'Moderate'] || 2;
+          return rankB - rankA;
+        }
+        if (sortOrder === 'slaBreach') {
+          const slaA = getSlaInfo(a.createdAt, a.status).isOverdue ? 1 : 0;
+          const slaB = getSlaInfo(b.createdAt, b.status).isOverdue ? 1 : 0;
+          return slaB - slaA;
+        }
+        return 0;
+      });
+  }, [cases, search, selectedModality, onlyOverdue, dateFilter, sortOrder]);
 
   const pending = filteredCases.filter((c) => c.status === 'CREATED');
   const scheduled = filteredCases.filter((c) => c.status === 'SCHEDULED');
@@ -125,6 +168,36 @@ export default function TrackStatus() {
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>Overdue SLA Only</span>
           </button>
+
+          {/* Sort Order Selector */}
+          <div className="flex items-center gap-1 bg-surface-100 border border-surface-300 rounded-lg px-2.5 py-1 text-xs text-surface-700">
+            <ArrowUpDown className="w-3.5 h-3.5 text-surface-500 shrink-0" />
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+              className="bg-transparent font-medium focus:outline-none cursor-pointer"
+            >
+              <option value="newest">Sort: Newest First</option>
+              <option value="oldest">Sort: Oldest First</option>
+              <option value="severity">Sort: Highest Severity</option>
+              <option value="slaBreach">Sort: SLA Overdue First</option>
+            </select>
+          </div>
+
+          {/* Date Filter Selector */}
+          <div className="flex items-center gap-1 bg-surface-100 border border-surface-300 rounded-lg px-2.5 py-1 text-xs text-surface-700">
+            <Calendar className="w-3.5 h-3.5 text-surface-500 shrink-0" />
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+              className="bg-transparent font-medium focus:outline-none cursor-pointer"
+            >
+              <option value="all">Date: All Time</option>
+              <option value="today">Date: Today Only</option>
+              <option value="7days">Date: Past 7 Days</option>
+              <option value="30days">Date: Past 30 Days</option>
+            </select>
+          </div>
 
           {/* Modality Selector */}
           <select
