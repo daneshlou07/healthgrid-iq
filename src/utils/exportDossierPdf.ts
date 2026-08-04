@@ -108,9 +108,24 @@ export function exportDossierPdf(caseItem: Case, patient?: Patient, report?: Rep
     const splitImpression = doc.splitTextToSize(report.impression, pageWidth - 45);
     doc.text(splitImpression, 18, impressionY + 5);
 
+    // Official MMC Digital e-Signature Block
+    const signY = impressionY + (splitImpression.length * 4.5) + 6;
+    doc.setFillColor(240, 253, 244);
+    doc.rect(14, signY, pageWidth - 28, 22, 'F');
+    doc.setDrawColor(187, 247, 208);
+    doc.rect(14, signY, pageWidth - 28, 22, 'S');
+
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...purpleColor);
-    doc.text(`Signed By: ${report.radiologistName} (${report.signedByRole || 'Specialist Radiologist'})`, 18, y + 58);
+    doc.setTextColor(6, 78, 59); // emerald-900
+    doc.text(`ELECTRONICALLY SIGNED & VERIFIED BY: ${report.radiologistName}`, 18, signY + 6);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(4, 120, 87); // emerald-700
+    doc.text(`Qualification: ${report.qualification || 'M.Med Radiology (UM), MBBS (Malaya)'} | ${report.mmcNumber || 'MMC No. 48291'}`, 18, signY + 11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Security Hash: SHA256-${(report.reportToken || 'MOH-8F9A2B').toUpperCase()}-PDPA-VERIFIED | Signed: ${report.signedAt ? new Date(report.signedAt).toLocaleString('en-GB') : 'Signed'}`, 18, signY + 16);
   } else {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'italic');

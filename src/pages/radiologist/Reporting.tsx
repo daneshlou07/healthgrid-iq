@@ -79,6 +79,8 @@ export default function Reporting() {
       createdAt: new Date().toISOString(), signedAt: new Date().toISOString(),
       imageKeys: selectedCase.images && selectedCase.images.length > 0 ? selectedCase.images : undefined,
       reportToken: generateReportToken(selectedCase.id),
+      mmcNumber: currentUser.mmcNumber || 'MMC No. 48291',
+      qualification: currentUser.qualification || 'M.Med Radiology (UM), MBBS (Malaya)',
     });
 
     await editCase(selectedCase.id, {

@@ -37,6 +37,8 @@ export interface User {
   mobilePacsAssignment?: string;
   supportedModalities?: string[];
   profilePicture?: string;
+  mmcNumber?: string;
+  qualification?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +305,8 @@ export interface Report {
   imageKeys?: string[];
   /** Short alphanumeric token for patient-facing report access via QR / secure link */
   reportToken?: string;
+  mmcNumber?: string;
+  qualification?: string;
 }
 
 // ---------------------------------------------------------------------------

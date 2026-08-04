@@ -11,6 +11,7 @@ import {
   getSideOptions,
 } from '../../data/modalityReference';
 import { getEffectiveDoseForExam, SENARAI_DOS_BERKESAN } from '../../data/effectiveDoseTable';
+import { LOCATION_PRESETS, SPECIALTY_PRESETS } from '../../data/clinicalLocations';
 import { calculateMohPaymentCategory, formatPaymentCategoryBadge } from '../../utils/paymentCategory';
 import {
   Info,
@@ -62,8 +63,10 @@ export default function NewCaseRegistration() {
 
   // ── Step 1 State ─────────────────────────────────────────────────────
   const [patientId, setPatientId] = useState('');
-  const [wardOrClinic, setWardOrClinic] = useState('Outpatient Clinic / A&E');
-  const [disiplin, setDisiplin] = useState('General Medicine');
+  const [wardOrClinic, setWardOrClinic] = useState('');
+  const [customWardOrClinic, setCustomWardOrClinic] = useState('');
+  const [disiplin, setDisiplin] = useState('');
+  const [customDisiplin, setCustomDisiplin] = useState('');
   const [indication, setIndication] = useState('');
   const [severity, setSeverity] = useState<SeverityLevel>('Moderate');
 
@@ -111,7 +114,10 @@ export default function NewCaseRegistration() {
     return getEffectiveDoseForExam(modality, primaryCard.bodyPart);
   }, [modality, examCards]);
 
-  const step1Valid = Boolean(patientId && indication.trim());
+  const resolvedWardOrClinic = wardOrClinic === 'Other' ? customWardOrClinic.trim() : wardOrClinic;
+  const resolvedDisiplin = disiplin === 'Other' ? customDisiplin.trim() : disiplin;
+
+  const step1Valid = Boolean(patientId && indication.trim() && resolvedWardOrClinic && resolvedDisiplin);
   const step2Valid = useMemo(() => {
     if (!modality || examCards.length === 0) return false;
     return examCards.every((card) => {
@@ -207,8 +213,8 @@ export default function NewCaseRegistration() {
         caseNumber,
         patientId,
         patientName: patient?.name || '',
-        wardOrClinic: wardOrClinic || undefined,
-        disiplin: disiplin || undefined,
+        wardOrClinic: resolvedWardOrClinic || undefined,
+        disiplin: resolvedDisiplin || undefined,
         registeredById: currentUser.id,
         registeredByName: currentUser.name,
         clinicId: preferredClinicId || undefined,
@@ -245,7 +251,14 @@ export default function NewCaseRegistration() {
       });
 
       toast.success(t(`Case ${caseNumber} registered successfully`, `Kes ${caseNumber} berjaya didaftarkan`));
-      setPatientId(''); setIndication(''); setExamCards([createBlankExamCard(1)]); setCurrentStep(1);
+      setPatientId('');
+      setWardOrClinic('');
+      setCustomWardOrClinic('');
+      setDisiplin('');
+      setCustomDisiplin('');
+      setIndication('');
+      setExamCards([createBlankExamCard(1)]);
+      setCurrentStep(1);
     } catch {
       toast.error(t('Failed to create case.', 'Gagal mendaftarkan kes.'));
     } finally {
@@ -273,15 +286,59 @@ export default function NewCaseRegistration() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {t('Location (Ward / Clinic / A&E)', 'Lokasi (Wad / Klinik / A&E)')}
+                  {t('Location (Ward / Clinic / A&E)', 'Lokasi (Wad / Klinik / A&E)')} *
                 </label>
-                <input value={wardOrClinic} onChange={(e) => setWardOrClinic(e.target.value)} className="input-field text-xs" required />
+                <select
+                  value={wardOrClinic}
+                  onChange={(e) => setWardOrClinic(e.target.value)}
+                  className="input-field text-xs bg-white"
+                  required
+                >
+                  <option value="">{t('-- Select Location --', '-- Pilih Lokasi --')}</option>
+                  {LOCATION_PRESETS.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+                {wardOrClinic === 'Other' && (
+                  <input
+                    type="text"
+                    value={customWardOrClinic}
+                    onChange={(e) => setCustomWardOrClinic(e.target.value)}
+                    className="input-field text-xs mt-2"
+                    placeholder={t('Specify location details (e.g., Ward 4B, Room 12)', 'Nyatakan butiran lokasi (cth. Wad 4B, Bilik 12)')}
+                    required
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {t('Requesting Specialty / Department', 'Jabatan Pemohon')}
+                  {t('Requesting Specialty / Department', 'Jabatan Pemohon')} *
                 </label>
-                <input value={disiplin} onChange={(e) => setDisiplin(e.target.value)} className="input-field text-xs" required />
+                <select
+                  value={disiplin}
+                  onChange={(e) => setDisiplin(e.target.value)}
+                  className="input-field text-xs bg-white"
+                  required
+                >
+                  <option value="">{t('-- Select Specialty / Department --', '-- Pilih Jabatan / Disiplin --')}</option>
+                  {SPECIALTY_PRESETS.map((spec) => (
+                    <option key={spec} value={spec}>
+                      {spec}
+                    </option>
+                  ))}
+                </select>
+                {disiplin === 'Other' && (
+                  <input
+                    type="text"
+                    value={customDisiplin}
+                    onChange={(e) => setCustomDisiplin(e.target.value)}
+                    className="input-field text-xs mt-2"
+                    placeholder={t('Specify specialty / department name', 'Nyatakan nama jabatan / disiplin')}
+                    required
+                  />
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-800 mb-1">

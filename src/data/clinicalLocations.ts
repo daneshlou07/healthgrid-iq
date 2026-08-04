@@ -1,0 +1,30 @@
+export const LOCATION_PRESETS = [
+  'Outpatient Specialist Clinic',
+  'A&E / Emergency Department',
+  'Medical Ward (Wad Perubatan)',
+  'Surgical Ward (Wad Pembedahan)',
+  'Orthopaedic Ward (Wad Ortopedik)',
+  'Paediatric Ward (Wad Pediatrik)',
+  'Obstetrics & Gynaecology Ward (Wad O&G)',
+  'ICU / CCU / HDU',
+  'Day Care Unit',
+  'Klinik Kesihatan (Health Clinic)',
+  'Other',
+] as const;
+
+export const SPECIALTY_PRESETS = [
+  'General Medicine (Perubatan Am)',
+  'General Surgery (Pembedahan Am)',
+  'Orthopaedics (Ortopedik)',
+  'Paediatrics (Pediatrik)',
+  'Obstetrics & Gynaecology (O&G)',
+  'Emergency Medicine (Kecemasan)',
+  'Anaesthesiology & ICU',
+  'Otorhinolaryngology (ENT)',
+  'Ophthalmology (Mata)',
+  'Dermatology (Kulit)',
+  'Neurosurgery',
+  'Psychiatry (Psikiatri)',
+  'Dental / Maxillofacial',
+  'Other',
+] as const;
