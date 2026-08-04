@@ -44,12 +44,7 @@ export default function Header() {
   const [showCriticalModal, setShowCriticalModal] = useState(false);
   const { editCase, addAuditLog } = useData();
 
-  const [currentTime, setCurrentTime] = useState(new Date());
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleAcknowledgeCritical = async (c: Case) => {
     if (!currentUser) return;
@@ -189,17 +184,7 @@ export default function Header() {
             <span className="hidden sm:inline">{t('Medical Glossary', 'Glosari Perubatan')}</span>
           </button>
 
-          {/* Live System Clock */}
-          <div
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-[#EDF4F2] border border-[#D8E5E1] rounded-lg text-xs font-medium text-[#2C524B]"
-            title="Current Clinical System Time"
-          >
-            <Clock className="w-3.5 h-3.5 text-[#0F4C42] shrink-0" />
-            <span>
-              {currentTime.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' })} &bull;{' '}
-              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-          </div>
+
 
           {/* Notifications */}
           <div className="relative" ref={notifRef}>
