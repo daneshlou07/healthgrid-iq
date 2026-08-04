@@ -225,7 +225,7 @@ export default function NewCaseRegistration() {
         indication: indication.trim(),
         bodyRegion: 'General',
         severity: severity || 'Moderate',
-        notes: clinicalNotes.trim(),
+        notes: indication.trim(),
         status: 'CREATED',
         createdAt: new Date().toISOString(),
         lmp: lmp || undefined,
@@ -351,23 +351,41 @@ export default function NewCaseRegistration() {
               </div>
 
               {selectedPatient && (
-                <div className="md:col-span-2 p-3 bg-navy-50/60 border border-navy-200 rounded-xl flex items-center justify-between">
-                  <div className="text-xs text-navy-900">
-                    <span className="font-bold">{selectedPatient.name}</span> &middot; MRN: <span className="font-mono font-bold">{selectedPatient.mrn}</span> &middot; NRIC: <span className="font-mono">{selectedPatient.nric}</span>
+                <div className="md:col-span-2 p-3 bg-navy-50/60 border border-navy-200 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between text-xs text-navy-900">
+                    <div>
+                      <span className="font-bold">{selectedPatient.name}</span> &middot; MRN: <span className="font-mono font-bold">{selectedPatient.mrn}</span> &middot; NRIC: <span className="font-mono">{selectedPatient.nric}</span>
+                    </div>
+                    {paymentBadge && (
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${paymentBadge.color}`}>
+                        {paymentBadge.label}
+                      </span>
+                    )}
                   </div>
-                  {paymentBadge && (
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${paymentBadge.color}`}>
-                      {paymentBadge.label}
-                    </span>
+                  {selectedPatient.medicalHistory && (
+                    <div className="text-xs bg-white/90 p-2 rounded-lg border border-navy-200 text-navy-900 mt-1">
+                      <span className="font-bold">Baseline Medical History: </span>
+                      <span>{selectedPatient.medicalHistory}</span>
+                    </div>
                   )}
                 </div>
               )}
 
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {t('Clinical Indication *', 'Indikasi Klinikal *')}
+                  {t('Clinical Indication & Referral Notes *', 'Indikasi Klinikal & Nota Rujukan *')}
                 </label>
-                <textarea required rows={2} value={indication} onChange={(e) => setIndication(e.target.value)} className="input-field text-xs" placeholder="Presenting symptoms and history..." />
+                <textarea
+                  required
+                  rows={3}
+                  value={indication}
+                  onChange={(e) => setIndication(e.target.value)}
+                  className="input-field text-xs"
+                  placeholder={t(
+                    'Enter acute symptoms, clinical history, reason for scan, and any special notes for radiographer/radiologist...',
+                    'Masukkan simptom akut, sejarah klinikal, sebab imbasan, dan nota rujukan...'
+                  )}
+                />
               </div>
             </div>
             <div className="flex justify-end">

@@ -271,7 +271,7 @@ export default function NewCaseRegistration() {
         indication: indication.trim(),
         bodyRegion: uniqueRegions || 'General',
         severity: severity || 'Moderate',
-        notes: clinicalNotes.trim(),
+        notes: indication.trim(),
         status: 'CREATED',
         createdAt: new Date().toISOString(),
         scheduledAt: workflowPriority === 'Non-Emergency' && scheduledDate ? `${scheduledDate}T${scheduledTime || '09:00'}:00` : undefined,
@@ -455,13 +455,19 @@ export default function NewCaseRegistration() {
                   <p className="text-xs text-surface-500 mt-0.5">
                     Address: {selectedPatient.address} &middot; Phone: {selectedPatient.phone}
                   </p>
+                  {selectedPatient.medicalHistory && (
+                    <div className="mt-2 text-xs bg-white/90 p-2 rounded-lg border border-navy-200 text-navy-900">
+                      <span className="font-bold text-navy-900">Baseline Medical History: </span>
+                      <span>{selectedPatient.medicalHistory}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             <div>
               <label className="block text-xs font-bold text-surface-700 mb-1">
-                {t('Clinical Indication & History', 'Indikasi Klinikal & Sejarah')} *
+                {t('Clinical Indication & Referral Notes', 'Indikasi Klinikal & Nota Rujukan')} *
               </label>
               <textarea
                 required
@@ -469,7 +475,10 @@ export default function NewCaseRegistration() {
                 value={indication}
                 onChange={(e) => setIndication(e.target.value)}
                 className="input-field text-xs"
-                placeholder={t('Enter clinical indication, symptoms, and referral notes...', 'Masukkan indikasi klinikal, simptom, dan nota rujukan...')}
+                placeholder={t(
+                  'Enter acute symptoms, clinical history, reason for scan, and any special notes for radiographer/radiologist...',
+                  'Masukkan simptom akut, sejarah klinikal, sebab imbasan, dan nota rujukan...'
+                )}
               />
             </div>
 
@@ -828,19 +837,6 @@ export default function NewCaseRegistration() {
                 </div>
               )}
 
-              {/* Clinical Notes */}
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {t('Additional Clinical Notes for Radiologist / Radiographer', 'Nota Tambahan Untuk Radiologis / Juru X-Ray')}
-                </label>
-                <textarea
-                  rows={3}
-                  value={clinicalNotes}
-                  onChange={(e) => setClinicalNotes(e.target.value)}
-                  className="input-field text-xs"
-                  placeholder="Optional referral notes..."
-                />
-              </div>
             </div>
 
             <div className="flex items-center justify-between pt-2">
