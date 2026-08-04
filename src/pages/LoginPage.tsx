@@ -396,47 +396,6 @@ export default function LoginPage() {
             <p className="text-slate-500 text-sm font-medium mt-1">Access your clinical workspace</p>
           </div>
 
-          {/* Quick Demo Switcher Bar */}
-          <div className="bg-surface-50 border border-surface-200 rounded-xl p-3 space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-bold text-navy-900">
-              <span className="flex items-center gap-1">
-                <UserCheck className="w-3.5 h-3.5 text-navy-600" />
-                1-Click Quick Demo Login:
-              </span>
-              <span className="text-[10px] text-surface-500 font-normal">Bypasses password for fast presentation</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              <button
-                type="button"
-                onClick={() => loginAsRole('Medical Officer')}
-                className="px-2 py-1.5 bg-white hover:bg-navy-50 text-navy-900 border border-surface-300 rounded-lg text-xs font-bold text-center transition-all cursor-pointer shadow-xs"
-              >
-                Medical Officer
-              </button>
-              <button
-                type="button"
-                onClick={() => loginAsRole('Radiographer')}
-                className="px-2 py-1.5 bg-white hover:bg-navy-50 text-navy-900 border border-surface-300 rounded-lg text-xs font-bold text-center transition-all cursor-pointer shadow-xs"
-              >
-                Radiographer
-              </button>
-              <button
-                type="button"
-                onClick={() => loginAsRole('Radiologist')}
-                className="px-2 py-1.5 bg-white hover:bg-navy-50 text-navy-900 border border-surface-300 rounded-lg text-xs font-bold text-center transition-all cursor-pointer shadow-xs"
-              >
-                Radiologist
-              </button>
-              <button
-                type="button"
-                onClick={() => loginAsRole('Administrator')}
-                className="px-2 py-1.5 bg-white hover:bg-navy-50 text-navy-900 border border-surface-300 rounded-lg text-xs font-bold text-center transition-all cursor-pointer shadow-xs"
-              >
-                IT Admin
-              </button>
-            </div>
-          </div>
-
           {/* Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
             {error && (
