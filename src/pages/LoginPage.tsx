@@ -352,22 +352,25 @@ export default function LoginPage() {
         </div>
 
         {/* Footer Badges & Copyright */}
-        <div className="relative z-10 space-y-3 pt-5 border-t border-slate-800">
-          <div className="flex items-center gap-3.5 text-xs text-slate-400 font-medium">
-            <span className="flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-slate-300" /> HIPAA Ready
+        <div className="relative z-10 space-y-3 pt-6 border-t border-slate-800/80">
+          <div className="flex items-center gap-3.5 text-xs text-slate-300 font-medium flex-wrap">
+            <span className="inline-flex items-center gap-1.5 leading-none">
+              <Lock className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+              <span>HIPAA Ready</span>
             </span>
-            <span>&bull;</span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-[#10B981]" /> PDPA Compliant
+            <span className="text-slate-600 font-bold leading-none">&bull;</span>
+            <span className="inline-flex items-center gap-1.5 leading-none">
+              <Check className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+              <span className="text-emerald-400 font-semibold">PDPA Compliant</span>
             </span>
-            <span>&bull;</span>
-            <span className="flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-slate-300" /> ISO 27001
+            <span className="text-slate-600 font-bold leading-none">&bull;</span>
+            <span className="inline-flex items-center gap-1.5 leading-none">
+              <Shield className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+              <span>ISO 27001</span>
             </span>
           </div>
 
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400 font-normal pt-1">
             &copy; 2026 Theta Edge Berhad. All rights reserved.
           </p>
         </div>
