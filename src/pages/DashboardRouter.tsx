@@ -16,11 +16,9 @@ export default function DashboardRouter() {
       return <RadiologistDashboard />;
     case 'Medical Officer':
       return <MoDashboard />;
-    case 'Radiology Department':
-      return <DepartmentDashboard />;
     case 'Administrator':
       return <AdminDashboard />;
     default:
-      return <DepartmentDashboard />;
+      return <MoDashboard />;
   }
 }

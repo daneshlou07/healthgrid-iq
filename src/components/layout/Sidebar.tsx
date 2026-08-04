@@ -64,15 +64,6 @@ function getNavGroups(role: UserRole, pendingRequests: number, t: (en: string, m
           { label: t('Onboarding', 'Panduan Pengguna'), path: '/onboarding', icon: <UserCheck className="w-[18px] h-[18px]" /> },
         ]},
       ];
-    case 'Radiology Department':
-      return [
-        { title: t('MAIN', 'UTAMA'), items: [
-          { label: t('Dashboard', 'Papan Pemuka'), path: '/dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
-          { label: t('Patient Registry', 'Daftar Pesakit'), path: '/patients', icon: <Users className="w-[18px] h-[18px]" /> },
-          { label: t('Register Patient', 'Daftar Pesakit'), path: '/patients/register', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
-          { label: t('Register New Case', 'Daftar Kes Baharu'), path: '/cases/new', icon: <FileText className="w-[18px] h-[18px]" /> },
-        ]},
-      ];
     case 'Administrator':
       return [
         { title: t('MAIN', 'UTAMA'), items: [

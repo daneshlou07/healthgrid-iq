@@ -1,7 +1,7 @@
 // HealthGrid IQ — Domain Entity Types
 // All timestamp fields use ISO 8601 strings (e.g. "2026-07-27T14:00:00Z").
 
-export type UserRole = 'Radiographer' | 'Radiologist' | 'Medical Officer' | 'Radiology Department' | 'Administrator';
+export type UserRole = 'Medical Officer' | 'Radiographer' | 'Radiologist' | 'Administrator';
 
 export type CaseStatus = 'CREATED' | 'SCHEDULED' | 'SCANNED' | 'REPORTED' | 'FINALIZED' | 'NO_SHOW' | 'CANCELLED';
 

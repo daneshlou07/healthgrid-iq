@@ -154,7 +154,7 @@ export const mockUsers: User[] = [
     id: 'dept-001',
     name: 'Nurul Aisyah',
     email: 'nurul.aisyah@healthgrid.my',
-    role: 'Radiology Department',
+    role: 'Medical Officer',
     status: 'active',
     createdAt: '2025-01-10T08:00:00Z',
     shift: 'Day',

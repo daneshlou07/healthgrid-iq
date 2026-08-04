@@ -126,13 +126,13 @@ function AppRoutes() {
         <Route path="/case/:caseId" element={<CaseDetail />} />
         <Route path="/patient/:patientId" element={<PatientDetail />} />
 
-        {/* Radiology Department & Medical Officer routes */}
-        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><RoleRouter moPage={MoPatientsList} defaultPage={PatientsList} /></ProtectedRoute>} />
-        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><RoleRouter moPage={MoPatientRegistration} defaultPage={PatientRegistration} /></ProtectedRoute>} />
-        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><RoleRouter moPage={MoAllCases} defaultPage={AllCases} /></ProtectedRoute>} />
-        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><RoleRouter moPage={MoNewCaseRegistration} defaultPage={NewCaseRegistration} /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Radiologist']}><RoleRouter moPage={MoDepartmentReports} defaultPage={DepartmentReports} /></ProtectedRoute>} />
-        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer']}><RoleRouter moPage={MoPatientRequests} defaultPage={PatientRequests} /></ProtectedRoute>} />
+        {/* Medical Officer & Admin routes */}
+        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoPatientsList} defaultPage={PatientsList} /></ProtectedRoute>} />
+        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoPatientRegistration} defaultPage={PatientRegistration} /></ProtectedRoute>} />
+        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoAllCases} defaultPage={AllCases} /></ProtectedRoute>} />
+        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoNewCaseRegistration} defaultPage={NewCaseRegistration} /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Radiologist', 'Administrator']}><RoleRouter moPage={MoDepartmentReports} defaultPage={DepartmentReports} /></ProtectedRoute>} />
+        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoPatientRequests} defaultPage={PatientRequests} /></ProtectedRoute>} />
         <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
 
         {/* Radiographer routes */}
@@ -148,7 +148,7 @@ function AppRoutes() {
         <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
 
         {/* Track Status route */}
-        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Radiology Department', 'Medical Officer', 'Administrator']}><RoleRouter moPage={MoTrackStatus} defaultPage={TrackStatus} /></ProtectedRoute>} />
+        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoTrackStatus} defaultPage={TrackStatus} /></ProtectedRoute>} />
 
         {/* Administrator routes (full CRUD access) */}
         <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />

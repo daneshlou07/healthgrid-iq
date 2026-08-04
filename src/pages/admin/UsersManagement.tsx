@@ -7,7 +7,7 @@ import Modal from '../../components/ui/Modal';
 import { Search, Plus, Edit2, Trash2, ShieldCheck, ShieldOff, Download } from 'lucide-react';
 import { exportToCSV } from '../../utils/exportUtils';
 
-const ROLES: UserRole[] = ['Radiology Department', 'Radiographer', 'Radiologist', 'Administrator'];
+const ROLES: UserRole[] = ['Medical Officer', 'Radiographer', 'Radiologist', 'Administrator'];
 
 export default function UsersManagement() {
   const { currentUser } = useAuth();
@@ -24,7 +24,7 @@ export default function UsersManagement() {
     shift: string;
     password?: string;
   }>({
-    name: '', email: '', role: 'Radiology Department' as UserRole, specialty: '', shift: '', password: 'Password123!',
+    name: '', email: '', role: 'Medical Officer' as UserRole, specialty: '', shift: '', password: 'Password123!',
   });
 
   const filtered = users.filter((u) =>
@@ -53,7 +53,7 @@ export default function UsersManagement() {
 
   const openCreate = () => {
     setEditingUser(null);
-    setForm({ name: '', email: '', role: 'Radiology Department', specialty: '', shift: '', password: 'Password123!' });
+    setForm({ name: '', email: '', role: 'Medical Officer', specialty: '', shift: '', password: 'Password123!' });
     setShowModal(true);
   };
 
