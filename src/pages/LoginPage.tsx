@@ -275,13 +275,22 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-[44%] xl:w-[42%] bg-[#0B192C] relative flex-col justify-between p-10 xl:p-12 text-white border-r border-slate-800 h-full overflow-hidden shrink-0">
         
         <div className="relative z-10 space-y-8">
-          {/* Theta Edge Logo Container */}
-          <div className="bg-white rounded-xl p-3 inline-block shadow-sm">
-            <img
-              src="/assets/theta-logo.png"
-              alt="Theta Edge Berhad — Technology & Telecommunication"
-              className="h-8 xl:h-9 w-auto object-contain"
-            />
+          {/* Dual Brand Logos Container */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="bg-white rounded-xl p-2.5 shadow-sm border border-slate-700">
+              <img
+                src="/assets/theta-logo.png"
+                alt="Theta Edge Berhad"
+                className="h-8 xl:h-9 w-auto object-contain"
+              />
+            </div>
+            <div className="bg-white rounded-xl p-2 shadow-sm border border-slate-700">
+              <img
+                src="/assets/healthgrid-logo.jpg"
+                alt="HealthGrid IQ Logo"
+                className="h-8 xl:h-9 w-auto object-contain rounded"
+              />
+            </div>
           </div>
 
           {/* Hero Branding */}
@@ -290,7 +299,7 @@ export default function LoginPage() {
               HealthGrid <span className="text-[#10B981]">IQ</span>
             </h1>
             <p className="text-base text-slate-300 font-medium tracking-wide">
-              Clinical Imaging Platform
+              Connected Capacity. Better Care.
             </p>
             <div className="w-10 h-1 bg-[#10B981] rounded-full my-3" />
             <p className="text-sm text-slate-300 leading-relaxed max-w-md font-normal">

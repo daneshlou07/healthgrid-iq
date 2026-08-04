@@ -105,17 +105,13 @@ export default function Sidebar() {
   return (
     <aside className="w-60 bg-[#D4E2DD] border-r border-[#C0D3CD] flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-4 border-b border-[#C0D3CD]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-[#14315A] rounded-lg flex items-center justify-center shadow-xs">
-            <Activity className="w-4 h-4 text-[#00A86B]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-[#14315A] leading-tight">
-              HealthGrid <span className="text-[#8C226E]">IQ</span>
-            </h1>
-            <p className="text-[10px] text-[#8C226E] leading-tight font-semibold">Theta Edge Berhad</p>
-          </div>
+      <div className="px-4 py-3 border-b border-[#C0D3CD]">
+        <div className="bg-white p-2 rounded-xl border border-surface-300 shadow-xs flex items-center justify-center">
+          <img
+            src="/assets/healthgrid-logo.jpg"
+            alt="HealthGrid IQ — Connected Capacity. Better Care."
+            className="h-9 w-auto object-contain rounded"
+          />
         </div>
       </div>
 
