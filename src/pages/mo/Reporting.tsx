@@ -260,6 +260,46 @@ export default function Reporting() {
             )}
           </div>
 
+          {/* Quick Macro Templates Bar */}
+          <div className="flex items-center gap-1.5 flex-wrap bg-surface-50 p-2.5 rounded-lg border border-surface-200">
+            <span className="text-[11px] font-bold text-navy-800 flex items-center gap-1">
+              1-Click Normal Macros:
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setFindings('Lungs are clear without focal consolidation, effusion, or pneumothorax. Cardiothoracic ratio is within normal limits. Osseous structures and pleural spaces are intact.');
+                setImpression('Normal Chest Radiograph.');
+                toast.success('Inserted Normal Chest X-Ray template');
+              }}
+              className="text-[11px] bg-white hover:bg-navy-50 text-navy-800 border border-surface-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
+            >
+              + Normal Chest X-Ray
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFindings('Vertebral body alignment and heights are preserved. Intervertebral disc spaces are maintained. No acute fracture, subluxation, or destructive osseous lesion.');
+                setImpression('Normal Spine Radiograph.');
+                toast.success('Inserted Normal Spine X-Ray template');
+              }}
+              className="text-[11px] bg-white hover:bg-navy-50 text-navy-800 border border-surface-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
+            >
+              + Normal Spine X-Ray
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFindings('Brain parenchyma demonstrates normal attenuation and architecture. Ventricles and sulci are age-appropriate. No acute intracranial hemorrhage, mass effect, or midline shift.');
+                setImpression('Unremarkable Brain CT.');
+                toast.success('Inserted Normal Brain CT template');
+              }}
+              className="text-[11px] bg-white hover:bg-navy-50 text-navy-800 border border-surface-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
+            >
+              + Normal Brain CT
+            </button>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-surface-700 mb-1">Findings *</label>
             <textarea rows={5} value={findings} onChange={(e) => setFindings(e.target.value)} className="input-field resize-none text-sm" placeholder="Detailed radiological findings..." />

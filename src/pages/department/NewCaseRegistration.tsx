@@ -386,6 +386,25 @@ export default function NewCaseRegistration() {
                     'Masukkan simptom akut, sejarah klinikal, sebab imbasan, dan nota rujukan...'
                   )}
                 />
+                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-surface-500">Quick Presets:</span>
+                  {[
+                    'Acute Shortness of Breath — Rule out Pneumonia / Effusion',
+                    'Blunt Trauma / Fall — Acute Pain, Rule out Fracture',
+                    'Acute Right Lower Quadrant Abdominal Pain — Suspected Appendicitis',
+                    'Chronic Lumbar Spine Pain with Radiculopathy',
+                    'Routine Pre-Operative Chest Assessment',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setIndication((prev) => (prev ? `${prev} ; ${preset}` : preset))}
+                      className="text-[11px] bg-surface-100 hover:bg-navy-50 hover:border-navy-300 text-navy-800 border border-surface-300 px-2 py-0.5 rounded-md transition-all cursor-pointer"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="flex justify-end">
