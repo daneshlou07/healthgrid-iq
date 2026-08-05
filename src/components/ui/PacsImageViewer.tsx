@@ -16,18 +16,29 @@ import {
   Brain,
   Sparkles,
   CheckCircle2,
+  Play,
+  Pause,
+  Layers,
+  Activity,
+  Sliders,
+  Tv,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface Props {
   imageKeys?: string[];
-  /** Raw base64/blob preview URLs to show before images are saved to IndexedDB (radiographer upload flow) */
+  /** Raw base64/blob preview URLs to show before images are saved to IndexedDB */
   previewUrls?: string[];
   heightClass?: string;
   caseItem?: Case;
   onAiAnalyzed?: (result: VisionAiAnalysisResult) => void;
 }
 
-export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 'h-96', caseItem, onAiAnalyzed }: Props) {
+export type HounsfieldPreset = 'DEFAULT' | 'LUNG' | 'BONE' | 'SOFT_TISSUE' | 'BRAIN';
+export type MriSequence = 'T1' | 'T2' | 'FLAIR' | 'DWI';
+
+export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 'h-[440px]', caseItem, onAiAnalyzed }: Props) {
   const [urls, setUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -40,6 +51,14 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
   const [isInverted, setIsInverted] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
 
+  // Modality-specific state (CT / MRI / Ultrasound / X-Ray)
+  const modality = caseItem?.modality || caseItem?.scanType || 'X-Ray';
+  const [ctPreset, setCtPreset] = useState<HounsfieldPreset>('DEFAULT');
+  const [mriSeq, setMriSeq] = useState<MriSequence>('T1');
+  const [isPlayingCine, setIsPlayingCine] = useState(false);
+  const [cineSpeed, setCineSpeed] = useState<number>(1);
+  const cineTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Vision AI scanning state
   const [isAiScanning, setIsAiScanning] = useState(false);
   const [aiResult, setAiResult] = useState<VisionAiAnalysisResult | null>(null);
@@ -51,7 +70,6 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
   const [measureEnd, setMeasureEnd] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    // If raw preview URLs are provided (pre-upload mode), use them directly
     if (previewUrls && previewUrls.length > 0) {
       setUrls(previewUrls);
       setActiveIdx(0);
@@ -69,6 +87,48 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
     });
   }, [imageKeys?.join(','), previewUrls?.length]);
 
+  // Ultrasound Cine Loop Playback Effect
+  useEffect(() => {
+    if (isPlayingCine && urls.length > 1) {
+      const intervalMs = Math.round(300 / cineSpeed);
+      cineTimerRef.current = setInterval(() => {
+        setActiveIdx((prev) => (prev + 1) % urls.length);
+      }, intervalMs);
+    } else if (cineTimerRef.current) {
+      clearInterval(cineTimerRef.current);
+    }
+    return () => {
+      if (cineTimerRef.current) clearInterval(cineTimerRef.current);
+    };
+  }, [isPlayingCine, cineSpeed, urls.length]);
+
+  // CT Hounsfield Preset Application
+  const handleApplyCtPreset = (preset: HounsfieldPreset) => {
+    setCtPreset(preset);
+    switch (preset) {
+      case 'LUNG':
+        setBrightness(120);
+        setContrast(145);
+        break;
+      case 'BONE':
+        setBrightness(85);
+        setContrast(180);
+        break;
+      case 'SOFT_TISSUE':
+        setBrightness(100);
+        setContrast(115);
+        break;
+      case 'BRAIN':
+        setBrightness(105);
+        setContrast(130);
+        break;
+      default:
+        setBrightness(100);
+        setContrast(100);
+        break;
+    }
+  };
+
   // Reset tools
   const handleReset = () => {
     setScale(1);
@@ -79,6 +139,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
     setIsMeasuring(false);
     setMeasureStart(null);
     setMeasureEnd(null);
+    setCtPreset('DEFAULT');
+    setIsPlayingCine(false);
   };
 
   // Canvas measurement drawing
@@ -97,10 +159,6 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     setMeasureEnd({ x, y });
-  };
-
-  const handleMouseUp = () => {
-    // Keep measurement rendered
   };
 
   // Run Multimodal Vision AI Pixel Scan
@@ -149,17 +207,76 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
     }`}>
       {/* ── PACS TOOLBAR ──────────────────────────────────────────────────────── */}
       <div className="bg-slate-900 border-b border-slate-800 p-2 sm:p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] font-mono font-bold bg-purple-900 text-purple-200 px-2 py-0.5 rounded">
-            PACS VIEW
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono font-bold bg-teal-800 text-teal-100 px-2 py-0.5 rounded border border-teal-700 uppercase">
+            PACS {modality}
           </span>
-          <span className="text-[11px] text-slate-400 font-mono ml-1">
-            Image {activeIdx + 1}/{urls.length}
+          <span className="text-[11px] text-slate-400 font-mono">
+            Frame/Slice {activeIdx + 1} of {urls.length}
           </span>
         </div>
 
-        {/* Adjustments */}
+        {/* Adjustments & Modality Controls */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Ultrasound Cine Controls */}
+          {(modality === 'Ultrasound' || urls.length > 3) && (
+            <div className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setIsPlayingCine(!isPlayingCine)}
+                className="p-1 hover:bg-slate-700 rounded text-teal-300 font-bold flex items-center gap-1"
+                title="Toggle Motion Cine Loop Playback"
+              >
+                {isPlayingCine ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                <span className="text-[10px] uppercase">{isPlayingCine ? 'Pause' : 'Cine Loop'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCineSpeed(s => (s === 1 ? 2 : s === 2 ? 0.5 : 1))}
+                className="text-[10px] font-mono text-slate-300 px-1 hover:text-white"
+              >
+                {cineSpeed}x
+              </button>
+            </div>
+          )}
+
+          {/* MRI Sequence Selector */}
+          {(modality === 'MRI' || modality.includes('MR')) && (
+            <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+              {(['T1', 'T2', 'FLAIR', 'DWI'] as MriSequence[]).map((seq) => (
+                <button
+                  key={seq}
+                  type="button"
+                  onClick={() => setMriSeq(seq)}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                    mriSeq === seq ? 'bg-purple-700 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {seq}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* CT Hounsfield Window Preset Selector */}
+          {(modality === 'CT Scan' || modality.includes('CT')) && (
+            <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+              <Sliders className="w-3 h-3 text-slate-400 ml-1" />
+              {(['LUNG', 'BONE', 'SOFT_TISSUE', 'BRAIN'] as HounsfieldPreset[]).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => handleApplyCtPreset(preset)}
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${
+                    ctPreset === preset ? 'bg-teal-700 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {preset.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Run AI DICOM Vision Scan Button */}
           <button
             type="button"
@@ -169,7 +286,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
             title="Inspect image pixels using Multimodal Vision AI Model"
           >
             <Brain className={`w-3.5 h-3.5 ${isAiScanning ? 'animate-pulse text-amber-300' : 'text-purple-200'}`} />
-            {isAiScanning ? 'Scanning Image Pixels...' : 'Run AI Vision Scan'}
+            {isAiScanning ? 'Scanning Pixels...' : 'AI Vision Scan'}
           </button>
 
           {/* Fullscreen Theater Mode Button */}
@@ -177,13 +294,14 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
             type="button"
             onClick={() => setIsTheaterMode(!isTheaterMode)}
             className={`p-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1 ${
-              isTheaterMode ? 'bg-amber-600 text-white border-amber-500 ring-2 ring-amber-400/30' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+              isTheaterMode ? 'bg-amber-700 text-white border-amber-600' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
             }`}
             title="Expand to Fullscreen Theater Mode"
           >
             <Maximize2 className="w-3.5 h-3.5" />
-            {isTheaterMode ? 'Exit Fullscreen' : 'Fullscreen PACS'}
+            {isTheaterMode ? 'Exit' : 'Fullscreen'}
           </button>
+
           {/* Zoom controls */}
           <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
             <button
@@ -194,7 +312,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="px-1.5 text-[10px] font-mono font-bold text-purple-300">{Math.round(scale * 100)}%</span>
+            <span className="px-1.5 text-[10px] font-mono font-bold text-teal-300">{Math.round(scale * 100)}%</span>
             <button
               type="button"
               onClick={() => setScale((s) => Math.min(4.0, s + 0.2))}
@@ -220,7 +338,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
             type="button"
             onClick={() => setIsInverted(!isInverted)}
             className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-              isInverted ? 'bg-purple-600 text-white border-purple-500' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              isInverted ? 'bg-purple-700 text-white border-purple-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
             }`}
             title="Invert Grayscale Colors"
           >
@@ -233,15 +351,12 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
             type="button"
             onClick={() => setShowAiOverlay(!showAiOverlay)}
             className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-              showAiOverlay ? 'bg-amber-600 text-white border-amber-500 shadow-xs' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+              showAiOverlay ? 'bg-amber-700 text-white border-amber-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
             }`}
             title="Toggle AI Pathology Lesion Heatmap & Bounding Box Overlay"
           >
             <Brain className="w-3.5 h-3.5" />
-            <span>AI CAD Heatmap</span>
-            <span className={`text-[9px] px-1 py-0.5 rounded font-bold uppercase ${showAiOverlay ? 'bg-amber-800 text-white' : 'bg-slate-900 text-slate-400'}`}>
-              {showAiOverlay ? 'ON' : 'OFF'}
-            </span>
+            <span>AI Heatmap</span>
           </button>
 
           {/* Linear Distance Measurement Tool */}
@@ -253,7 +368,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
               setMeasureEnd(null);
             }}
             className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-              isMeasuring ? 'bg-emerald-600 text-white border-emerald-500 ring-2 ring-emerald-300/30' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              isMeasuring ? 'bg-emerald-700 text-white border-emerald-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
             }`}
             title="Linear Distance Measurement Tool"
           >
@@ -284,7 +399,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
             max="200"
             value={brightness}
             onChange={(e) => setBrightness(Number(e.target.value))}
-            className="w-full h-1 bg-slate-700 rounded accent-purple-500 cursor-pointer"
+            className="w-full h-1 bg-slate-700 rounded accent-teal-500 cursor-pointer"
           />
           <span className="font-mono text-[10px] w-8 text-right">{brightness}%</span>
         </div>
@@ -298,7 +413,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
             max="250"
             value={contrast}
             onChange={(e) => setContrast(Number(e.target.value))}
-            className="w-full h-1 bg-slate-700 rounded accent-purple-500 cursor-pointer"
+            className="w-full h-1 bg-slate-700 rounded accent-teal-500 cursor-pointer"
           />
           <span className="font-mono text-[10px] w-8 text-right">{contrast}%</span>
         </div>
@@ -308,7 +423,6 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
       <div
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
         className={`relative ${isTheaterMode ? 'flex-1 min-h-0 min-h-[550px]' : heightClass} bg-black flex items-center justify-center overflow-hidden cursor-${isMeasuring ? 'crosshair' : 'grab'}`}
       >
         {currentUrl ? (
@@ -328,7 +442,7 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
 
         {/* Distance Measurement Line Overlay */}
         {measureStart && measureEnd && (
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">
             <line
               x1={measureStart.x}
               y1={measureStart.y}
@@ -356,11 +470,11 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
 
         {/* Animated Laser Scanning Overlay */}
         {isAiScanning && (
-          <div className="absolute inset-0 bg-purple-900/30 backdrop-blur-[1px] flex flex-col items-center justify-center pointer-events-none z-20">
-            <div className="w-full h-1 bg-gradient-to-r from-transparent via-purple-400 to-transparent shadow-[0_0_15px_#c084fc] animate-pulse border-b border-purple-300" />
-            <div className="mt-4 px-4 py-2 bg-slate-950/90 border border-purple-500/50 rounded-xl text-purple-200 text-xs font-mono font-bold flex items-center gap-2 shadow-2xl">
+          <div className="absolute inset-0 bg-purple-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center pointer-events-none z-30">
+            <div className="w-full h-1 bg-purple-400 animate-pulse border-b border-purple-300" />
+            <div className="mt-4 px-4 py-2 bg-slate-950 border border-purple-500 rounded-xl text-purple-200 text-xs font-mono font-bold flex items-center gap-2 shadow-2xl">
               <Sparkles className="w-4 h-4 text-purple-400 animate-spin" />
-              Multimodal Vision AI Analyzing Image Pixels ({caseItem?.scanType || 'Radiograph'})...
+              Multimodal Vision AI Analyzing Image Pixels ({modality})...
             </div>
           </div>
         )}
@@ -368,74 +482,62 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
         {/* AI CAD Bounding Box Canvas Overlay */}
         {showAiOverlay && !isAiScanning && (
           <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-            {/* Target Bounding Box 1 */}
-            <div className="relative w-52 h-40 border-2 border-amber-400 bg-amber-500/10 rounded-lg animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-              <div className="absolute -top-6 left-0 bg-amber-500 text-slate-950 font-mono text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1">
+            <div className="relative w-52 h-40 border-2 border-amber-400 bg-amber-500/10 rounded-lg shadow-sm">
+              <div className="absolute -top-6 left-0 bg-amber-600 text-white font-mono text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1">
                 <Brain className="w-3 h-3" />
                 <span>ROI #1: {aiResult?.detectedFeatures[0] || 'Lower Lobe Focal Opacity'} ({aiResult?.confidenceScore || 94}%)</span>
               </div>
-              {/* Corner reticles */}
-              <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-amber-300" />
-              <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-amber-300" />
-              <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-amber-300" />
-              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-amber-300" />
-            </div>
-
-            {/* Target Bounding Box 2 (Secondary Sub-Visual Focus) */}
-            <div className="absolute top-1/4 left-1/3 w-28 h-20 border border-emerald-400/80 bg-emerald-500/10 rounded-md">
-              <div className="absolute -top-5 left-0 bg-emerald-700 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded">
-                <span>ROI #2: Normal Cardiac Silhouette (98%)</span>
-              </div>
             </div>
           </div>
         )}
 
-        {/* AI Vision Feature Extraction Badge Overlay */}
-        {showAiOverlay && !isAiScanning && aiResult && (
-          <div className="absolute top-2 right-2 max-w-xs bg-slate-950/90 border border-purple-500/40 p-2.5 rounded-xl text-[11px] font-mono space-y-1.5 backdrop-blur-md shadow-2xl z-20 text-slate-200">
-            <div className="flex items-center justify-between border-b border-purple-900/50 pb-1">
-              <span className="text-purple-300 font-bold flex items-center gap-1">
-                <Brain className="w-3.5 h-3.5 text-purple-400" /> CAD Inspection
-              </span>
-              <span className="text-[10px] bg-emerald-900/80 text-emerald-300 font-bold px-1.5 py-0.5 rounded">
-                {aiResult.confidenceScore}% Conf
-              </span>
-            </div>
-            <div className="space-y-0.5 text-[10px] text-slate-300">
-              {aiResult.detectedFeatures.map((feat, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-                  <span className="truncate">{feat}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* DICOM HUD Overlay Metadata */}
+        <div className="absolute top-2 left-2 pointer-events-none text-[10px] font-mono text-teal-400 bg-slate-950/80 px-2.5 py-1.5 rounded border border-slate-800 space-y-0.5">
+          <div>PATIENT: {caseItem?.patientName || 'Ahmad Razak'} (ID: {caseItem?.patientId || 'P-884'})</div>
+          <div>MODALITY: {modality} &middot; SLICE: {activeIdx + 1}/{urls.length}</div>
+          <div>WW/WL: {ctPreset !== 'DEFAULT' ? ctPreset : `${brightness}/${contrast}`}</div>
+        </div>
 
-        {/* Viewport Overlay Info */}
-        <div className="absolute top-2 left-2 pointer-events-none text-[10px] font-mono text-emerald-400 bg-black/60 px-2 py-1 rounded backdrop-blur-sm border border-emerald-900/40">
-          Scale: {scale.toFixed(1)}x &middot; Rot: {rotation}° &middot; Inv: {isInverted ? 'ON' : 'OFF'}
+        <div className="absolute top-2 right-2 pointer-events-none text-[10px] font-mono text-slate-400 bg-slate-950/80 px-2.5 py-1.5 rounded border border-slate-800 text-right">
+          <div>PACS: HEALTHGRID_PACS</div>
+          <div>SCALE: {scale.toFixed(1)}x &middot; ROT: {rotation}°</div>
         </div>
       </div>
 
-      {/* ── THUMBNAIL SELECTOR BAR ───────────────────────────────────────────── */}
+      {/* ── THUMBNAIL & SLICE STACK SELECTOR BAR ───────────────────────────── */}
       {urls.length > 1 && (
-        <div className="bg-slate-900 p-2 border-t border-slate-800 flex gap-2 overflow-x-auto">
-          {urls.map((url, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setActiveIdx(idx)}
-              className={`relative rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
-                activeIdx === idx ? 'border-purple-500 shadow-md scale-105' : 'border-slate-800 opacity-60 hover:opacity-100'
-              }`}
-            >
-              <img src={url} alt={`Thumb ${idx + 1}`} className="w-12 h-12 object-cover bg-black pointer-events-none" />
-              <span className="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-mono px-1 font-bold pointer-events-none">
-                {idx + 1}
-              </span>
-            </button>
-          ))}
+        <div className="bg-slate-900 p-2 border-t border-slate-800 flex items-center gap-2 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveIdx((prev) => Math.max(0, prev - 1))}
+            className="p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 shrink-0"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="flex gap-2 overflow-x-auto flex-1">
+            {urls.map((url, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setActiveIdx(idx)}
+                className={`relative rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
+                  activeIdx === idx ? 'border-teal-500 shadow-md scale-105' : 'border-slate-800 opacity-60 hover:opacity-100'
+                }`}
+              >
+                <img src={url} alt={`Slice ${idx + 1}`} className="w-12 h-12 object-cover bg-black pointer-events-none" />
+                <span className="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-mono px-1 font-bold pointer-events-none">
+                  {idx + 1}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveIdx((prev) => Math.min(urls.length - 1, prev + 1))}
+            className="p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 shrink-0"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

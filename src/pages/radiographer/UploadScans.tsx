@@ -339,13 +339,51 @@ export default function UploadScans() {
                     className="hidden"
                     id="scan-upload-input"
                   />
-                  <label
-                    htmlFor="scan-upload-input"
-                    className="btn-secondary text-xs cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 font-bold"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{t('Browse Image Files', 'Cari Fail Imej')}</span>
-                  </label>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <label
+                      htmlFor="scan-upload-input"
+                      className="btn-secondary text-xs cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 font-bold"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{t('Browse Image Files', 'Cari Fail Imej')}</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Create sample high-quality diagnostic scan canvas preview
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 640;
+                        canvas.height = 640;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                          ctx.fillStyle = '#0f172a';
+                          ctx.fillRect(0, 0, 640, 640);
+                          ctx.fillStyle = '#334155';
+                          ctx.beginPath();
+                          ctx.arc(320, 320, 220, 0, Math.PI * 2);
+                          ctx.fill();
+                          ctx.strokeStyle = '#94a3b8';
+                          ctx.lineWidth = 4;
+                          ctx.stroke();
+                          ctx.fillStyle = '#f8fafc';
+                          ctx.font = '14px monospace';
+                          ctx.fillText(`HARDWARE SIMULATOR: ${selectedCase.modality || 'X-Ray'}`, 30, 40);
+                          ctx.fillText(`PATIENT: ${selectedCase.patientName} (ID: ${selectedCase.patientId})`, 30, 65);
+                          ctx.fillText(`ACQUIRED: ${new Date().toISOString()}`, 30, 90);
+                        }
+                        const sampleUrl = canvas.toDataURL('image/png');
+                        setPreviews((prev) => [...prev, sampleUrl]);
+                        setFiles((prev) => [...prev, new File([], `DICOM_SIM_${selectedCase.modality || 'XRAY'}_001.dcm`)]);
+                        toast.success(`Hardware Simulator: Simulated ${selectedCase.modality || 'X-Ray'} scan transfer acquired!`);
+                      }}
+                      className="px-3 py-2 bg-teal-100 text-teal-900 hover:bg-teal-200 border border-teal-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                      title="Simulate acquiring DICOM scan from physical scanner hardware"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-teal-700" />
+                      <span>Simulate Modality Scan Push</span>
+                    </button>
+                  </div>
+
                 </div>
 
                 {/* Uploaded File List Badges */}

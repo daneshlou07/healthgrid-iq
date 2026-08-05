@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  orthanc:
+    image: osimis/orthanc:latest
+    container_name: healthgrid_orthanc_pacs
+    ports:
+      - "4242:4242" # DICOM C-STORE Protocol Port for X-Ray, CT, MRI, Ultrasound
+      - "8042:8042" # Orthanc Web UI & REST API / DICOMweb Port (WADO-RS/QIDO-RS)
+    environment:
+      - ORTHANC_NAME=HealthGrid_PACS_Server
+      - VERBOSE_STARTUP=true
+      - MALLOC_ARENA_MAX=2
+    volumes:
+      - orthanc_db:/var/lib/orthanc/db
+      - ./orthanc.json:/etc/orthanc/orthanc.json:ro
+    restart: unless-stopped
+
+volumes:
+  orthanc_db:
+    driver: local
+

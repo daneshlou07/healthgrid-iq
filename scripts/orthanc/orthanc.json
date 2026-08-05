@@ -1,0 +1,26 @@
+{
+  "Name" : "HealthGrid_PACS_Server",
+  "StorageDirectory" : "/var/lib/orthanc/db",
+  "IndexDirectory" : "/var/lib/orthanc/db",
+  "DicomAet" : "HEALTHGRID_PACS",
+  "DicomPort" : 4242,
+  "HttpPort" : 8042,
+  "HttpServerEnabled" : true,
+  "DicomServerEnabled" : true,
+  "RemoteAccessAllowed" : true,
+  "AuthenticationEnabled" : false,
+  "ConcurrentJobs" : 4,
+  "HttpCors" : true,
+  "HttpCorsAllowedOrigins" : "*",
+  "DicomModalities" : {
+    "XRAY_ROOM1" : [ "XRAY1", "127.0.0.1", 104 ],
+    "CT_SCANNER1" : [ "CT1", "127.0.0.1", 105 ],
+    "MRI_SUITE1" : [ "MRI1", "127.0.0.1", 106 ],
+    "ULTRASOUND_MOBILE1" : [ "US1", "127.0.0.1", 107 ]
+  },
+  "DicomWeb" : {
+    "Enable" : true,
+    "Root" : "/dicom-web/"
+  }
+}
+
