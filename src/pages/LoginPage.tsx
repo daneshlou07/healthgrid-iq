@@ -66,7 +66,7 @@ export default function LoginPage() {
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#F4F5F7] flex flex-col justify-between items-center p-4 sm:p-6 font-sans text-[#111827]">
-      
+
       {/* ── FORGOT PASSWORD MODAL ────────────────────────────────────────── */}
       {showForgot && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
@@ -120,29 +120,33 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* ── CENTERED DESKTOP LOGIN CARD (NATURAL DUAL LOGO PROPORTIONS) ── */}
+      {/* ── CENTERED DESKTOP LOGIN CARD (EXACT TWIN-BOX DUAL LOGOS AT TOP) ── */}
       <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2">
         <main className="w-full max-w-[540px] bg-white border border-[#CBD5E1] rounded-[8px] p-7 sm:p-9 md:p-10 space-y-5 shadow-xs">
-          
-          {/* Dual Logos Header (Natural Proportions: Theta compact, HealthGrid wide) */}
+
+          {/* Twin Boundary Box Logo Header (Identical Visual Scaling) */}
           <div className="flex flex-col items-center">
             <div className="flex items-center justify-center gap-6 sm:gap-8 py-1">
-              {/* Theta Logo (Compact & Shorter Width) */}
-              <img
-                src="/assets/theta-logo.png"
-                alt="Theta Edge"
-                className="h-9 sm:h-11 md:h-12 w-auto object-contain shrink-0"
-              />
+              {/* Theta Edge Logo */}
+              <div className="flex items-center justify-center">
+                <img
+                  src="/assets/theta-logo.png"
+                  alt="Theta Edge"
+                  className="h-[120px] w-auto object-contain"
+                />
+              </div>
 
               {/* Vertical Divider */}
-              <div className="w-[1px] h-9 sm:h-11 md:h-12 bg-[#CBD5E1] shrink-0" />
+              <div className="w-[1px] h-10 sm:h-12 bg-[#CBD5E1] shrink-0" />
 
-              {/* HealthGrid IQ Logo (Wider Banner Layout) */}
-              <img
-                src="/assets/healthgrid-logo.jpg"
-                alt="HealthGrid IQ"
-                className="h-10 sm:h-12 md:h-14 w-auto object-contain shrink-0"
-              />
+              {/* HealthGrid IQ Logo */}
+              <div className="flex items-center justify-center">
+                <img
+                  src="/assets/healthgrid-logo.jpg"
+                  alt="HealthGrid IQ"
+                  className="h-[130px] w-auto object-contain"
+                />
+              </div>
             </div>
             {/* Thin Horizontal Divider Below Logos */}
             <div className="w-full h-[1px] bg-[#E2E8F0] mt-4 mb-1" />
