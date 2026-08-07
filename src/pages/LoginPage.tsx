@@ -117,27 +117,27 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* ── CENTERED DESKTOP LOGIN CARD (EXACT 30-35% SCREEN WIDTH, ZERO SCROLLING) ── */}
+      {/* ── CENTERED DESKTOP LOGIN CARD (EXACT MATCH TO REFERENCE IMAGE) ── */}
       <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2">
-        <main className="w-full max-w-[540px] bg-white border border-[#CBD5E1] rounded-[8px] p-7 sm:p-9 md:p-10 space-y-5 shadow-xs">
+        <main className="w-full max-w-[560px] bg-white border border-[#CBD5E1] rounded-[8px] p-7 sm:p-9 md:p-10 space-y-5 shadow-xs">
           
-          {/* Dual Logos Section (Prominent, Large & Balanced) */}
+          {/* Dual Logos Section (Large & Prominent matching reference mockup) */}
           <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center gap-7 sm:gap-9 py-2">
+            <div className="flex items-center justify-center gap-8 sm:gap-10 py-3">
               <img
                 src="/assets/theta-logo.png"
                 alt="Theta Edge"
-                className="h-14 sm:h-16 md:h-16 max-h-[58px] w-auto max-w-[190px] object-contain shrink-0"
+                className="h-16 sm:h-20 md:h-22 max-h-[85px] w-auto object-contain shrink-0"
               />
-              <div className="w-[1px] h-14 sm:h-16 md:h-16 bg-[#CBD5E1] shrink-0" />
+              <div className="w-[1px] h-16 sm:h-20 md:h-20 bg-[#CBD5E1] shrink-0 mx-2" />
               <img
                 src="/assets/healthgrid-logo.jpg"
                 alt="HealthGrid IQ"
-                className="h-14 sm:h-16 md:h-16 max-h-[58px] w-auto max-w-[240px] object-contain shrink-0 scale-110"
+                className="h-20 sm:h-24 md:h-28 max-h-[105px] w-auto object-contain shrink-0 scale-125 origin-center"
               />
             </div>
             {/* Thin Horizontal Divider Below Logos */}
-            <div className="w-full h-[1px] bg-[#E2E8F0] mt-5 mb-1" />
+            <div className="w-full h-[1px] bg-[#E2E8F0] mt-6 mb-2" />
           </div>
 
           {/* Title Header */}
@@ -219,7 +219,7 @@ export default function LoginPage() {
             {/* Dark Green Sign In Button */}
             <button
               type="submit"
-              className="w-full py-3 bg-[#0A5236] hover:bg-[#073D28] text-white font-semibold text-[15px] rounded-[4px] transition-colors cursor-pointer mt-1"
+              className="w-full py-3.5 bg-[#0A5236] hover:bg-[#073D28] text-white font-semibold text-[15px] rounded-[4px] transition-colors cursor-pointer mt-1"
             >
               Sign In
             </button>
@@ -247,12 +247,12 @@ export default function LoginPage() {
         </main>
       </div>
 
-      {/* ── FOOTER SECTION (STRICT NO-SCROLL SINGLE VIEWPORT) ── */}
+      {/* ── FOOTER SECTION (EXACT MATCH TO REFERENCE MOCKUP FOOTER) ── */}
       <footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-3 px-2">
         <div className="w-full h-[1px] bg-[#CBD5E1] mb-3" />
         <div className="flex items-center justify-between text-[12px] text-[#64748B]">
           <p>&copy; 2026 Theta Edge Berhad. All rights reserved.</p>
-          <p>Version {SYSTEM_VERSION}</p>
+          <p>Version {SYSTEM_VERSION} &nbsp;|&nbsp; Licensed to Theta Edge Berhad</p>
         </div>
       </footer>
 
