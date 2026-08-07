@@ -62,7 +62,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#F3F4F6] flex flex-col justify-between items-center p-6 md:p-10 font-sans text-slate-800">
+    <div className="h-screen w-screen overflow-hidden bg-[#F3F4F6] flex flex-col justify-between items-center p-4 md:p-6 font-sans text-slate-800">
       
       {/* ── FORGOT PASSWORD MODAL ────────────────────────────────────────── */}
       {showForgot && (
@@ -117,55 +117,55 @@ export default function LoginPage() {
         </div>
       )}
 
-      <div className="flex-1 flex items-center justify-center w-full my-auto py-8">
-        {/* ── MAIN SIGN IN CARD (EXACT MATCH TO SPECIFIED MOCKUP) ─────────── */}
-        <main className="w-full max-w-[540px] bg-white border border-[#CBD5E1] rounded-[6px] p-8 md:p-12 space-y-7 shadow-xs">
+      {/* ── CENTERED SIGN IN CARD (FIT TO SINGLE VIEWPORT PAGE) ───────────── */}
+      <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2 overflow-hidden">
+        <main className="w-full max-w-[580px] bg-white border border-[#CBD5E1] rounded-[6px] p-6 md:p-10 space-y-6 shadow-xs flex flex-col justify-center max-h-full overflow-y-auto">
           
-          {/* Dual Logos Header Section */}
-          <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center gap-8 md:gap-10 py-3">
+          {/* Prominent Dual Logos Header Section */}
+          <div className="flex flex-col items-center shrink-0">
+            <div className="flex items-center justify-center gap-8 md:gap-12 py-1">
               <img
                 src="/assets/theta-logo.png"
                 alt="Theta Edge Berhad"
-                className="h-14 md:h-20 lg:h-22 w-auto max-w-[200px] object-contain"
+                className="h-16 md:h-22 lg:h-24 max-h-[85px] w-auto max-w-[240px] object-contain"
               />
-              <div className="w-[1px] h-14 md:h-20 lg:h-22 bg-[#CBD5E1]" />
+              <div className="w-[1px] h-16 md:h-22 lg:h-24 bg-[#CBD5E1]" />
               <img
                 src="/assets/healthgrid-logo.jpg"
                 alt="HealthGrid IQ"
-                className="h-14 md:h-20 lg:h-22 w-auto max-w-[220px] object-contain"
+                className="h-16 md:h-22 lg:h-24 max-h-[85px] w-auto max-w-[260px] object-contain"
               />
             </div>
             {/* Horizontal Line Divider Below Logos */}
-            <div className="w-full h-[1px] bg-[#E2E8F0] mt-8" />
+            <div className="w-full h-[1px] bg-[#E2E8F0] mt-6" />
           </div>
 
           {/* Title Header */}
-          <div className="space-y-1">
+          <div className="space-y-1 shrink-0">
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Sign In</h1>
-            <p className="text-sm text-slate-500 font-normal">
+            <p className="text-xs md:text-sm text-slate-500 font-normal">
               Please enter your credentials to continue.
             </p>
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-xs text-red-700 font-semibold rounded-[4px]">
+            <div className="p-2.5 bg-red-50 border border-red-200 text-xs text-red-700 font-semibold rounded-[4px] shrink-0">
               {error}
             </div>
           )}
 
           {/* Sign In Form */}
-          <form onSubmit={handleEmailLogin} className="space-y-5">
+          <form onSubmit={handleEmailLogin} className="space-y-4 shrink-0">
             {/* Email Field */}
             <div>
-              <label className="block text-xs md:text-sm font-semibold text-slate-800 mb-1.5">
+              <label className="block text-xs md:text-sm font-semibold text-slate-800 mb-1">
                 Email Address
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-3 bg-white border border-[#CBD5E1] rounded-[4px] text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A5236] transition-colors"
+                className="w-full px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[4px] text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A5236] transition-colors"
                 placeholder="Enter your email"
                 required
               />
@@ -173,7 +173,7 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div>
-              <label className="block text-xs md:text-sm font-semibold text-slate-800 mb-1.5">
+              <label className="block text-xs md:text-sm font-semibold text-slate-800 mb-1">
                 Password
               </label>
               <div className="relative">
@@ -181,7 +181,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-3.5 pr-10 py-3 bg-white border border-[#CBD5E1] rounded-[4px] text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A5236] transition-colors"
+                  className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-[#CBD5E1] rounded-[4px] text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A5236] transition-colors"
                   placeholder="Enter your password"
                   required
                 />
@@ -219,14 +219,14 @@ export default function LoginPage() {
             {/* Solid Dark Green Primary Action Button */}
             <button
               type="submit"
-              className="w-full py-3.5 bg-[#0A5236] hover:bg-[#073D28] text-white font-bold text-sm rounded-[4px] transition-colors cursor-pointer mt-2 shadow-2xs"
+              className="w-full py-3 bg-[#0A5236] hover:bg-[#073D28] text-white font-bold text-sm rounded-[4px] transition-colors cursor-pointer mt-1 shadow-2xs"
             >
               Sign In
             </button>
           </form>
 
           {/* Quick Access Selector (HIS Clinical Demo Accounts) */}
-          <div className="pt-5 border-t border-[#E2E8F0] space-y-2">
+          <div className="pt-4 border-t border-[#E2E8F0] space-y-1.5 shrink-0">
             <label className="block text-xs font-semibold text-slate-500 text-center">
               Quick Demo Role Select
             </label>
@@ -237,7 +237,7 @@ export default function LoginPage() {
                 }
               }}
               defaultValue=""
-              className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-xs text-slate-700 focus:outline-none focus:border-[#0A5236] cursor-pointer font-medium"
+              className="w-full px-3 py-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-xs text-slate-700 focus:outline-none focus:border-[#0A5236] cursor-pointer font-medium"
             >
               <option value="" disabled>-- Select Role to Log In Instantly --</option>
               <option value="Medical Officer">Medical Officer (Dr. Ahmad R. - Putrajaya)</option>
@@ -250,10 +250,10 @@ export default function LoginPage() {
         </main>
       </div>
 
-      {/* ── FOOTER SECTION WITH FULL-WIDTH TOP DIVIDER ─────────────────── */}
-      <footer className="w-full max-w-5xl mx-auto pt-6 pb-2">
-        <div className="w-full h-[1px] bg-[#CBD5E1] mb-6" />
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      {/* ── FOOTER SECTION WITH FULL-WIDTH TOP DIVIDER (NO-SCROLL SINGLE VIEWPORT) ── */}
+      <footer className="w-full max-w-5xl mx-auto shrink-0 pt-2 pb-1">
+        <div className="w-full h-[1px] bg-[#CBD5E1] mb-3" />
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-1 text-xs text-slate-500">
           <p>&copy; 2026 Theta Edge Berhad. All rights reserved.</p>
           <p className="flex items-center gap-2">
             <span>Version v{SYSTEM_VERSION}</span>
