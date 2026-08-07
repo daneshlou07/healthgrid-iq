@@ -120,10 +120,38 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* ── CENTERED DESKTOP LOGIN CARD (STRICT AUTHENTICATION, NO PUBLIC BYPASS) ── */}
+      {/* ── CENTERED DESKTOP LOGIN CARD (EXACT TWIN-BOX DUAL LOGOS AT TOP) ── */}
       <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2">
         <main className="w-full max-w-[540px] bg-white border border-[#CBD5E1] rounded-[8px] p-7 sm:p-9 md:p-10 space-y-5 shadow-xs">
           
+          {/* Twin Boundary Box Logo Header (Identical Visual Scaling) */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center gap-6 sm:gap-8 py-1">
+              {/* Theta Edge Logo Box */}
+              <div className="w-[160px] sm:w-[180px] h-[56px] sm:h-[64px] flex items-center justify-center">
+                <img
+                  src="/assets/theta-logo.png"
+                  alt="Theta Edge"
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
+
+              {/* Vertical Divider */}
+              <div className="w-[1px] h-10 sm:h-12 bg-[#CBD5E1] shrink-0" />
+
+              {/* HealthGrid IQ Logo Box */}
+              <div className="w-[160px] sm:w-[180px] h-[56px] sm:h-[64px] flex items-center justify-center">
+                <img
+                  src="/assets/healthgrid-logo.jpg"
+                  alt="HealthGrid IQ"
+                  className="max-h-full max-w-full object-contain scale-115"
+                />
+              </div>
+            </div>
+            {/* Thin Horizontal Divider Below Logos */}
+            <div className="w-full h-[1px] bg-[#E2E8F0] mt-4 mb-1" />
+          </div>
+
           {/* Title Header */}
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-[28px] font-semibold text-[#0F172A] tracking-tight">Sign In</h1>
