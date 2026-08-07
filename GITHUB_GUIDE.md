@@ -328,4 +328,4 @@ git push
 
 ---
 
-*This guide was written for HealthGrid IQ — Danesh Lou, July 2026*
+*This guide was written for HealthGrid IQ — July 2026*

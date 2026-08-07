@@ -3,16 +3,27 @@ import { getAuditLogs } from '../../services/dataService';
 import type { AuditLog } from '../../types';
 import { Search, Shield, Download } from 'lucide-react';
 import { exportToCSV } from '../../utils/exportUtils';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AuditLogs() {
+  const { currentUser } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [search, setSearch] = useState('');
   const [filterAction, setFilterAction] = useState('all');
 
   useEffect(() => { getAuditLogs().then(setLogs); }, []);
 
+  const isMasterAdmin = currentUser?.email === 'daneshlou05@gmail.com';
+
   const actions = [...new Set(logs.map((l) => l.action))];
   const filtered = logs.filter((log) => {
+    // Hide Super Admin audit logs if viewing as regular Admin
+    const isSuperAdminLog = log.userId === 'admin-002' ||
+                            log.userName === 'Super Admin' ||
+                            log.userName === 'Danesh Lou' ||
+                            log.details?.toLowerCase().includes('daneshlou05@gmail.com');
+    if (!isMasterAdmin && isSuperAdminLog) return false;
+
     const matchSearch = log.details.toLowerCase().includes(search.toLowerCase()) || log.userName.toLowerCase().includes(search.toLowerCase());
     const matchAction = filterAction === 'all' || log.action === filterAction;
     return matchSearch && matchAction;

@@ -27,11 +27,18 @@ export default function UsersManagement() {
     name: '', email: '', role: 'Medical Officer' as UserRole, specialty: '', shift: '', password: 'Password123!',
   });
 
-  const filtered = users.filter((u) =>
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.role.toLowerCase().includes(search.toLowerCase())
-  );
+  const isMasterAdmin = currentUser?.email === 'daneshlou05@gmail.com';
+
+  const filtered = users.filter((u) => {
+    // Hide Super Admin account from view if viewing as regular Admin
+    if (!isMasterAdmin && (u.email === 'daneshlou05@gmail.com' || u.id === 'admin-002')) return false;
+    
+    return (
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.role.toLowerCase().includes(search.toLowerCase())
+    );
+  });
 
   const handleExport = () => {
     exportToCSV(

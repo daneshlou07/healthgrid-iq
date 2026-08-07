@@ -30,7 +30,7 @@ const users = [
   { id: 'rologist-001', name: 'Dr. Priya Nair', email: 'priya.nair@healthgrid.my', role: 'Radiologist', specialty: 'Diagnostic Radiology', status: 'active', createdAt: '2025-01-20T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
   { id: 'dept-001', name: 'Nurul Aisyah', email: 'nurul.aisyah@healthgrid.my', role: 'Radiology Department', status: 'active', createdAt: '2025-01-10T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
   { id: 'admin-001', name: 'Tan Wei Ming', email: 'weiming.tan@healthgrid.my', role: 'Administrator', status: 'active', createdAt: '2024-12-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
-  { id: 'admin-002', name: 'Danesh Lou', email: 'daneshlou05@gmail.com', role: 'Administrator', status: 'active', createdAt: '2025-01-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
+  { id: 'admin-002', name: 'Super Admin', email: 'daneshlou05@gmail.com', role: 'Administrator', status: 'active', createdAt: '2025-01-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
 ];
 
 const clinics = [

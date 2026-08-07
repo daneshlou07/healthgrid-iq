@@ -172,7 +172,7 @@ export const mockUsers: User[] = [
   },
   {
     id: 'admin-002',
-    name: 'Danesh Lou',
+    name: 'Super Admin',
     email: 'daneshlou05@gmail.com',
     role: 'Administrator',
     status: 'active',

@@ -28,7 +28,7 @@ export default function ImpersonationBanner() {
           </div>
         ) : (
           <span className="text-slate-300">
-            Welcome, <strong>Danesh Lou</strong>. You have full system access and user view controls.
+            Welcome, <strong>Super Admin</strong>. You have full system access and user view controls.
           </span>
         )}
       </div>

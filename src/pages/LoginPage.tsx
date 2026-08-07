@@ -134,7 +134,7 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="w-[90%] h-[1px] bg-[#E2E8F0] mt-2 mb-1 mx-auto" />
+            <div className="w-[90%] h-[1px] bg-[#E2E8F0] mt-3 mb-1 mx-auto" />
           </div>
 
 
@@ -165,7 +165,7 @@ export default function LoginPage() {
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[4px] text-[14px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#0A5236] transition-colors"
+                className="w-full px-3.5 py-3 bg-white border border-[#CBD5E1] rounded-[4px] text-[14px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#0A5236] transition-colors"
                 placeholder="Enter your email or username"
                 required
               />
