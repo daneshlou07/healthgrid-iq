@@ -62,7 +62,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#F4F5F7] flex flex-col justify-between items-center p-6 md:p-10 font-sans text-[#111827]">
+    <div className="fixed inset-0 overflow-hidden bg-[#F4F5F7] flex flex-col justify-between items-center p-4 sm:p-6 font-sans text-[#111827]">
       
       {/* ── FORGOT PASSWORD MODAL ────────────────────────────────────────── */}
       {showForgot && (
@@ -117,48 +117,48 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* ── CENTERED DESKTOP LOGIN CARD (MATCHES SPECIFIED MOCKUP EXACTLY) ── */}
-      <div className="w-full max-w-[520px] mx-auto my-auto py-6">
-        <main className="w-full bg-white border border-[#CBD5E1] rounded-[8px] p-8 md:p-11 space-y-6 shadow-xs">
+      {/* ── CENTERED DESKTOP LOGIN CARD (EXACT 30-35% SCREEN WIDTH, ZERO SCROLLING) ── */}
+      <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2">
+        <main className="w-full max-w-[520px] bg-white border border-[#CBD5E1] rounded-[8px] p-6 sm:p-8 md:p-9 space-y-4 sm:space-y-5 shadow-xs">
           
-          {/* Dual Logos Section (Balanced Dimensions & Proportions) */}
+          {/* Dual Logos Section (Prominent, Large & Balanced) */}
           <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center gap-6 py-2">
+            <div className="flex items-center justify-center gap-6 sm:gap-8 py-1">
               <img
                 src="/assets/theta-logo.png"
                 alt="Theta Edge"
-                className="h-10 md:h-12 w-auto max-w-[140px] object-contain shrink-0"
+                className="h-12 sm:h-14 md:h-16 max-h-[64px] w-auto max-w-[180px] object-contain shrink-0"
               />
-              <div className="w-[1px] h-10 md:h-12 bg-[#CBD5E1] shrink-0" />
+              <div className="w-[1px] h-12 sm:h-14 md:h-16 bg-[#CBD5E1] shrink-0" />
               <img
                 src="/assets/healthgrid-logo.jpg"
                 alt="HealthGrid IQ"
-                className="h-8 md:h-10 w-auto max-w-[200px] object-contain shrink-0"
+                className="h-12 sm:h-14 md:h-16 max-h-[64px] w-auto max-w-[220px] object-contain shrink-0"
               />
             </div>
             {/* Thin Horizontal Divider Below Logos */}
-            <div className="w-full h-[1px] bg-[#E2E8F0] mt-6" />
+            <div className="w-full h-[1px] bg-[#E2E8F0] mt-4" />
           </div>
 
           {/* Title Header */}
-          <div className="space-y-1">
-            <h1 className="text-[28px] font-semibold text-[#0F172A] tracking-tight">Sign In</h1>
-            <p className="text-[14px] text-[#64748B] font-normal">
+          <div className="space-y-0.5">
+            <h1 className="text-2xl sm:text-[28px] font-semibold text-[#0F172A] tracking-tight">Sign In</h1>
+            <p className="text-xs sm:text-[14px] text-[#64748B] font-normal">
               Please enter your credentials to continue.
             </p>
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-[13px] text-red-700 font-semibold rounded-[4px]">
+            <div className="p-2.5 bg-red-50 border border-red-200 text-[13px] text-red-700 font-semibold rounded-[4px]">
               {error}
             </div>
           )}
 
           {/* Sign In Form */}
-          <form onSubmit={handleEmailLogin} className="space-y-5">
+          <form onSubmit={handleEmailLogin} className="space-y-4">
             {/* Email Address Field */}
             <div>
-              <label className="block text-[14px] font-medium text-[#334155] mb-2">
+              <label className="block text-[14px] font-medium text-[#334155] mb-1.5">
                 Email Address
               </label>
               <input
@@ -173,7 +173,7 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div>
-              <label className="block text-[14px] font-medium text-[#334155] mb-2">
+              <label className="block text-[14px] font-medium text-[#334155] mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -196,7 +196,7 @@ export default function LoginPage() {
             </div>
 
             {/* Remember Me & Forgot Password Row */}
-            <div className="flex items-center justify-between text-[14px]">
+            <div className="flex items-center justify-between text-[14px] pt-0.5">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -219,14 +219,14 @@ export default function LoginPage() {
             {/* Dark Green Sign In Button */}
             <button
               type="submit"
-              className="w-full py-3.5 bg-[#0A5236] hover:bg-[#073D28] text-white font-semibold text-[15px] rounded-[4px] transition-colors cursor-pointer mt-1"
+              className="w-full py-3 bg-[#0A5236] hover:bg-[#073D28] text-white font-semibold text-[15px] rounded-[4px] transition-colors cursor-pointer mt-1"
             >
               Sign In
             </button>
           </form>
 
           {/* HIS Clinical Demo Account Quick Selector (Subtle Testing Dropdown) */}
-          <div className="pt-4 border-t border-[#E2E8F0]">
+          <div className="pt-3 border-t border-[#E2E8F0]">
             <select
               onChange={(e) => {
                 if (e.target.value) {
@@ -234,7 +234,7 @@ export default function LoginPage() {
                 }
               }}
               defaultValue=""
-              className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-[12px] text-[#475569] cursor-pointer font-normal"
+              className="w-full px-3 py-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-[12px] text-[#475569] cursor-pointer font-normal"
             >
               <option value="" disabled>-- Demo Quick Role Login (HIS System) --</option>
               <option value="Medical Officer">Medical Officer (Dr. Ahmad R. - Putrajaya)</option>
@@ -247,9 +247,9 @@ export default function LoginPage() {
         </main>
       </div>
 
-      {/* ── FOOTER SECTION (SUBTLE 12PX GREY TEXT WITH FULL-WIDTH TOP BORDER) ── */}
-      <footer className="w-full max-w-[1200px] shrink-0 pt-6 pb-4">
-        <div className="w-full h-[1px] bg-[#CBD5E1] mb-4" />
+      {/* ── FOOTER SECTION (STRICT NO-SCROLL SINGLE VIEWPORT) ── */}
+      <footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-2">
+        <div className="w-full h-[1px] bg-[#CBD5E1] mb-3" />
         <div className="flex items-center justify-between text-[12px] text-[#64748B]">
           <p>&copy; 2026 Theta Edge Berhad. All rights reserved.</p>
           <p>Version {SYSTEM_VERSION}</p>
