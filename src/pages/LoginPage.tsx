@@ -123,17 +123,17 @@ export default function LoginPage() {
           
           {/* Dual Logos Header Section */}
           <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center gap-6 md:gap-8 py-2">
+            <div className="flex items-center justify-center gap-8 md:gap-10 py-3">
               <img
                 src="/assets/theta-logo.png"
                 alt="Theta Edge Berhad"
-                className="h-10 md:h-12 w-auto object-contain"
+                className="h-14 md:h-20 lg:h-22 w-auto max-w-[200px] object-contain"
               />
-              <div className="w-[1px] h-10 md:h-12 bg-[#CBD5E1]" />
+              <div className="w-[1px] h-14 md:h-20 lg:h-22 bg-[#CBD5E1]" />
               <img
                 src="/assets/healthgrid-logo.jpg"
                 alt="HealthGrid IQ"
-                className="h-10 md:h-12 w-auto object-contain"
+                className="h-14 md:h-20 lg:h-22 w-auto max-w-[220px] object-contain"
               />
             </div>
             {/* Horizontal Line Divider Below Logos */}
