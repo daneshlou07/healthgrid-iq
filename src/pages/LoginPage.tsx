@@ -121,19 +121,19 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2">
         <main className="w-full max-w-[520px] bg-white border border-[#CBD5E1] rounded-[8px] p-6 sm:p-8 md:p-9 space-y-4 sm:space-y-5 shadow-xs">
           
-          {/* Dual Logos Section (Prominent, Large & Balanced) */}
+          {/* Dual Logos Section (Visual Balance & Equal Text Weight) */}
           <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center gap-6 sm:gap-8 py-1">
+            <div className="flex items-center justify-center gap-6 sm:gap-8 py-1.5">
               <img
                 src="/assets/theta-logo.png"
                 alt="Theta Edge"
-                className="h-12 sm:h-14 md:h-16 max-h-[64px] w-auto max-w-[180px] object-contain shrink-0"
+                className="h-10 sm:h-12 md:h-13 w-auto max-w-[170px] object-contain shrink-0"
               />
-              <div className="w-[1px] h-12 sm:h-14 md:h-16 bg-[#CBD5E1] shrink-0" />
+              <div className="w-[1px] h-10 sm:h-12 md:h-13 bg-[#CBD5E1] shrink-0" />
               <img
                 src="/assets/healthgrid-logo.jpg"
                 alt="HealthGrid IQ"
-                className="h-12 sm:h-14 md:h-16 max-h-[64px] w-auto max-w-[220px] object-contain shrink-0"
+                className="h-14 sm:h-16 md:h-18 w-auto max-w-[240px] object-contain shrink-0 scale-110"
               />
             </div>
             {/* Thin Horizontal Divider Below Logos */}
@@ -248,7 +248,7 @@ export default function LoginPage() {
       </div>
 
       {/* ── FOOTER SECTION (STRICT NO-SCROLL SINGLE VIEWPORT) ── */}
-      <footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-2">
+      <footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-2 px-2">
         <div className="w-full h-[1px] bg-[#CBD5E1] mb-3" />
         <div className="flex items-center justify-between text-[12px] text-[#64748B]">
           <p>&copy; 2026 Theta Edge Berhad. All rights reserved.</p>
