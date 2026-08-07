@@ -1,26 +1,47 @@
-# GitHub Guide for HealthGrid IQ
-### Written for Danesh — No Prior GitHub Experience Needed
+# GitHub & Vercel Guide for HealthGrid IQ
+### Quick Reference & Complete Step-by-Step Guide
 
 ---
 
-## What is GitHub and Why Use It?
+## Quick Start: Push Changes to GitHub & Update Vercel
 
-Think of GitHub like a Google Drive for code.
-- Every time you make changes, you "save a snapshot" (called a **commit**)
-- You can go back to any snapshot anytime
-- You can't accidentally break the project permanently
+When you finish making changes to your project, run these commands in your VS Code terminal:
 
----
+### Option A: Standard Deployment (GitHub + Direct Vercel Deploy)
+```bash
+# 1. Stage all your changed files
+git add .
 
-## The 3 Commands You'll Use 90% of the Time
+# 2. Save a snapshot with a descriptive message
+git commit -m "Describe your changes here"
 
+# 3. Push to GitHub
+git push origin master
+
+# 4. Deploy directly to Vercel Production
+npx vercel --prod --yes
 ```
+
+### Option B: Auto-Deployment via GitHub
+If your GitHub repo is connected to Vercel:
+```bash
+git add .
+git commit -m "Describe your changes here"
+git push origin master
+```
+*Vercel will automatically detect the push and deploy your update within 60 seconds.*
+
+---
+
+## The 3 Core Commands You'll Use 90% of the Time
+
+```bash
 git add .           → Stage all your changes (tell Git what to save)
 git commit -m "..."  → Save a snapshot with a description
 git push             → Upload to GitHub
 ```
 
-That's it. Everything else in this guide is for specific situations.
+Everything below is for reference and specific situations.
 
 ---
 

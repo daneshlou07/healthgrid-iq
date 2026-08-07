@@ -121,50 +121,38 @@ export default function LoginPage() {
       )}
 
       {/* ── CENTERED DESKTOP LOGIN CARD (EXACT TWIN-BOX DUAL LOGOS AT TOP) ── */}
-      <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2">
-        <main className="w-full max-w-[540px] bg-white border border-[#CBD5E1] rounded-[8px] p-7 sm:p-9 md:p-10 space-y-5 shadow-xs">
+      <div className="flex-1 flex items-center justify-center w-full min-h-0">
+        <main className="w-full max-w-[580px] bg-white border border-[#CBD5E1] rounded-[6px] p-6 sm:p-8 md:p-8 space-y-5 shadow-xs">
 
-          {/* Twin Boundary Box Logo Header (Identical Visual Scaling) */}
+          {/* HealthGrid IQ Logo Header */}
           <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center gap-6 sm:gap-8 py-1">
-              {/* Theta Edge Logo */}
-              <div className="flex items-center justify-center">
-                <img
-                  src="/assets/theta-logo.png"
-                  alt="Theta Edge"
-                  className="h-[120px] w-auto object-contain"
-                />
-              </div>
-
-              {/* Vertical Divider */}
-              <div className="w-[1px] h-10 sm:h-12 bg-[#CBD5E1] shrink-0" />
-
-              {/* HealthGrid IQ Logo */}
-              <div className="flex items-center justify-center">
-                <img
-                  src="/assets/healthgrid-logo.jpg"
-                  alt="HealthGrid IQ"
-                  className="h-[130px] w-auto object-contain"
-                />
-              </div>
+            <div className="flex items-center justify-center">
+              <img
+                src="/assets/healthgrid-iq-logo.png"
+                alt="HealthGrid IQ"
+                className="h-[64px] w-auto object-contain"
+              />
             </div>
-            {/* Thin Horizontal Divider Below Logos */}
-            <div className="w-full h-[1px] bg-[#E2E8F0] mt-4 mb-1" />
+
+            <div className="w-[90%] h-[1px] bg-[#E2E8F0] mt-2 mb-1 mx-auto" />
           </div>
+
 
           {/* Title Header */}
           <div className="space-y-1">
-            <h1 className="text-2xl sm:text-[28px] font-semibold text-[#0F172A] tracking-tight">Sign In</h1>
+            <h1 className="text-2xl sm:text-[28px] font-bold">Sign In</h1>
             <p className="text-xs sm:text-[14px] text-[#475569] font-normal">
               Please enter your credentials to continue.
             </p>
           </div>
 
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium rounded-[4px]">
-              {error}
-            </div>
-          )}
+          {
+            error && (
+              <div className="p-3 bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium rounded-[4px]">
+                {error}
+              </div>
+            )
+          }
 
           {/* Sign In Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
@@ -238,18 +226,18 @@ export default function LoginPage() {
             </button>
           </form>
 
-        </main>
-      </div>
+        </main >
+      </div >
 
       {/* ── FOOTER SECTION (STRICT NO-SCROLL SINGLE VIEWPORT) ── */}
-      <footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-3 px-2">
+      < footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-3 px-2" >
         <div className="w-full h-[1px] bg-[#CBD5E1] mb-3" />
         <div className="flex items-center justify-between text-[12px] text-[#64748B]">
           <p>&copy; 2026 Theta Edge Berhad. All rights reserved.</p>
           <p>Version {SYSTEM_VERSION}</p>
         </div>
-      </footer>
+      </footer >
 
-    </div>
+    </div >
   );
 }
