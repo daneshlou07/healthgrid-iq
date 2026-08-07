@@ -11,7 +11,6 @@ import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import PageLoader from './components/ux/PageLoader';
-import DevAccountSwitcher from './components/ux/DevAccountSwitcher';
 
 // Helper for resilient lazy loading across new deployments
 function safeLazy<T extends React.ComponentType<any>>(importFn: () => Promise<{ default: T }>) {
@@ -189,7 +188,6 @@ export default function App() {
                   <ConfirmProvider>
                     <AppRoutes />
                     <KeyboardShortcutsOverlay />
-                    <DevAccountSwitcher />
                   </ConfirmProvider>
                 </SearchPaletteProvider>
               </ToastProvider>
