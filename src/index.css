@@ -17,169 +17,132 @@
   }
 
   body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #EDF4F2;
-    color: #112A28;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f5f6f8;
+    color: #1F2937;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Scrollbar — subtle, enterprise style */
+  /* Scrollbar — subtle clinical style */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background: #e5e7eb;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #C4D6D1;
-    border-radius: 3px;
+    background: #9ca3af;
+    border-radius: 2px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #A6BFB9;
+    background: #6b7280;
   }
 }
 
 @layer utilities {
   .font-mono {
-    font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   }
 }
 
 @layer components {
 
-  /* === BUTTONS === */
+  /* === BUTTONS — Standard Enterprise Buttons === */
   .btn-primary {
-    @apply bg-[#0F4C42] hover:bg-[#0B3931] text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/30 text-sm;
+    @apply bg-[#0f5132] hover:bg-[#0b3e26] text-white font-semibold px-4 h-[44px] rounded-[4px] transition-colors text-[15px] focus:outline-none;
   }
 
   .btn-secondary {
-    @apply bg-white hover:bg-surface-100 text-navy-600 font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 border border-surface-300 text-sm;
+    @apply bg-white hover:bg-gray-100 text-gray-800 font-medium px-4 h-[44px] rounded-[4px] border border-[#d9dde3] transition-colors text-[14px];
   }
 
   .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-4 h-[44px] rounded-[4px] transition-colors text-[14px];
   }
 
   .btn-success {
-    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
+    @apply bg-[#0f5132] hover:bg-[#0b3e26] text-white font-medium px-4 h-[44px] rounded-[4px] transition-colors text-[14px];
   }
 
   .btn-ghost {
-    @apply text-navy-600 hover:bg-surface-200 font-medium px-4 py-2 rounded-lg transition-colors duration-150 text-sm;
+    @apply text-gray-700 hover:bg-gray-200 font-medium px-3 py-1.5 rounded-[4px] transition-colors text-[14px];
   }
 
-  .btn-success {
-    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
-  }
-
-  .btn-ghost {
-    @apply text-navy-600 hover:bg-surface-200 font-medium px-4 py-2 rounded-lg transition-colors duration-150 text-sm;
-  }
-
-  /* === CARDS === */
+  /* === CARDS — Crisp Hospital Cards === */
   .card {
-    @apply bg-white border border-surface-300 rounded-xl p-6 shadow-card;
+    @apply bg-white border border-[#d9dde3] rounded-[4px] p-6 shadow-none;
   }
 
   .card-hover {
-    @apply card hover:shadow-card-hover hover:border-surface-400 transition-all duration-150;
+    @apply card hover:border-gray-400 transition-colors;
   }
 
-  /* === INPUTS === */
+  /* === INPUTS — Standard Clinical Form Controls === */
   .input-field {
-    @apply w-full bg-white border border-surface-300 rounded-lg px-4 py-2.5 text-surface-900 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-400 transition-all duration-150 text-sm;
+    @apply w-full bg-white border border-[#d9dde3] rounded-[4px] h-[44px] px-3.5 text-[#111827] placeholder-[#9ca3af] focus:outline-none focus:border-[#0f5132] text-[14px];
   }
 
   .select-field {
-    @apply w-full bg-white border border-surface-300 rounded-lg px-4 py-2.5 text-surface-900 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-400 transition-all duration-150 text-sm;
+    @apply w-full bg-white border border-[#d9dde3] rounded-[4px] h-[44px] px-3.5 text-[#111827] focus:outline-none focus:border-[#0f5132] text-[14px];
   }
 
   /* === BADGES === */
   .badge {
-    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5 rounded-[2px] text-xs font-semibold;
   }
 
   .badge-success {
-    @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200;
+    @apply badge bg-emerald-50 text-[#0f5132] border border-emerald-200;
   }
 
   .badge-warning {
-    @apply badge bg-amber-50 text-amber-700 border border-amber-200;
+    @apply badge bg-amber-50 text-amber-800 border border-amber-200;
   }
 
   .badge-info {
-    @apply badge bg-blue-50 text-blue-700 border border-blue-200;
+    @apply badge bg-blue-50 text-blue-800 border border-blue-200;
   }
 
   .badge-error {
-    @apply badge bg-red-50 text-red-700 border border-red-200;
+    @apply badge bg-red-50 text-red-800 border border-red-200;
   }
 
   .badge-neutral {
-    @apply badge bg-surface-100 text-surface-600 border border-surface-300;
+    @apply badge bg-gray-100 text-gray-700 border border-[#d9dde3];
   }
 
   .badge-purple {
-    @apply badge bg-purple-50 text-purple-600 border border-purple-200;
+    @apply badge bg-purple-50 text-purple-800 border border-purple-200;
   }
 
   /* === TABLE === */
   .table-header {
-    @apply px-4 py-3 text-left text-[11px] font-bold text-surface-600 uppercase tracking-wider bg-surface-100/90;
+    @apply px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-100 border-b border-[#d9dde3];
   }
 
   .table-cell {
-    @apply px-4 py-3 text-xs font-medium text-surface-900;
+    @apply px-4 py-2.5 text-xs text-gray-900 border-b border-gray-200;
   }
 
   /* === PAGE LAYOUT === */
   .page-title {
-    @apply text-2xl font-bold tracking-tight text-navy-900;
+    @apply text-xl font-bold tracking-tight text-gray-900;
   }
 
   .page-subtitle {
-    @apply text-xs text-surface-500 mt-1;
+    @apply text-xs text-gray-500 mt-0.5;
   }
 
   .section-title {
-    @apply text-sm font-bold tracking-tight text-navy-800;
+    @apply text-sm font-bold tracking-tight text-gray-800;
   }
 
   .subsection-title {
-    @apply text-xs font-bold uppercase tracking-wider text-surface-500;
-  }
-}
-
-/* === RESPONSIVE === */
-@layer utilities {
-
-  /* Touch-friendly targets on mobile */
-  @media (max-width: 768px) {
-
-    .btn-primary,
-    .btn-secondary,
-    .btn-danger,
-    .btn-success,
-    .btn-ghost {
-      @apply min-h-[44px];
-    }
-
-    .input-field,
-    .select-field {
-      @apply min-h-[44px] text-base;
-    }
-
-    .table-cell {
-      @apply py-3 px-3 text-xs;
-    }
-
-    .table-header {
-      @apply py-2.5 px-3 text-[10px];
-    }
+    @apply text-xs font-bold uppercase tracking-wider text-gray-500;
   }
 }
