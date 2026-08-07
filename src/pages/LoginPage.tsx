@@ -141,8 +141,11 @@ export default function LoginPage() {
           </div>
 
           {/* Title Header */}
-          <div>
+          <div className="space-y-1">
             <h1 className="text-[28px] font-semibold text-[#111827] tracking-tight">Sign In</h1>
+            <p className="text-[14px] text-[#6b7280] font-normal">
+              Please enter your credentials to continue.
+            </p>
           </div>
 
           {error && (
