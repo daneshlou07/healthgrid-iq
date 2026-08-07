@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import type { UserRole } from '../types';
 import { SYSTEM_VERSION } from '../config/systemVersion';
-import {
-  Eye,
-  EyeOff,
-  KeyRound,
-  CheckCircle2,
-} from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 type ForgotStep = 'email' | 'sent';
 
 export default function LoginPage() {
-  const { login, sendPasswordReset } = useAuth();
+  const { login, loginAsRole, sendPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +27,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(err.message || 'Invalid credentials. Please try again.');
+      setError(err.message || 'Invalid credentials');
     }
   };
 
@@ -66,58 +62,42 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f5f6f8] flex flex-col justify-between p-4 md:p-8 font-sans text-[#1F2937]">
+    <div className="min-h-screen w-full bg-[#F3F4F6] flex flex-col justify-between items-center p-6 md:p-10 font-sans text-slate-800">
       
       {/* ── FORGOT PASSWORD MODAL ────────────────────────────────────────── */}
       {showForgot && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md bg-white border border-[#d9dde3] rounded-[4px] p-6 shadow-none space-y-4">
-            <div className="flex items-center justify-between border-b border-[#d9dde3] pb-3">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-[#0f5132]" />
-                <h2 className="text-[16px] font-semibold text-[#111827]">Password Recovery</h2>
-              </div>
-              <button
-                onClick={closeForgot}
-                className="text-[#6B7280] hover:text-[#111827] text-xs cursor-pointer"
-              >
-                ✕
-              </button>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-md bg-white border border-slate-300 rounded-md p-6 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h2 className="text-base font-bold text-slate-900">Password Reset Request</h2>
+              <button onClick={closeForgot} className="text-slate-400 hover:text-slate-700 text-sm cursor-pointer">✕</button>
             </div>
 
             {forgotStep === 'email' && (
               <form onSubmit={handleForgotSubmit} className="space-y-4">
-                <p className="text-[14px] text-[#4B5563]">Enter your email address to receive password reset instructions.</p>
+                <p className="text-slate-600 text-xs">Enter your registered user email address below to receive password reset instructions.</p>
                 {forgotError && (
-                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-[4px] text-[13px] text-red-700 font-medium">
+                  <div className="p-2.5 bg-red-50 border border-red-200 text-xs text-red-700 font-medium rounded-xs">
                     {forgotError}
                   </div>
                 )}
                 <div>
-                  <label className="block text-[14px] font-medium text-[#1F2937] mb-1.5">Email Address</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
                   <input
                     type="email"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
-                    className="w-full h-[44px] px-3.5 bg-white border border-[#d9dde3] rounded-[4px] text-[14px] text-[#111827] focus:outline-none focus:border-[#0f5132]"
-                    placeholder="Enter your email"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-[4px] text-xs text-slate-900 focus:outline-none focus:border-[#0A5236]"
+                    placeholder="name@healthgrid.com"
                     required
                   />
                 </div>
-                <div className="flex items-center gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={closeForgot}
-                    className="w-1/2 h-[40px] border border-[#d9dde3] rounded-[4px] text-[14px] font-medium hover:bg-[#f5f6f8] cursor-pointer"
-                  >
+                <div className="flex items-center gap-2 pt-2">
+                  <button type="button" onClick={closeForgot} className="w-1/2 py-2 border border-slate-300 rounded-[4px] text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={forgotLoading}
-                    className="w-1/2 h-[40px] bg-[#0f5132] hover:bg-[#0b3e26] text-white rounded-[4px] text-[14px] font-semibold cursor-pointer"
-                  >
-                    {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+                  <button type="submit" disabled={forgotLoading} className="w-1/2 py-2 bg-[#0A5236] hover:bg-[#073D28] text-white rounded-[4px] text-xs font-semibold cursor-pointer">
+                    {forgotLoading ? 'Processing...' : 'Submit Request'}
                   </button>
                 </div>
               </form>
@@ -125,16 +105,11 @@ export default function LoginPage() {
 
             {forgotStep === 'sent' && (
               <div className="space-y-4 text-center">
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-[4px] space-y-2">
-                  <CheckCircle2 className="w-6 h-6 text-[#0f5132] mx-auto" />
-                  <h3 className="text-[15px] font-semibold text-[#0f5132]">Reset Link Sent</h3>
-                  <p className="text-[13px] text-[#374151]">If an account exists for {forgotEmail}, instructions have been sent.</p>
-                </div>
-                <button
-                  onClick={closeForgot}
-                  className="w-full h-[40px] bg-[#0f5132] hover:bg-[#0b3e26] text-white rounded-[4px] text-[14px] font-semibold cursor-pointer"
-                >
-                  Back to Sign In
+                <p className="text-xs text-slate-700 bg-slate-50 p-3 border border-slate-200 rounded-[4px]">
+                  A password reset link has been generated for <strong>{forgotEmail}</strong>.
+                </p>
+                <button onClick={closeForgot} className="w-full py-2 bg-[#0A5236] text-white rounded-[4px] text-xs font-semibold cursor-pointer">
+                  Return to Sign In
                 </button>
               </div>
             )}
@@ -142,59 +117,55 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* ── CENTERED LOGIN CARD ─────────────────────────────────────────── */}
-      <main className="flex-1 flex items-center justify-center py-6 md:py-10">
-        <div className="w-full max-w-[760px] bg-white border border-[#d9dde3] rounded-[4px] p-8 md:p-12 shadow-none my-auto">
+      <div className="flex-1 flex items-center justify-center w-full my-auto py-8">
+        {/* ── MAIN SIGN IN CARD (EXACT MATCH TO SPECIFIED MOCKUP) ─────────── */}
+        <main className="w-full max-w-[540px] bg-white border border-[#CBD5E1] rounded-[6px] p-8 md:p-12 space-y-7 shadow-xs">
           
-          {/* Header Logos Row */}
-          <div className="flex items-center justify-center gap-6 py-2">
-            {/* Theta Logo (25-35% smaller than HealthGrid IQ) */}
-            <img
-              src="/assets/theta-logo.png"
-              alt="Theta Edge Berhad"
-              className="h-[28px] md:h-[30px] w-auto object-contain"
-            />
-            
-            {/* Thin vertical divider */}
-            <div className="h-9 w-px bg-[#d9dde3]" />
-
-            {/* HealthGrid IQ Logo (Cropped to hide slogan) */}
-            <div className="h-[38px] overflow-hidden flex items-start justify-center">
+          {/* Dual Logos Header Section */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center gap-6 md:gap-8 py-2">
+              <img
+                src="/assets/theta-logo.png"
+                alt="Theta Edge Berhad"
+                className="h-10 md:h-12 w-auto object-contain"
+              />
+              <div className="w-[1px] h-10 md:h-12 bg-[#CBD5E1]" />
               <img
                 src="/assets/healthgrid-logo.jpg"
                 alt="HealthGrid IQ"
-                className="h-[56px] -mt-1 object-cover object-top"
+                className="h-10 md:h-12 w-auto object-contain"
               />
             </div>
+            {/* Horizontal Line Divider Below Logos */}
+            <div className="w-full h-[1px] bg-[#E2E8F0] mt-8" />
           </div>
 
-          {/* Thin horizontal divider below logos */}
-          <div className="w-full border-b border-[#d9dde3] my-8" />
-
-          {/* Form Header */}
-          <div className="mb-7">
-            <h1 className="text-[28px] font-semibold text-[#111827] tracking-tight mb-1.5">Sign In</h1>
-            <p className="text-[15px] text-[#4B5563]">Please enter your credentials to continue.</p>
+          {/* Title Header */}
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Sign In</h1>
+            <p className="text-sm text-slate-500 font-normal">
+              Please enter your credentials to continue.
+            </p>
           </div>
 
           {error && (
-            <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-[4px] text-[14px] text-red-700 font-medium">
+            <div className="p-3 bg-red-50 border border-red-200 text-xs text-red-700 font-semibold rounded-[4px]">
               {error}
             </div>
           )}
 
           {/* Sign In Form */}
-          <form onSubmit={handleEmailLogin} className="space-y-6">
+          <form onSubmit={handleEmailLogin} className="space-y-5">
             {/* Email Field */}
             <div>
-              <label className="block text-[14px] font-medium text-[#1F2937] mb-2">
+              <label className="block text-xs md:text-sm font-semibold text-slate-800 mb-1.5">
                 Email Address
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-[44px] px-3.5 bg-white border border-[#d9dde3] rounded-[4px] text-[14px] text-[#111827] placeholder-[#9ca3af] focus:outline-none focus:border-[#0f5132] transition-colors"
+                className="w-full px-3.5 py-3 bg-white border border-[#CBD5E1] rounded-[4px] text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A5236] transition-colors"
                 placeholder="Enter your email"
                 required
               />
@@ -202,7 +173,7 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div>
-              <label className="block text-[14px] font-medium text-[#1F2937] mb-2">
+              <label className="block text-xs md:text-sm font-semibold text-slate-800 mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -210,59 +181,85 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-[44px] pl-3.5 pr-10 bg-white border border-[#d9dde3] rounded-[4px] text-[14px] text-[#111827] placeholder-[#9ca3af] focus:outline-none focus:border-[#0f5132] transition-colors"
+                  className="w-full pl-3.5 pr-10 py-3 bg-white border border-[#CBD5E1] rounded-[4px] text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A5236] transition-colors"
                   placeholder="Enter your password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#111827] cursor-pointer"
-                  tabIndex={-1}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Checkbox & Forgot Password Row */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-[14px] text-[#374151]">
+            {/* Remember Me & Forgot Password Row */}
+            <div className="flex items-center justify-between text-xs md:text-sm text-slate-700 pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 border-[#d9dde3] rounded-[2px] text-[#0f5132] focus:ring-0 cursor-pointer"
+                  className="w-4 h-4 rounded-[3px] border-[#CBD5E1] text-[#0A5236] focus:ring-0 cursor-pointer"
                 />
-                <span>Remember me</span>
+                <span className="font-normal text-slate-700">Remember me</span>
               </label>
 
               <button
                 type="button"
                 onClick={openForgot}
-                className="text-[14px] text-[#0066cc] hover:underline font-normal cursor-pointer"
+                className="text-xs md:text-sm font-semibold text-[#2563EB] hover:underline cursor-pointer"
               >
                 Forgot password?
               </button>
             </div>
 
-            {/* Submit Button */}
+            {/* Solid Dark Green Primary Action Button */}
             <button
               type="submit"
-              className="w-full h-[44px] bg-[#0f5132] hover:bg-[#0b3e26] text-white text-[15px] font-semibold rounded-[4px] transition-colors cursor-pointer mt-2"
+              className="w-full py-3.5 bg-[#0A5236] hover:bg-[#073D28] text-white font-bold text-sm rounded-[4px] transition-colors cursor-pointer mt-2 shadow-2xs"
             >
               Sign In
             </button>
           </form>
 
-        </div>
-      </main>
+          {/* Quick Access Selector (HIS Clinical Demo Accounts) */}
+          <div className="pt-5 border-t border-[#E2E8F0] space-y-2">
+            <label className="block text-xs font-semibold text-slate-500 text-center">
+              Quick Demo Role Select
+            </label>
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  loginAsRole(e.target.value as UserRole);
+                }
+              }}
+              defaultValue=""
+              className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-xs text-slate-700 focus:outline-none focus:border-[#0A5236] cursor-pointer font-medium"
+            >
+              <option value="" disabled>-- Select Role to Log In Instantly --</option>
+              <option value="Medical Officer">Medical Officer (Dr. Ahmad R. - Putrajaya)</option>
+              <option value="Radiographer">Radiographer (Lim Mei L. - Cyberjaya)</option>
+              <option value="Radiologist">Radiologist (Dr. Kumaran S. - Bangi)</option>
+              <option value="Administrator">IT Administrator (Zainal Ab. - Tanjong Karang)</option>
+            </select>
+          </div>
 
-      {/* ── PAGE FOOTER ─────────────────────────────────────────────────── */}
-      <footer className="w-full border-t border-[#d9dde3] pt-5 pb-3">
-        <div className="max-w-[760px] mx-auto flex items-center justify-between text-[12px] text-[#6B7280]">
-          <div>&copy; 2026 Theta Edge Berhad. All rights reserved.</div>
-          <div>Version v{SYSTEM_VERSION}</div>
+        </main>
+      </div>
+
+      {/* ── FOOTER SECTION WITH FULL-WIDTH TOP DIVIDER ─────────────────── */}
+      <footer className="w-full max-w-5xl mx-auto pt-6 pb-2">
+        <div className="w-full h-[1px] bg-[#CBD5E1] mb-6" />
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+          <p>&copy; 2026 Theta Edge Berhad. All rights reserved.</p>
+          <p className="flex items-center gap-2">
+            <span>Version v{SYSTEM_VERSION}</span>
+            <span className="text-slate-300">|</span>
+            <span>Powered by Theta Edge Berhad</span>
+          </p>
         </div>
       </footer>
 
