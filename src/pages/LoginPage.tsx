@@ -82,7 +82,7 @@ export default function LoginPage() {
                   </div>
                 )}
                 <div>
-                  <label className="block text-[14px] font-medium text-[#334155] mb-1">Email Address</label>
+                  <label className="block text-[14px] font-medium text-[#1E293B] mb-1">Email Address</label>
                   <input
                     type="email"
                     value={forgotEmail}
@@ -93,7 +93,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="flex items-center gap-2 pt-2">
-                  <button type="button" onClick={closeForgot} className="w-1/2 py-2 border border-[#CBD5E1] rounded-[4px] text-[14px] font-medium text-[#334155] hover:bg-gray-50 cursor-pointer">
+                  <button type="button" onClick={closeForgot} className="w-1/2 py-2 border border-[#CBD5E1] rounded-[4px] text-[14px] font-medium text-[#1E293B] hover:bg-gray-50 cursor-pointer">
                     Cancel
                   </button>
                   <button type="submit" disabled={forgotLoading} className="w-1/2 py-2 bg-[#0A5236] hover:bg-[#073D28] text-white rounded-[4px] text-[14px] font-semibold cursor-pointer">
@@ -105,7 +105,7 @@ export default function LoginPage() {
 
             {forgotStep === 'sent' && (
               <div className="space-y-4 text-center">
-                <p className="text-[13px] text-[#334155] bg-[#F8FAFC] p-3 border border-[#E2E8F0] rounded-[4px]">
+                <p className="text-[13px] text-[#1E293B] bg-[#F8FAFC] p-3 border border-[#E2E8F0] rounded-[4px]">
                   A password reset link has been sent to <strong>{forgotEmail}</strong>.
                 </p>
                 <button onClick={closeForgot} className="w-full py-2 bg-[#0A5236] text-white rounded-[4px] text-[14px] font-semibold cursor-pointer">
@@ -119,31 +119,31 @@ export default function LoginPage() {
 
       {/* ── CENTERED DESKTOP LOGIN CARD (EXACT 30-35% SCREEN WIDTH, ZERO SCROLLING) ── */}
       <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2">
-        <main className="w-full max-w-[520px] bg-white border border-[#CBD5E1] rounded-[8px] p-6 sm:p-8 md:p-9 space-y-4 sm:space-y-5 shadow-xs">
+        <main className="w-full max-w-[540px] bg-white border border-[#CBD5E1] rounded-[8px] p-7 sm:p-9 md:p-10 space-y-5 shadow-xs">
           
-          {/* Dual Logos Section (Visual Balance & Equal Text Weight) */}
+          {/* Dual Logos Section (Prominent, Large & Balanced) */}
           <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center gap-6 sm:gap-8 py-1.5">
+            <div className="flex items-center justify-center gap-7 sm:gap-9 py-2">
               <img
                 src="/assets/theta-logo.png"
                 alt="Theta Edge"
-                className="h-10 sm:h-12 md:h-13 w-auto max-w-[170px] object-contain shrink-0"
+                className="h-14 sm:h-16 md:h-16 max-h-[58px] w-auto max-w-[190px] object-contain shrink-0"
               />
-              <div className="w-[1px] h-10 sm:h-12 md:h-13 bg-[#CBD5E1] shrink-0" />
+              <div className="w-[1px] h-14 sm:h-16 md:h-16 bg-[#CBD5E1] shrink-0" />
               <img
                 src="/assets/healthgrid-logo.jpg"
                 alt="HealthGrid IQ"
-                className="h-14 sm:h-16 md:h-18 w-auto max-w-[240px] object-contain shrink-0 scale-110"
+                className="h-14 sm:h-16 md:h-16 max-h-[58px] w-auto max-w-[240px] object-contain shrink-0 scale-110"
               />
             </div>
             {/* Thin Horizontal Divider Below Logos */}
-            <div className="w-full h-[1px] bg-[#E2E8F0] mt-4" />
+            <div className="w-full h-[1px] bg-[#E2E8F0] mt-5 mb-1" />
           </div>
 
           {/* Title Header */}
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             <h1 className="text-2xl sm:text-[28px] font-semibold text-[#0F172A] tracking-tight">Sign In</h1>
-            <p className="text-xs sm:text-[14px] text-[#64748B] font-normal">
+            <p className="text-xs sm:text-[14px] text-[#475569] font-normal">
               Please enter your credentials to continue.
             </p>
           </div>
@@ -158,7 +158,7 @@ export default function LoginPage() {
           <form onSubmit={handleEmailLogin} className="space-y-4">
             {/* Email Address Field */}
             <div>
-              <label className="block text-[14px] font-medium text-[#334155] mb-1.5">
+              <label className="block text-[14px] font-medium text-[#1E293B] mb-1.5">
                 Email Address
               </label>
               <input
@@ -173,7 +173,7 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div>
-              <label className="block text-[14px] font-medium text-[#334155] mb-1.5">
+              <label className="block text-[14px] font-medium text-[#1E293B] mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -204,7 +204,7 @@ export default function LoginPage() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-4 h-4 rounded-[3px] border-[#CBD5E1] text-[#0A5236] focus:ring-0 cursor-pointer"
                 />
-                <span className="text-[#334155]">Remember me</span>
+                <span className="text-[#1E293B]">Remember me</span>
               </label>
 
               <button
@@ -226,7 +226,7 @@ export default function LoginPage() {
           </form>
 
           {/* HIS Clinical Demo Account Quick Selector (Subtle Testing Dropdown) */}
-          <div className="pt-3 border-t border-[#E2E8F0]">
+          <div className="pt-3.5 border-t border-[#E2E8F0]">
             <select
               onChange={(e) => {
                 if (e.target.value) {
@@ -234,7 +234,7 @@ export default function LoginPage() {
                 }
               }}
               defaultValue=""
-              className="w-full px-3 py-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-[12px] text-[#475569] cursor-pointer font-normal"
+              className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-[12px] text-[#475569] cursor-pointer font-normal hover:border-[#94A3B8] transition-colors"
             >
               <option value="" disabled>-- Demo Quick Role Login (HIS System) --</option>
               <option value="Medical Officer">Medical Officer (Dr. Ahmad R. - Putrajaya)</option>
@@ -248,7 +248,7 @@ export default function LoginPage() {
       </div>
 
       {/* ── FOOTER SECTION (STRICT NO-SCROLL SINGLE VIEWPORT) ── */}
-      <footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-2 px-2">
+      <footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-3 px-2">
         <div className="w-full h-[1px] bg-[#CBD5E1] mb-3" />
         <div className="flex items-center justify-between text-[12px] text-[#64748B]">
           <p>&copy; 2026 Theta Edge Berhad. All rights reserved.</p>
