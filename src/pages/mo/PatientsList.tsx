@@ -26,7 +26,7 @@ export default function PatientsList() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="page-title">Medical Officer Patient Registry</h1>
-          <span className="badge-purple font-mono text-xs font-bold">MO INTAKE</span>
+
         </div>
         <p className="page-subtitle">Search, view, and manage patient clinical records for Medical Officer referrals.</p>
       </div>

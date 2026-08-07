@@ -159,7 +159,7 @@ export default function Reporting() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="page-title">Medical Officer Report: {selectedCase.caseNumber}</h1>
-          <span className="badge-purple font-mono text-xs font-bold">MO EDITOR</span>
+
         </div>
         <p className="page-subtitle">{selectedCase.patientName} — {selectedCase.scanType}</p>
       </div>

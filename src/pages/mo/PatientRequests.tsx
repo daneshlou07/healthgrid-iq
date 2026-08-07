@@ -46,7 +46,7 @@ export default function PatientRequests() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="page-title">Medical Officer Patient Record Requests</h1>
-            <span className="badge-purple font-mono text-xs font-bold">MO INTAKE</span>
+
           </div>
           <p className="page-subtitle">Submit patient demographic update or record archiving requests for administrative approval.</p>
         </div>

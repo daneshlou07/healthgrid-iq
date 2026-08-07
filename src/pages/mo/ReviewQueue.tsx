@@ -20,7 +20,6 @@ export default function ReviewQueue() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="page-title">Cases to Review</h1>
-          <span className="badge-purple font-mono text-xs font-bold">MO REVIEW INBOX</span>
         </div>
         <p className="page-subtitle">
           {scannedCases.length} scanned cases pending Medical Officer review &middot; Finalize routine cases or request a 2nd opinion from Specialist Radiologist.

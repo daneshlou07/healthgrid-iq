@@ -117,9 +117,7 @@ export default function TrackStatus() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold text-navy-900 tracking-tight">MO Case Tracker</h1>
-            <span className="px-2 py-0.5 bg-navy-50 text-navy-700 border border-navy-200 font-mono text-[11px] font-bold rounded-md">
-              MO TRACKER
-            </span>
+
           </div>
           <p className="text-xs text-surface-500 mt-1">
             Monitor real-time scanning &amp; reporting progress for Medical Officer referral cases.
@@ -158,11 +156,10 @@ export default function TrackStatus() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setOnlyOverdue(!onlyOverdue)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              onlyOverdue
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${onlyOverdue
                 ? 'bg-red-600 text-white shadow-sm'
                 : 'bg-surface-100 text-surface-700 hover:bg-surface-200 border border-surface-300'
-            }`}
+              }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>Overdue SLA Only</span>
@@ -297,9 +294,8 @@ function KanbanCard({ caseData }: { caseData: any }) {
 
   return (
     <div
-      className={`bg-white rounded-xl border p-3.5 shadow-xs hover:shadow-md transition-all duration-150 group ${
-        sla.isOverdue ? 'border-red-200 bg-red-50/30' : 'border-surface-200/80 hover:border-navy-300'
-      }`}
+      className={`bg-white rounded-xl border p-3.5 shadow-xs hover:shadow-md transition-all duration-150 group ${sla.isOverdue ? 'border-red-200 bg-red-50/30' : 'border-surface-200/80 hover:border-navy-300'
+        }`}
     >
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="text-xs font-semibold text-navy-700">
@@ -325,9 +321,8 @@ function KanbanCard({ caseData }: { caseData: any }) {
 
       <div className="flex items-center justify-between pt-2 border-t border-surface-100 text-xs">
         <span
-          className={`font-medium flex items-center gap-1 text-[11px] ${
-            sla.isOverdue ? 'text-red-700 font-semibold' : 'text-surface-500'
-          }`}
+          className={`font-medium flex items-center gap-1 text-[11px] ${sla.isOverdue ? 'text-red-700 font-semibold' : 'text-surface-500'
+            }`}
         >
           <Clock className="w-3 h-3" />
           <span>{sla.label}</span>

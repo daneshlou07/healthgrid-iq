@@ -66,7 +66,7 @@ export default function DepartmentReports() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="page-title">Medical Officer Diagnostic Reports Hub</h1>
-          <span className="badge-purple font-mono text-xs font-bold">MO REPORTS</span>
+
         </div>
         <p className="page-subtitle">{reports.length} completed diagnostic reports ready for Medical Officer review and print export.</p>
       </div>

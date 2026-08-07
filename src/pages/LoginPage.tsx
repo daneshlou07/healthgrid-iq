@@ -38,15 +38,21 @@ export default function LoginPage() {
     e.preventDefault();
     setForgotError('');
 
-    if (!forgotEmail.trim()) { setForgotError('Email address is required.'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) { setForgotError('Please enter a valid email address.'); return; }
+    if (!forgotEmail.trim()) { setForgotError('Email address or User ID is required.'); return; }
 
     setForgotLoading(true);
     try {
-      await sendPasswordReset(forgotEmail.trim());
+      const existingReqs = JSON.parse(localStorage.getItem('healthgrid_password_reset_requests') || '[]');
+      const newReq = {
+        id: `req-${Date.now()}`,
+        identifier: forgotEmail.trim(),
+        requestedAt: new Date().toISOString(),
+        status: 'PENDING_ADMIN_ACTION',
+      };
+      localStorage.setItem('healthgrid_password_reset_requests', JSON.stringify([...existingReqs, newReq]));
       setForgotStep('sent');
     } catch (err: unknown) {
-      setForgotError(err instanceof Error ? err.message : 'Unable to send the reset email.');
+      setForgotError('Unable to log request. Please contact your System Admin directly.');
     } finally {
       setForgotLoading(false);
     }
@@ -55,7 +61,7 @@ export default function LoginPage() {
   const openForgot = () => {
     setShowForgot(true);
     setForgotStep('email');
-    setForgotEmail(identifier.includes('@') ? identifier : '');
+    setForgotEmail(identifier.includes('@') ? identifier : identifier);
     setForgotError('');
   };
 
@@ -78,20 +84,24 @@ export default function LoginPage() {
 
             {forgotStep === 'email' && (
               <form onSubmit={handleForgotSubmit} className="space-y-4">
-                <p className="text-[#475569] text-[13px]">Enter your registered user email address below to receive password reset instructions.</p>
+                <div className="p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-[13px] text-[#334155] space-y-1.5">
+                  <p className="font-semibold text-[#0F172A]">System Security Policy Notice:</p>
+                  <p className="leading-relaxed">To reset your account password, please submit your request below and contact a <strong>System Admin</strong> or <strong>Super Admin</strong>.</p>
+                </div>
+
                 {forgotError && (
                   <div className="p-2.5 bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium rounded-[4px]">
                     {forgotError}
                   </div>
                 )}
                 <div>
-                  <label className="block text-[14px] font-medium text-[#1E293B] mb-1">Email Address</label>
+                  <label className="block text-[14px] font-medium text-[#1E293B] mb-1">Account Email or User ID</label>
                   <input
-                    type="email"
+                    type="text"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[4px] text-[14px] text-[#111827] focus:outline-none focus:border-[#0A5236]"
-                    placeholder="name@healthgrid.com"
+                    placeholder="Enter email or ID (e.g. rad-001)"
                     required
                   />
                 </div>
@@ -107,10 +117,20 @@ export default function LoginPage() {
             )}
 
             {forgotStep === 'sent' && (
-              <div className="space-y-4 text-center">
-                <p className="text-[13px] text-[#1E293B] bg-[#F8FAFC] p-3 border border-[#E2E8F0] rounded-[4px]">
-                  A password reset link has been sent to <strong>{forgotEmail}</strong>.
-                </p>
+              <div className="space-y-4">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] text-[13px] text-emerald-900 space-y-1.5">
+                  <p className="font-bold text-emerald-800">✓ Request Logged</p>
+                  <p>Your password reset request for <strong>{forgotEmail}</strong> has been registered in the system.</p>
+                </div>
+
+                <div className="p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-[12px] space-y-2 text-[#334155]">
+                  <p className="font-semibold text-[#0F172A]">Please contact system administration to issue your reset password:</p>
+                  <ul className="list-disc pl-4 space-y-1 font-medium">
+                    <li><strong>System Admin</strong>: Tan Wei Ming (<code>weiming.tan@healthgrid.my</code>)</li>
+                    <li><strong>Super Admin</strong>: System Super Administrator</li>
+                  </ul>
+                </div>
+
                 <button onClick={closeForgot} className="w-full py-2 bg-[#0A5236] text-white rounded-[4px] text-[14px] font-semibold cursor-pointer">
                   Return to Sign In
                 </button>
@@ -210,7 +230,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={openForgot}
-                className="text-[14px] font-normal text-[#2563EB] hover:underline cursor-pointer"
+                className="text-[14px] font-medium text-[#64748B] hover:text-[#0A5236] hover:underline cursor-pointer"
               >
                 Forgot password?
               </button>

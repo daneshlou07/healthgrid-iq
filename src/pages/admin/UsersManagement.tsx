@@ -6,6 +6,7 @@ import type { User, UserRole } from '../../types';
 import Modal from '../../components/ui/Modal';
 import { Search, Plus, Edit2, Trash2, ShieldCheck, ShieldOff, Download } from 'lucide-react';
 import { exportToCSV } from '../../utils/exportUtils';
+import { saveUser } from '../../services/dataService';
 
 const ROLES: UserRole[] = ['Medical Officer', 'Radiographer', 'Radiologist', 'Administrator'];
 
@@ -65,8 +66,8 @@ export default function UsersManagement() {
   };
 
   const generateTempPassword = () => {
-    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-    let res = 'Pass';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+    let res = 'Pass!';
     for (let i = 0; i < 5; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
     setForm((prev) => ({ ...prev, password: res }));
   };
@@ -84,8 +85,9 @@ export default function UsersManagement() {
       if (idx !== -1) {
         const updated = { ...users[idx], name: form.name, email: form.email, role: form.role, password: form.password, specialty: form.specialty || undefined, shift: form.shift || undefined };
         const next = [...users]; next[idx] = updated; setUsers(next);
-        await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'USER_UPDATED', target: `users/${editingUser.id}`, details: `Updated user: ${form.name} (${form.role})`, timestamp: new Date().toISOString() });
-        toast.success(`${form.name} updated`);
+        await saveUser(updated);
+        await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'USER_UPDATED', target: `users/${editingUser.id}`, details: `Updated user profile & password: ${form.name} (${form.role})`, timestamp: new Date().toISOString() });
+        toast.success(`${form.name} updated and saved to database`);
       }
     } else {
       const newUser: User = {
@@ -96,16 +98,9 @@ export default function UsersManagement() {
       };
       const nextUsers = [...users, newUser];
       setUsers(nextUsers);
+      await saveUser(newUser);
 
-      // Save custom users locally for login persistence
-      try {
-        const existingCustom = JSON.parse(localStorage.getItem('healthgrid_custom_users') || '[]');
-        localStorage.setItem('healthgrid_custom_users', JSON.stringify([...existingCustom, newUser]));
-      } catch (e) {
-        console.warn('Failed saving custom user locally', e);
-      }
-
-      await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'USER_CREATED', target: `users/${newUser.id}`, details: `Created user: ${form.name} (${form.role})`, timestamp: new Date().toISOString() });
+      await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'USER_CREATED', target: `users/${newUser.id}`, details: `Created user with password saved: ${form.name} (${form.role})`, timestamp: new Date().toISOString() });
       toast.success(`${form.name} created successfully`);
       setCreatedCredentials({ name: form.name, email: form.email, pass: form.password || 'Password123!', role: form.role });
     }

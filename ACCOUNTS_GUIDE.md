@@ -54,12 +54,12 @@ Radiographers operate PACS mobile units, upload DICOM scans, and manage patient 
 
 ---
 
-### 4. System Administrator Accounts
-Administrators manage system configuration, fleet dispatch, user account creation, and audit logging.
+### 4. System Admin Accounts
+System Admins manage system configuration, fleet dispatch, user account creation, and audit logging.
 
 | Name | Role | Email Identifier | User ID | Password |
 |---|---|---|---|---|
-| **Tan Wei Ming** | Administrator | `weiming.tan@healthgrid.my` | `admin-001` | `password123` |
+| **Tan Wei Ming** | System Admin | `weiming.tan@healthgrid.my` | `admin-001` | `password123` |
 
 ---
 

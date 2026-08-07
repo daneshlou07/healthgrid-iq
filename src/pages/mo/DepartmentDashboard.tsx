@@ -32,7 +32,7 @@ export default function DepartmentDashboard() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="page-title">Medical Officer Dashboard</h1>
-          <span className="badge-purple font-mono text-xs font-bold">MO CLINICAL HUB</span>
+
         </div>
         <p className="page-subtitle">Medical Officer Command Center &middot; Monitor imaging referrals, track case progress, and review pending sign-offs.</p>
       </div>

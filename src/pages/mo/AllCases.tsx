@@ -109,9 +109,7 @@ export default function AllCases() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Cases Queue</h1>
-            <span className="px-2 py-0.5 bg-navy-50 text-navy-700 border border-navy-200/80 font-mono text-[11px] font-bold rounded-md">
-              MO QUEUE
-            </span>
+
           </div>
           <p className="text-xs text-surface-500 mt-1">
             {cases.length} referral cases &middot; Review incoming clinical cases, manage status, and access diagnostic records.
@@ -199,9 +197,8 @@ export default function AllCases() {
                 return (
                   <tr
                     key={c.id}
-                    className={`transition-colors hover:bg-[#E2EEEB] ${
-                      isSelected ? 'bg-[#D6E8E3]' : ''
-                    }`}
+                    className={`transition-colors hover:bg-[#E2EEEB] ${isSelected ? 'bg-[#D6E8E3]' : ''
+                      }`}
                   >
                     {/* Checkbox */}
                     <td className="py-3.5 px-4">

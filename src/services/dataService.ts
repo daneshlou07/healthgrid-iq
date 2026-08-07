@@ -63,6 +63,36 @@ export async function getUsersByRole(role: string): Promise<User[]> {
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
 }
 
+export async function saveUser(user: User): Promise<User> {
+  // Save user profile & password to localStorage for offline / demo persistence
+  try {
+    const existingCustom: User[] = JSON.parse(localStorage.getItem('healthgrid_custom_users') || '[]');
+    const idx = existingCustom.findIndex((u) => u.id === user.id);
+    if (idx !== -1) {
+      existingCustom[idx] = user;
+    } else {
+      existingCustom.push(user);
+    }
+    localStorage.setItem('healthgrid_custom_users', JSON.stringify(existingCustom));
+  } catch (e) {
+    console.warn('Failed saving user locally:', e);
+  }
+
+  // Save user profile & password to Firestore database
+  if (isFirebaseConfigured()) {
+    try {
+      const db = getFirestoreDb();
+      if (db) {
+        await setDoc(doc(db, 'users', user.id), user, { merge: true });
+      }
+    } catch (e) {
+      console.error('Failed saving user to Firestore database:', e);
+    }
+  }
+
+  return user;
+}
+
 // ==================== CLINICS ====================
 export async function getClinics(): Promise<Clinic[]> {
   if (useMock()) return [...mockClinics];
