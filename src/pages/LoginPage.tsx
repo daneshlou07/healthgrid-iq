@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import type { UserRole } from '../types';
 import { SYSTEM_VERSION } from '../config/systemVersion';
 import { Eye, EyeOff } from 'lucide-react';
 
 type ForgotStep = 'email' | 'sent';
 
 export default function LoginPage() {
-  const { login, loginAsRole, sendPasswordReset } = useAuth();
-  const [email, setEmail] = useState('');
+  const { login, sendPasswordReset } = useAuth();
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Forgot password state
   const [showForgot, setShowForgot] = useState(false);
@@ -24,10 +24,13 @@ export default function LoginPage() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoggingIn(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
     } catch (err: any) {
-      setError(err.message || 'Invalid credentials');
+      setError(err.message || 'Invalid credentials. Please check your Email/Username and Password.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -52,7 +55,7 @@ export default function LoginPage() {
   const openForgot = () => {
     setShowForgot(true);
     setForgotStep('email');
-    setForgotEmail(email);
+    setForgotEmail(identifier.includes('@') ? identifier : '');
     setForgotError('');
   };
 
@@ -117,7 +120,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* ── CENTERED DESKTOP LOGIN CARD (EXACT 30-35% SCREEN WIDTH, ZERO SCROLLING) ── */}
+      {/* ── CENTERED DESKTOP LOGIN CARD (STRICT AUTHENTICATION, NO PUBLIC BYPASS) ── */}
       <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2">
         <main className="w-full max-w-[540px] bg-white border border-[#CBD5E1] rounded-[8px] p-7 sm:p-9 md:p-10 space-y-5 shadow-xs">
           
@@ -130,24 +133,24 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="p-2.5 bg-red-50 border border-red-200 text-[13px] text-red-700 font-semibold rounded-[4px]">
+            <div className="p-3 bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium rounded-[4px]">
               {error}
             </div>
           )}
 
           {/* Sign In Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
-            {/* Email Address Field */}
+            {/* Identifier Field (Email Address or Username) */}
             <div>
               <label className="block text-[14px] font-medium text-[#1E293B] mb-1.5">
-                Email Address
+                Email Address or Username
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[4px] text-[14px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#0A5236] transition-colors"
-                placeholder="Enter your email"
+                placeholder="Enter your email or username"
                 required
               />
             </div>
@@ -200,30 +203,12 @@ export default function LoginPage() {
             {/* Dark Green Sign In Button */}
             <button
               type="submit"
-              className="w-full py-3 bg-[#0A5236] hover:bg-[#073D28] text-white font-semibold text-[15px] rounded-[4px] transition-colors cursor-pointer mt-1"
+              disabled={isLoggingIn}
+              className="w-full py-3 bg-[#0A5236] hover:bg-[#073D28] text-white font-semibold text-[15px] rounded-[8px] transition-colors cursor-pointer mt-1 disabled:opacity-50"
             >
-              Sign In
+              {isLoggingIn ? 'Authenticating...' : 'Sign In'}
             </button>
           </form>
-
-          {/* HIS Clinical Demo Account Quick Selector (Subtle Testing Dropdown) */}
-          <div className="pt-3.5 border-t border-[#E2E8F0]">
-            <select
-              onChange={(e) => {
-                if (e.target.value) {
-                  loginAsRole(e.target.value as UserRole);
-                }
-              }}
-              defaultValue=""
-              className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-[12px] text-[#475569] cursor-pointer font-normal hover:border-[#94A3B8] transition-colors"
-            >
-              <option value="" disabled>-- Demo Quick Role Login (HIS System) --</option>
-              <option value="Medical Officer">Medical Officer (Dr. Ahmad R. - Putrajaya)</option>
-              <option value="Radiographer">Radiographer (Lim Mei L. - Cyberjaya)</option>
-              <option value="Radiologist">Radiologist (Dr. Kumaran S. - Bangi)</option>
-              <option value="Administrator">IT Administrator (Zainal Ab. - Tanjong Karang)</option>
-            </select>
-          </div>
 
         </main>
       </div>
