@@ -70,17 +70,17 @@ function getNavGroups(role: UserRole, pendingRequests: number, t: (en: string, m
         {
           title: t('MAIN', 'UTAMA'), items: [
             { label: t('Dashboard', 'Papan Pemuka'), path: '/dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
-            { label: t('Inbox', 'Peti Masuk'), path: '/review-queue', icon: <Eye className="w-[18px] h-[18px]" /> },
+            { label: t('Review Queue', 'Peti Masuk'), path: '/review-queue', icon: <Eye className="w-[18px] h-[18px]" /> },
           ]
         },
         {
           title: t('REPORTS', 'LAPORAN'), items: [
-            { label: t('Imaging Completed', 'Imbasan Selesai'), path: '/reports', icon: <FileText className="w-[18px] h-[18px]" /> },
+            { label: t('Completed Studies', 'Imbasan Selesai'), path: '/reports', icon: <FileText className="w-[18px] h-[18px]" /> },
           ]
         },
         {
           title: t('ACCOUNT', 'AKAUN'), items: [
-            { label: t('Onboarding', 'Panduan Pengguna'), path: '/onboarding', icon: <UserCheck className="w-[18px] h-[18px]" /> },
+            { label: t('Credentials', 'Panduan Pengguna'), path: '/onboarding', icon: <UserCheck className="w-[18px] h-[18px]" /> },
           ]
         },
       ];
@@ -132,11 +132,11 @@ export default function Sidebar() {
     <aside className="w-60 bg-[#D4E2DD] border-r border-[#C0D3CD] flex flex-col h-full">
       {/* Logo */}
       <div className="px-4 py-3 border-b border-[#C0D3CD]">
-        <div className="bg-white p-2 rounded-xl border border-surface-300 shadow-xs flex items-center justify-center">
+        <div className="flex items-center justify-center h-16 overflow-hidden">
           <img
-            src="/assets/healthgrid-iq-logo.png"
+            src="/assets/healthgrid-iq-logo-transparent.png"
             alt="HealthGrid IQ — Connected Capacity. Better Care."
-            className="h-9 w-auto object-contain rounded"
+            className="w-full h-14 object-cover object-center"
           />
         </div>
       </div>
@@ -154,8 +154,8 @@ export default function Sidebar() {
                     key={item.path}
                     to={item.path}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-100 ${isActive
-                        ? 'bg-white text-surface-900 font-semibold border border-surface-200/80 shadow-xs'
-                        : 'text-[#2C524B] hover:text-[#0F4C42] hover:bg-[#C8DAD4] border border-transparent'
+                      ? 'bg-white text-surface-900 font-semibold border border-surface-200/80 shadow-xs'
+                      : 'text-[#2C524B] hover:text-[#0F4C42] hover:bg-[#C8DAD4] border border-transparent'
                       }`}
                   >
                     <span className={isActive ? 'text-[#0F4C42]' : ''}>{item.icon}</span>

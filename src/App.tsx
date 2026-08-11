@@ -33,12 +33,6 @@ function safeLazy<T extends React.ComponentType<any>>(importFn: () => Promise<{ 
 
 // Lazy-loaded pages (code splitting per workspace)
 const DashboardRouter = safeLazy(() => import('./pages/DashboardRouter'));
-const PatientsList = safeLazy(() => import('./pages/department/PatientsList'));
-const PatientRegistration = safeLazy(() => import('./pages/department/PatientRegistration'));
-const NewCaseRegistration = safeLazy(() => import('./pages/department/NewCaseRegistration'));
-const DepartmentReports = safeLazy(() => import('./pages/department/DepartmentReports'));
-const PatientRequests = safeLazy(() => import('./pages/department/PatientRequests'));
-const Scheduling = safeLazy(() => import('./pages/department/Scheduling'));
 const ScanQueue = safeLazy(() => import('./pages/radiographer/ScanQueue'));
 const ScheduleView = safeLazy(() => import('./pages/radiographer/ScheduleView'));
 const UploadScans = safeLazy(() => import('./pages/radiographer/UploadScans'));
@@ -46,16 +40,11 @@ const ReviewQueue = safeLazy(() => import('./pages/radiologist/ReviewQueue'));
 const Reporting = safeLazy(() => import('./pages/radiologist/Reporting'));
 const RadiologistOnboarding = safeLazy(() => import('./pages/radiologist/Onboarding'));
 const RadiogrOnboarding = safeLazy(() => import('./pages/radiographer/Onboarding'));
-const AllCases = safeLazy(() => import('./pages/department/AllCases'));
-const TrackStatus = safeLazy(() => import('./pages/department/TrackStatus'));
 const CaseDetail = safeLazy(() => import('./pages/shared/CaseDetail'));
 const PatientDetail = safeLazy(() => import('./pages/shared/PatientDetail'));
 const FleetManagement = safeLazy(() => import('./pages/admin/FleetManagement'));
 const UsersManagement = safeLazy(() => import('./pages/admin/UsersManagement'));
-const ClinicsManagement = safeLazy(() => import('./pages/department/ClinicsManagement'));
-const PatientRequestsReview = safeLazy(() => import('./pages/department/PatientRequestsReview'));
 const AuditLogs = safeLazy(() => import('./pages/admin/AuditLogs'));
-const AISchedulerMap = safeLazy(() => import('./pages/department/AISchedulerMap'));
 const Settings = safeLazy(() => import('./pages/admin/Settings'));
 const Analytics = safeLazy(() => import('./pages/admin/Analytics'));
 const Announcements = safeLazy(() => import('./pages/admin/Announcements'));
@@ -65,6 +54,7 @@ const RecycleBin = safeLazy(() => import('./pages/admin/RecycleBin'));
 const NotFound = safeLazy(() => import('./pages/shared/NotFound'));
 const PatientReportView = safeLazy(() => import('./pages/shared/PatientReportView'));
 
+// Medical Officer & Shared Operational Pages
 const MoOnboarding = safeLazy(() => import('./pages/mo/Onboarding'));
 const MoPatientsList = safeLazy(() => import('./pages/mo/PatientsList'));
 const MoPatientRegistration = safeLazy(() => import('./pages/mo/PatientRegistration'));
@@ -75,13 +65,13 @@ const MoPatientRequests = safeLazy(() => import('./pages/mo/PatientRequests'));
 const MoTrackStatus = safeLazy(() => import('./pages/mo/TrackStatus'));
 const MoReviewQueue = safeLazy(() => import('./pages/mo/ReviewQueue'));
 const MoReporting = safeLazy(() => import('./pages/mo/Reporting'));
+const Scheduling = safeLazy(() => import('./pages/mo/Scheduling'));
+const ClinicsManagement = safeLazy(() => import('./pages/mo/ClinicsManagement'));
+const PatientRequestsReview = safeLazy(() => import('./pages/mo/PatientRequestsReview'));
+const AISchedulerMap = safeLazy(() => import('./pages/mo/AISchedulerMap'));
 
 // ---------------------------------------------------------------------------
-// Role-aware page router
-// Replaces the 10 individual *Router functions with a single lookup table.
-// Each entry maps a UserRole to its MO-specific component; when the current
-// user is not a Medical Officer the default (department/radiologist) page is
-// rendered instead.
+// Role-aware page router for Radiologist vs Medical Officer review/reporting
 // ---------------------------------------------------------------------------
 function RoleRouter({
   moPage,
@@ -126,12 +116,12 @@ function AppRoutes() {
         <Route path="/patient/:patientId" element={<PatientDetail />} />
 
         {/* Medical Officer & Admin routes */}
-        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoPatientsList} defaultPage={PatientsList} /></ProtectedRoute>} />
-        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoPatientRegistration} defaultPage={PatientRegistration} /></ProtectedRoute>} />
-        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoAllCases} defaultPage={AllCases} /></ProtectedRoute>} />
-        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoNewCaseRegistration} defaultPage={NewCaseRegistration} /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Radiologist', 'Administrator']}><RoleRouter moPage={MoDepartmentReports} defaultPage={DepartmentReports} /></ProtectedRoute>} />
-        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoPatientRequests} defaultPage={PatientRequests} /></ProtectedRoute>} />
+        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoPatientsList /></ProtectedRoute>} />
+        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoPatientRegistration /></ProtectedRoute>} />
+        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoAllCases /></ProtectedRoute>} />
+        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoNewCaseRegistration /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Radiologist', 'Administrator']}><MoDepartmentReports /></ProtectedRoute>} />
+        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoPatientRequests /></ProtectedRoute>} />
         <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
 
         {/* Radiographer routes */}
@@ -147,7 +137,7 @@ function AppRoutes() {
         <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
 
         {/* Track Status route */}
-        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><RoleRouter moPage={MoTrackStatus} defaultPage={TrackStatus} /></ProtectedRoute>} />
+        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoTrackStatus /></ProtectedRoute>} />
 
         {/* Administrator routes (full CRUD access) */}
         <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />

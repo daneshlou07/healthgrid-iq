@@ -79,8 +79,8 @@ export default function ReviewQueue() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <h1 className="page-title">Specialist Radiologist Report Inbox</h1>
-          <span className="badge-purple font-mono text-xs font-bold">RADIOLOGIST QUEUE</span>
+          <h1 className="page-title">Radiologist Review Queue</h1>
+
         </div>
         <p className="page-subtitle">
           {scoredCases.length} cases pending specialist review &middot; AI triage ranking active.
@@ -98,11 +98,10 @@ export default function ReviewQueue() {
           <button
             key={tab.key}
             onClick={() => setUrgencyFilter(tab.key)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-              urgencyFilter === tab.key
-                ? tab.className + ' shadow-sm ring-1 ring-offset-1 ring-slate-300'
-                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-            }`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${urgencyFilter === tab.key
+              ? tab.className + ' shadow-sm ring-1 ring-offset-1 ring-slate-300'
+              : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+              }`}
           >
             {tab.key !== 'ALL' && <Brain className="w-3 h-3" />}
             {tab.key === 'ALL' && <Activity className="w-3 h-3" />}
@@ -121,15 +120,14 @@ export default function ReviewQueue() {
           return (
             <div
               key={c.id}
-              className={`card transition-all ${
-                c.isEscalated
-                  ? 'border-2 border-red-400 bg-red-50/30'
-                  : isCritical
+              className={`card transition-all ${c.isEscalated
+                ? 'border-2 border-red-400 bg-red-50/30'
+                : isCritical
                   ? 'border border-red-300 bg-red-50/20'
                   : isHigh
-                  ? 'border border-amber-200 bg-amber-50/20'
-                  : ''
-              }`}
+                    ? 'border border-amber-200 bg-amber-50/20'
+                    : ''
+                }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 space-y-2">
@@ -145,7 +143,7 @@ export default function ReviewQueue() {
                     {c.isEscalated && (
                       <span className="px-2.5 py-0.5 bg-red-600 text-white text-[10px] font-extrabold rounded-full flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
-                        ESCALATED BY MO
+                        Escalated by Medical Officer
                       </span>
                     )}
                   </div>
@@ -167,11 +165,10 @@ export default function ReviewQueue() {
                       {c._urgency.flags.slice(0, 4).map((flag) => (
                         <span
                           key={flag}
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                            isCritical
-                              ? 'bg-red-100 text-red-800 border border-red-200'
-                              : 'bg-amber-100 text-amber-800 border border-amber-200'
-                          }`}
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isCritical
+                            ? 'bg-red-100 text-red-800 border border-red-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}
                         >
                           {flag}
                         </span>
@@ -203,7 +200,7 @@ export default function ReviewQueue() {
 
                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
                   <Link to="/reporting" className="btn-primary text-xs whitespace-nowrap">
-                    Write Report
+                    Review & Report
                   </Link>
                   {c.scheduledAt && (
                     <span className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
