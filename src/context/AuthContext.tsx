@@ -74,6 +74,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
+  // Helper to persist user session securely without storing password
+  const saveUserSession = (user: User | null) => {
+    if (!user) {
+      localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+      setCurrentUser(null);
+      return;
+    }
+    const safeUser = { ...user };
+    delete safeUser.password;
+    setCurrentUser(safeUser);
+    localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(safeUser));
+  };
+
   // -----------------------------------------------------------------------
   // Auth state listener
   // -----------------------------------------------------------------------
@@ -82,10 +95,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
       if (saved) {
         try {
-          setCurrentUser(JSON.parse(saved));
+          const userObj = JSON.parse(saved);
+          if (userObj?.password) delete userObj.password;
+          setCurrentUser(userObj);
         } catch {
-          setCurrentUser(mockUsers[0]);
+          localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+          setCurrentUser(null);
         }
+      } else {
+        setCurrentUser(null);
       }
       setIsLoading(false);
       return;
@@ -104,13 +122,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (firebaseUser) {
           try {
             const profile = await loadUserProfile(firebaseUser.uid, firebaseUser.email);
-            setCurrentUser(profile);
+            saveUserSession(profile);
           } catch (error) {
             console.error('Failed to fetch user profile:', error);
-            setCurrentUser(null);
+            saveUserSession(null);
           }
         } else {
-          setCurrentUser(null);
+          // If Firebase has no user, check local persistent session
+          const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
+          if (saved) {
+            try {
+              const userObj = JSON.parse(saved);
+              if (userObj?.password) delete userObj.password;
+              setCurrentUser(userObj);
+            } catch {
+              saveUserSession(null);
+            }
+          } else {
+            saveUserSession(null);
+          }
           setMfaResolver(null);
         }
         setIsLoading(false);
@@ -204,9 +234,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (password !== '711505MH!' && password !== 'password123' && password !== 'Password123!') {
         throw new Error('Invalid master password.');
       }
-      setCurrentUser(matched);
       setOriginalAdminUser(null);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+      saveUserSession(matched);
       recordLoginAudit(matched);
       return { requiresMfa: false };
     }
@@ -218,9 +247,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (!isFirebaseConfigured() || isDemoMode()) {
-      setCurrentUser(matched);
       setOriginalAdminUser(null);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+      saveUserSession(matched);
       recordLoginAudit(matched);
       return { requiresMfa: false };
     }
@@ -230,9 +258,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       await signInWithEmailAndPassword(auth, matched.email, password);
-      setCurrentUser(matched);
       setOriginalAdminUser(null);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+      saveUserSession(matched);
       recordLoginAudit(matched);
       return { requiresMfa: false };
     } catch (error: any) {
@@ -242,9 +269,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { requiresMfa: true };
       }
       // Demo / Local Fallback
-      setCurrentUser(matched);
       setOriginalAdminUser(null);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(matched));
+      saveUserSession(matched);
       recordLoginAudit(matched);
       return { requiresMfa: false };
     }
@@ -260,14 +286,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!originalAdminUser && (currentUser?.email === 'daneshlou05@gmail.com' || isMasterAdmin)) {
       setOriginalAdminUser(currentUser || mockUsers.find(u => u.email === 'daneshlou05@gmail.com') || null);
     }
-    setCurrentUser(target);
-    localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(target));
+    saveUserSession(target);
   };
 
   const stopImpersonating = () => {
     if (originalAdminUser) {
-      setCurrentUser(originalAdminUser);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(originalAdminUser));
+      saveUserSession(originalAdminUser);
       setOriginalAdminUser(null);
     }
   };
@@ -275,15 +299,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Demo Login Helpers (Kept internal for programmatic tests)
   const loginAsRole = (role: UserRole) => {
     const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
-    setCurrentUser(user);
-    localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
+    saveUserSession(user);
     recordLoginAudit(user);
   };
 
   const loginAsUser = (userId: string) => {
     const user = mockUsers.find((u) => u.id === userId) || mockUsers[0];
-    setCurrentUser(user);
-    localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
+    saveUserSession(user);
     recordLoginAudit(user);
   };
 
@@ -315,8 +337,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('Firebase signout warning:', e);
       }
     }
-    localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
-    setCurrentUser(null);
+    saveUserSession(null);
     setOriginalAdminUser(null);
     setMfaResolver(null);
   };

@@ -10,7 +10,6 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -215,18 +214,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password Row */}
-            <div className="flex items-center justify-between text-[14px] pt-0.5">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded-[3px] border-[#CBD5E1] text-[#0A5236] focus:ring-0 cursor-pointer"
-                />
-                <span className="text-[#1E293B]">Remember me</span>
-              </label>
-
+            {/* Forgot Password Row */}
+            <div className="flex items-center justify-end text-[14px] pt-0.5">
               <button
                 type="button"
                 onClick={openForgot}
@@ -253,8 +242,8 @@ export default function LoginPage() {
       < footer className="w-full max-w-[1200px] shrink-0 pt-2 pb-3 px-2" >
         <div className="w-full h-[1px] bg-[#CBD5E1] mb-3" />
         <div className="flex items-center justify-between text-[12px] text-[#64748B]">
-          <p>&copy; 2026 Theta Edge Berhad. All rights reserved.</p>
-          <p>Version {SYSTEM_VERSION}</p>
+          <p>&copy; 2026 Theta Edge Berhad.</p>
+          <p>{SYSTEM_VERSION}</p>
         </div>
       </footer >
 
