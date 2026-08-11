@@ -143,11 +143,35 @@ export default function Header() {
   return (
     <>
       <header className="h-16 bg-[#FAFCFB] border-b border-[#D8E5E1] flex items-center px-6 gap-4">
-        <div className="flex-1 max-w-md">
-          <button onClick={openSearch} className="w-full flex items-center gap-2.5 px-3 py-1.5 bg-[#EDF4F2] border border-[#D8E5E1] rounded-lg text-xs text-[#2C524B] hover:border-[#0F4C42] hover:text-[#0F4C42] transition-colors text-left">
-            <Search className="w-3.5 h-3.5 flex-shrink-0 text-[#0F4C42]" />
-            <span className="flex-1">Search patients, cases, reports...</span>
-            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 bg-white border border-[#D8E5E1] rounded text-[9px] font-mono text-surface-400">Ctrl+K</kbd>
+        <div className="flex-1 max-w-xl">
+          <button
+            onClick={openSearch}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5
+    bg-white
+    border border-[#D8E5E1]
+    rounded-lg
+    text-xs text-[#2C524B]
+    hover:border-[#C0D3CD]
+    transition-colors
+    text-left"
+          >
+            <Search className="w-3.5 h-3.5 flex-shrink-0 text-[#3B665E]" />
+
+            <span className="flex-1">
+              Search patients, cases, reports...
+            </span>
+
+            <kbd
+              className="hidden sm:inline-flex px-1.5 py-0.5
+      bg-[#F8FAF9]
+      border border-[#D8E5E1]
+      rounded
+      text-[9px]
+      font-mono
+      text-surface-400"
+            >
+              Ctrl+K
+            </kbd>
           </button>
         </div>
 
@@ -163,7 +187,7 @@ export default function Header() {
           </button>
         )}
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
           {/* Language Switcher Toggle */}
           <button
             onClick={toggleLanguage}
@@ -177,13 +201,14 @@ export default function Header() {
           {/* Medical Glossary Dictionary Modal Button */}
           <button
             onClick={() => setShowGlossaryModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#0F4C42] rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-[#F8FAF9] border border-[#D8E5E1] text-[#0F4C42] rounded-lg text-xs font-bold transition-colors cursor-pointer"
             title="Open Medical & Clinical Glossary Dictionary"
           >
             <BookOpen className="w-3.5 h-3.5 text-[#0F4C42]" />
-            <span className="hidden sm:inline">{t('Medical Glossary', 'Glosari Perubatan')}</span>
+            <span className="hidden sm:inline">
+              {t('Medical Glossary', 'Glosari Perubatan')}
+            </span>
           </button>
-
 
 
           {/* Notifications */}
