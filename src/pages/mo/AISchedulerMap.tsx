@@ -237,6 +237,10 @@ export default function AISchedulerMap() {
 
   const handleClinicChange = async (clinicId: string) => {
     setSelectedClinicId(clinicId); setSelectedRadiographerId(null); setRecommendedRadiographerId(null); setAppointmentTime('');
+    let profiles = await getRadioSchedulesByClinic(clinicId);
+    const allProfiles = await getRadioScheduleProfiles();
+    if (profiles.length === 0) profiles = allProfiles;
+    setScheduleProfiles(profiles);
     if (selectedPatient) {
       let patLat = selectedPatient.latitude;
       let patLon = selectedPatient.longitude;
@@ -256,9 +260,11 @@ export default function AISchedulerMap() {
     }
   };
 
-  const handleProceedToAssignment = () => {
+  const handleProceedToAssignment = async () => {
     if (!selectedClinicId || !selectedCase) return;
-    const profiles = scheduleProfiles;
+    let profiles = await getRadioSchedulesByClinic(selectedClinicId);
+    const allProfiles = await getRadioScheduleProfiles();
+    if (profiles.length === 0) profiles = allProfiles;
     setScheduleProfiles(profiles);
     const modality = extractModality(selectedCase.scanType);
     const bestId = recommendBestRadiographer(profiles, modality, cases);
