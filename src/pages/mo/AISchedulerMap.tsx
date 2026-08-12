@@ -256,20 +256,18 @@ export default function AISchedulerMap() {
     }
   };
 
-  const handleProceedToAssignment = async () => {
+  const handleProceedToAssignment = () => {
     if (!selectedClinicId || !selectedCase) return;
-    let profiles = await getRadioSchedulesByClinic(selectedClinicId);
-    const allProfiles = await getRadioScheduleProfiles();
-    if (profiles.length === 0) profiles = allProfiles;
-    setScheduleProfiles(profiles.length > 0 ? profiles : allProfiles);
+    const profiles = scheduleProfiles;
+    setScheduleProfiles(profiles);
     const modality = extractModality(selectedCase.scanType);
-    const bestId = recommendBestRadiographer(profiles.length > 0 ? profiles : allProfiles, modality);
+    const bestId = recommendBestRadiographer(profiles, modality, cases);
     setSelectedRadiographerId(bestId);
     setRecommendedRadiographerId(bestId);
     if (bestId) {
-      const bestProfile = (profiles.length > 0 ? profiles : allProfiles).find((p) => p.userId === bestId);
+      const bestProfile = profiles.find((p) => p.userId === bestId);
       if (bestProfile) {
-        const slot = getEarliestSlot(bestProfile.schedule);
+        const slot = getEarliestSlot(bestProfile.schedule, bestId, cases, undefined, selectedCase.id);
         if (slot) setAppointmentTime(`${slot.date}T${slot.startTime}`);
       }
     }
@@ -279,7 +277,10 @@ export default function AISchedulerMap() {
   const handleRadiographerSelect = (userId: string) => {
     setSelectedRadiographerId(userId);
     const profile = scheduleProfiles.find((p) => p.userId === userId);
-    if (profile) { const slot = getEarliestSlot(profile.schedule); if (slot) setAppointmentTime(`${slot.date}T${slot.startTime}`); }
+    if (profile) {
+      const slot = getEarliestSlot(profile.schedule, userId, cases, undefined, selectedCase?.id);
+      if (slot) setAppointmentTime(`${slot.date}T${slot.startTime}`);
+    }
   };
 
   const handleConfirm = async () => {
@@ -306,11 +307,6 @@ export default function AISchedulerMap() {
   };
 
   // ─── BULK SCHEDULE (Phase 1: build preview) ──────────────────────────────────
-  // Key fixes:
-  //  1. Cache all radiographer profiles once before the loop.
-  //  2. Run all geocoding in parallel (up to 6 at a time) so we don't wait
-  //     sequentially for each Nominatim HTTP call.
-  //  3. Report progress so the UI never looks frozen.
   const handleBulkSchedule = async () => {
     if (!currentUser) return;
     
@@ -325,7 +321,6 @@ export default function AISchedulerMap() {
     // ── Step 1: fetch all radiographer profiles ONCE (not per case) ────────────
     const [allProfiles, clinicProfileMap] = await (async () => {
       const all = await getRadioScheduleProfiles();
-      // Build a quick lookup: clinicId → profiles at that clinic
       const byClinic = new Map<string, RadioScheduleProfile[]>();
       for (const p of all) {
         const existing = byClinic.get(p.deployedClinicId) ?? [];
@@ -335,7 +330,7 @@ export default function AISchedulerMap() {
       return [all, byClinic] as const;
     })();
 
-    // ── Step 2: geocode all patients in parallel (max 6 concurrent requests) ──
+    // ── Step 2: geocode all patients in parallel ──
     const geocodeTasks = cases.map((caseItem) => async () => {
       const patient = patients.find((p) => p.id === caseItem.patientId);
       if (!patient) return null;
@@ -347,7 +342,6 @@ export default function AISchedulerMap() {
         if (geo) {
           patLat = geo.lat;
           patLon = geo.lon;
-          // Update the patient object in-memory so single-schedule also benefits
           patient.latitude = geo.lat;
           patient.longitude = geo.lon;
         }
@@ -364,13 +358,14 @@ export default function AISchedulerMap() {
 
     // ── Step 3: assign clinic + radiographer (all sync after geocode) ──────────
     const assignments: BulkAssignment[] = [];
+    const transientAssignedSlots = new Set<string>();
+
     for (const result of geocodeResults) {
       if (result.status !== 'fulfilled' || !result.value) continue;
       const { caseItem, patient, patLat, patLon } = result.value;
 
       const nearest = findNearestClinic(patLat, patLon, clinics);
 
-      // Respect user's designated preference if chosen, otherwise fallback to AI nearest recommendation
       const userPreferredId = caseItem.clinicId || patient.preferredClinicId;
       const isValidChoice = userPreferredId && clinics.some((c) => c.id === userPreferredId && c.status === 'active');
       const targetClinicId = isValidChoice ? userPreferredId : (nearest?.clinicId || null);
@@ -385,12 +380,15 @@ export default function AISchedulerMap() {
         : allProfiles;
 
       const modality = extractModality(caseItem.scanType);
-      const bestId = recommendBestRadiographer(profiles, modality);
+      const bestId = recommendBestRadiographer(profiles, modality, cases);
       if (!bestId) continue;
 
       const bestProfile = profiles.find((p) => p.userId === bestId);
-      const slot = bestProfile ? getEarliestSlot(bestProfile.schedule) : null;
+      const slot = bestProfile ? getEarliestSlot(bestProfile.schedule, bestId, cases, transientAssignedSlots) : null;
       if (!slot) continue;
+
+      const slotCleanTime = slot.startTime.replace(/\s*[AP]M$/i, '').trim();
+      transientAssignedSlots.add(`${bestId}_${slot.date}_${slotCleanTime}`);
 
       assignments.push({
         caseId: caseItem.id,
@@ -965,6 +963,7 @@ export default function AISchedulerMap() {
                   selectedId={selectedRadiographerId}
                   recommendedId={recommendedRadiographerId}
                   onSelect={handleRadiographerSelect}
+                  existingCases={cases}
                 />
 
                 {selectedRadiographerId && appointmentTime && (
@@ -986,6 +985,8 @@ export default function AISchedulerMap() {
                       selectedRadiographerId={selectedRadiographerId}
                       currentTime={appointmentTime}
                       onChangeTime={(t) => setAppointmentTime(t)}
+                      existingCases={cases}
+                      selectedCaseId={selectedCase?.id}
                     />
                   </div>
                 )}
@@ -1026,19 +1027,34 @@ export default function AISchedulerMap() {
   );
 }
 
-// ─── Appointment Override (sub-component, unchanged) ─────────────────────────
-function AppointmentOverride({ scheduleProfiles, selectedRadiographerId, currentTime, onChangeTime }: {
+// ─── Appointment Override (sub-component) ─────────────────────────
+function AppointmentOverride({
+  scheduleProfiles,
+  selectedRadiographerId,
+  currentTime,
+  onChangeTime,
+  existingCases,
+  selectedCaseId,
+}: {
   scheduleProfiles: import('../../types').RadioScheduleProfile[];
   selectedRadiographerId: string;
   currentTime: string;
   onChangeTime: (time: string) => void;
+  existingCases?: import('../../types').Case[];
+  selectedCaseId?: string;
 }) {
   const [showSlots, setShowSlots] = React.useState(false);
   const profile = scheduleProfiles.find((p) => p.userId === selectedRadiographerId);
   if (!profile) return null;
 
-  const slots = getAvailableSlots(profile.schedule, 8).filter(
-    (s) => `${s.date}T${s.startTime}` !== currentTime
+  const slotItems = getAvailableSlots(
+    profile.schedule,
+    10,
+    selectedRadiographerId,
+    existingCases,
+    selectedCaseId
+  ).filter(
+    (item) => `${item.slot.date}T${item.slot.startTime}` !== currentTime
   );
 
   return (
@@ -1051,25 +1067,50 @@ function AppointmentOverride({ scheduleProfiles, selectedRadiographerId, current
         {showSlots ? 'Hide alternative slots' : 'Change Appointment'}
       </button>
       {showSlots && (
-        <div className="mt-2 p-3 bg-surface-50 border border-surface-200 rounded-lg">
-          <p className="text-[10px] text-surface-500 mb-2">Alternative available slots:</p>
+        <div className="mt-2 p-3 bg-surface-50 border border-surface-200 rounded-lg space-y-2">
+          <p className="text-[10px] text-surface-500 font-medium">
+            Alternative available slots:
+          </p>
           <div className="grid grid-cols-2 gap-1.5">
-            {slots.map((s) => {
-              const timeStr = `${s.date}T${s.startTime}`;
+            {slotItems.map(({ slot, isOccupied, occupiedByCase }) => {
+              const timeStr = `${slot.date}T${slot.startTime}`;
               return (
                 <button
                   key={timeStr}
                   type="button"
-                  onClick={() => { onChangeTime(timeStr); setShowSlots(false); }}
-                  className="px-3 py-2 text-xs font-medium rounded-lg border border-surface-300 text-surface-700 hover:border-navy-300 hover:bg-navy-50 transition-colors text-center"
+                  onClick={() => {
+                    onChangeTime(timeStr);
+                    setShowSlots(false);
+                  }}
+                  className={`p-2 text-xs font-medium rounded-lg border transition-colors text-left flex flex-col justify-between ${
+                    isOccupied
+                      ? 'border-amber-200 bg-amber-50/60 text-amber-900 hover:bg-amber-100'
+                      : 'border-surface-300 bg-white text-surface-700 hover:border-navy-300 hover:bg-navy-50'
+                  }`}
                 >
-                  {s.startTime}
-                  <span className="block text-[9px] text-surface-400 font-normal">{s.date}</span>
+                  <div className="flex items-center justify-between gap-1 w-full">
+                    <span className="font-bold">{slot.startTime}</span>
+                    {isOccupied && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-200 text-amber-900">
+                        Occupied
+                      </span>
+                    )}
+                  </div>
+                  <span className="block text-[9px] text-surface-500 font-normal mt-0.5">
+                    {slot.date}
+                  </span>
+                  {occupiedByCase && (
+                    <span className="block text-[9px] text-amber-700 font-semibold truncate mt-0.5">
+                      Case: {occupiedByCase.caseNumber}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
-          {slots.length === 0 && <p className="text-[10px] text-surface-400 text-center py-2">No other slots available.</p>}
+          {slotItems.length === 0 && (
+            <p className="text-[10px] text-surface-400 text-center py-2">No other slots available.</p>
+          )}
         </div>
       )}
     </div>

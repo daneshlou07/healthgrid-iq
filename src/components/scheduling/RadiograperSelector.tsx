@@ -1,5 +1,5 @@
 import React from 'react';
-import type { RadioScheduleProfile, RadioScheduleSlot } from '../../types';
+import type { Case, RadioScheduleProfile, RadioScheduleSlot } from '../../types';
 import { User, CheckCircle, AlertTriangle, Sparkles } from 'lucide-react';
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   selectedId: string | null;
   recommendedId: string | null;
   onSelect: (userId: string) => void;
+  existingCases?: Case[];
 }
 
 export function extractModality(scanType: string): string {
@@ -19,49 +20,165 @@ export function extractModality(scanType: string): string {
   return 'X-Ray';
 }
 
-export function getEarliestSlot(schedule: RadioScheduleSlot[]): RadioScheduleSlot | null {
+export function isSlotOccupied(
+  slotDate: string,
+  slotStartTime: string,
+  radiographerId: string,
+  existingCases?: Case[],
+  transientAssignedSlots?: Set<string>,
+  ignoreCaseId?: string
+): Case | null {
+  // Check transient bulk assigned slots first
+  const slotCleanTime = slotStartTime.replace(/\s*[AP]M$/i, '').trim();
+  const slotKey = `${radiographerId}_${slotDate}_${slotCleanTime}`;
+  if (transientAssignedSlots && transientAssignedSlots.has(slotKey)) {
+    return { id: 'bulk-assigned', caseNumber: 'Bulk Queue' } as Case;
+  }
+
+  if (!existingCases || existingCases.length === 0) return null;
+
+  const matchingCase = existingCases.find((c) => {
+    if (c.id === ignoreCaseId) return false;
+    if (c.radiographerId !== radiographerId) return false;
+    if (!c.scheduledAt || (c.status !== 'SCHEDULED' && c.status !== 'CREATED' && c.status !== 'SCANNED')) return false;
+
+    const caseDateObj = new Date(c.scheduledAt);
+    if (isNaN(caseDateObj.getTime())) return false;
+
+    const caseDayStr = caseDateObj.toISOString().split('T')[0];
+    if (caseDayStr !== slotDate) return false;
+
+    const caseHours = String(caseDateObj.getHours()).padStart(2, '0');
+    const caseMins = String(caseDateObj.getMinutes()).padStart(2, '0');
+    const caseTimeStr = `${caseHours}:${caseMins}`;
+
+    return caseTimeStr === slotCleanTime;
+  });
+
+  return matchingCase || null;
+}
+
+export function getEarliestSlot(
+  schedule: RadioScheduleSlot[],
+  radiographerId?: string,
+  existingCases?: Case[],
+  transientAssignedSlots?: Set<string>,
+  ignoreCaseId?: string
+): RadioScheduleSlot | null {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
+
   for (const slot of schedule) {
     if (slot.booked) continue;
+    if (
+      radiographerId &&
+      isSlotOccupied(slot.date, slot.startTime, radiographerId, existingCases, transientAssignedSlots, ignoreCaseId)
+    ) {
+      continue;
+    }
     const slotDate = new Date(`${slot.date}T${slot.startTime}:00`);
     if (slotDate >= now) return slot;
   }
-  return schedule.find((s) => !s.booked) || schedule[0] || null;
-}
 
-export function getAvailableSlots(schedule: RadioScheduleSlot[], count: number = 5): RadioScheduleSlot[] {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const slots: RadioScheduleSlot[] = [];
+  // Fallback: return first unbooked and unoccupied slot
   for (const slot of schedule) {
     if (slot.booked) continue;
-    const slotDate = new Date(`${slot.date}T${slot.startTime}:00`);
-    if (slotDate >= now) { slots.push(slot); if (slots.length >= count) break; }
+    if (
+      radiographerId &&
+      isSlotOccupied(slot.date, slot.startTime, radiographerId, existingCases, transientAssignedSlots, ignoreCaseId)
+    ) {
+      continue;
+    }
+    return slot;
   }
-  if (slots.length === 0) {
-    return schedule.filter((s) => !s.booked).slice(0, count);
-  }
-  return slots;
+
+  return schedule[0] || null;
 }
 
-export function scoreRadiographer(profile: RadioScheduleProfile, requiredModality: string): number {
+export function getAvailableSlots(
+  schedule: RadioScheduleSlot[],
+  count: number = 8,
+  radiographerId?: string,
+  existingCases?: Case[],
+  ignoreCaseId?: string
+): { slot: RadioScheduleSlot; isOccupied: boolean; occupiedByCase?: Case }[] {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const result: { slot: RadioScheduleSlot; isOccupied: boolean; occupiedByCase?: Case }[] = [];
+
+  for (const slot of schedule) {
+    const slotDate = new Date(`${slot.date}T${slot.startTime}:00`);
+    if (slotDate < now) continue;
+
+    const occupiedBy =
+      radiographerId && existingCases
+        ? isSlotOccupied(slot.date, slot.startTime, radiographerId, existingCases, undefined, ignoreCaseId)
+        : null;
+
+    const isBookedOrOccupied = slot.booked || Boolean(occupiedBy);
+
+    result.push({
+      slot,
+      isOccupied: isBookedOrOccupied,
+      occupiedByCase: occupiedBy || undefined,
+    });
+
+    if (result.length >= count) break;
+  }
+
+  if (result.length === 0) {
+    return schedule.slice(0, count).map((slot) => {
+      const occupiedBy =
+        radiographerId && existingCases
+          ? isSlotOccupied(slot.date, slot.startTime, radiographerId, existingCases, undefined, ignoreCaseId)
+          : null;
+      return {
+        slot,
+        isOccupied: slot.booked || Boolean(occupiedBy),
+        occupiedByCase: occupiedBy || undefined,
+      };
+    });
+  }
+
+  return result;
+}
+
+export function scoreRadiographer(
+  profile: RadioScheduleProfile,
+  requiredModality: string,
+  existingCases?: Case[]
+): number {
   if (profile.leaveStatus === 'On Leave') return Infinity;
   const supports = profile.supportedModalities.includes(requiredModality);
-  const earliest = getEarliestSlot(profile.schedule);
+  const earliest = getEarliestSlot(profile.schedule, profile.userId, existingCases);
   const now = new Date();
   const slotDate = earliest ? new Date(earliest.date) : now;
   const daysAway = Math.max(0, (slotDate.getTime() - now.getTime()) / 86400000);
-  const workloadRatio = profile.currentCaseload / profile.maxDailyCaseload;
+
+  const liveCount = existingCases
+    ? existingCases.filter((c) => c.radiographerId === profile.userId && (c.status === 'SCHEDULED' || c.status === 'SCANNED')).length
+    : profile.currentCaseload;
+
+  const workloadRatio = liveCount / profile.maxDailyCaseload;
   return (supports ? 0 : 500) + daysAway * 100 + workloadRatio * 50;
 }
 
-export function getRecommendationReasons(profile: RadioScheduleProfile, requiredModality: string): string[] {
+export function getRecommendationReasons(
+  profile: RadioScheduleProfile,
+  requiredModality: string,
+  existingCases?: Case[]
+): string[] {
   const reasons: string[] = [];
   if (profile.supportedModalities.includes(requiredModality)) reasons.push('Certified for selected imaging modality');
-  const earliest = getEarliestSlot(profile.schedule);
+  const earliest = getEarliestSlot(profile.schedule, profile.userId, existingCases);
   if (earliest) reasons.push('Available during requested time');
-  const workloadRatio = profile.currentCaseload / profile.maxDailyCaseload;
+  
+  const liveCount = existingCases
+    ? existingCases.filter((c) => c.radiographerId === profile.userId && (c.status === 'SCHEDULED' || c.status === 'SCANNED')).length
+    : profile.currentCaseload;
+
+  const workloadRatio = liveCount / profile.maxDailyCaseload;
   if (workloadRatio <= 0.5) reasons.push('Lowest workload');
   else if (workloadRatio <= 0.75) reasons.push('Acceptable workload');
   reasons.push('Closest to assigned healthcare centre');
@@ -69,17 +186,21 @@ export function getRecommendationReasons(profile: RadioScheduleProfile, required
   return reasons;
 }
 
-export function recommendBestRadiographer(profiles: RadioScheduleProfile[], requiredModality: string): string | null {
+export function recommendBestRadiographer(
+  profiles: RadioScheduleProfile[],
+  requiredModality: string,
+  existingCases?: Case[]
+): string | null {
   let bestId: string | null = null;
   let bestScore = Infinity;
   for (const p of profiles) {
-    const score = scoreRadiographer(p, requiredModality);
+    const score = scoreRadiographer(p, requiredModality, existingCases);
     if (score < bestScore) { bestScore = score; bestId = p.userId; }
   }
   return bestId || profiles[0]?.userId || null;
 }
 
-export default function RadiograperSelector({ profiles, requiredModality, selectedId, recommendedId, onSelect }: Props) {
+export default function RadiograperSelector({ profiles, requiredModality, selectedId, recommendedId, onSelect, existingCases }: Props) {
   let eligible = profiles.filter((p) => p.leaveStatus !== 'On Leave' && p.supportedModalities.includes(requiredModality));
   if (eligible.length === 0) {
     eligible = profiles.filter((p) => p.leaveStatus !== 'On Leave');
@@ -104,8 +225,12 @@ export default function RadiograperSelector({ profiles, requiredModality, select
       {eligible.map((profile) => {
         const isRecommended = profile.userId === recommendedId;
         const isSelected = profile.userId === selectedId;
-        const workloadPct = Math.round((profile.currentCaseload / profile.maxDailyCaseload) * 100);
-        const reasons = isRecommended ? getRecommendationReasons(profile, requiredModality) : [];
+        const liveCaseload = existingCases
+          ? existingCases.filter((c) => c.radiographerId === profile.userId && (c.status === 'SCHEDULED' || c.status === 'SCANNED')).length
+          : profile.currentCaseload;
+
+        const workloadPct = Math.round((liveCaseload / profile.maxDailyCaseload) * 100);
+        const reasons = isRecommended ? getRecommendationReasons(profile, requiredModality, existingCases) : [];
 
         return (
           <button
@@ -155,7 +280,7 @@ export default function RadiograperSelector({ profiles, requiredModality, select
                   <div className="flex-1 h-1.5 bg-surface-200 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${workloadPct > 80 ? 'bg-red-500' : workloadPct > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${workloadPct}%` }} />
                   </div>
-                  <span className="text-surface-600">{profile.currentCaseload}/{profile.maxDailyCaseload}</span>
+                  <span className="text-surface-600">{liveCaseload}/{profile.maxDailyCaseload}</span>
                 </div>
               </div>
               <div className="col-span-2">
