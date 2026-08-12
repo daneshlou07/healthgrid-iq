@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { mockUsers } from '../../services/mockData';
-import { Shield, UserCheck, ArrowLeft, ChevronDown } from 'lucide-react';
+import { Shield, ArrowLeft } from 'lucide-react';
 
 export default function ImpersonationBanner() {
   const { currentUser, originalAdminUser, isMasterAdmin, impersonateUser, stopImpersonating } = useAuth();
@@ -69,3 +69,5 @@ export default function ImpersonationBanner() {
     </div>
   );
 }
+
+

@@ -5,7 +5,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import type { Case } from '../../types';
 import { useSearchPalette } from '../ux/SearchPalette';
 import { useToast } from '../ux/Toast';
-import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen } from 'lucide-react';
+import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import Modal from '../ui/Modal';
 import ClinicalGlossaryModal from '../ui/ClinicalGlossaryModal';
@@ -27,7 +27,12 @@ function categorizeNotification(type: string): NotifCategory {
   return 'system';
 }
 
-export default function Header() {
+interface HeaderProps {
+  sidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+}
+
+export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
   const { currentUser, logout } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const { cases } = useData();
@@ -142,7 +147,8 @@ export default function Header() {
 
   return (
     <>
-      <header className="h-16 bg-[#FAFCFB] border-b border-[#D8E5E1] flex items-center px-6 gap-4">
+      <header className="h-16 bg-[#FAFCFB] border-b border-[#D8E5E1] flex items-center px-4 md:px-6 gap-3">
+
         <div className="flex-1 max-w-xl">
           <button
             onClick={openSearch}
@@ -188,29 +194,6 @@ export default function Header() {
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          {/* Language Switcher Toggle */}
-          <button
-            onClick={toggleLanguage}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#D8E5E1] hover:border-[#0F4C42] rounded-lg text-xs font-bold text-[#0F4C42] shadow-sm transition-all cursor-pointer"
-            title="Toggle Application UI Language (English / Bahasa Melayu)"
-          >
-            <Globe className="w-3.5 h-3.5 text-[#0F4C42]" />
-            <span className="font-mono text-[11px] uppercase">{language === 'en' ? 'EN | BM' : 'BM | EN'}</span>
-          </button>
-
-          {/* Medical Glossary Dictionary Modal Button */}
-          <button
-            onClick={() => setShowGlossaryModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-[#F8FAF9] border border-[#D8E5E1] text-[#0F4C42] rounded-lg text-xs font-bold transition-colors cursor-pointer"
-            title="Open Medical & Clinical Glossary Dictionary"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-[#0F4C42]" />
-            <span className="hidden sm:inline">
-              {t('Medical Glossary', 'Glosari Perubatan')}
-            </span>
-          </button>
-
-
           {/* Notifications */}
           <div className="relative" ref={notifRef}>
             <button onClick={() => { setShowNotifications(!showNotifications); setShowProfile(false); }} className="relative p-2 text-surface-500 hover:text-navy-600 hover:bg-surface-100 rounded-lg transition-colors" aria-label="Notifications">

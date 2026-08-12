@@ -31,10 +31,9 @@ export default function DepartmentDashboard() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <h1 className="page-title">Medical Officer Dashboard</h1>
+          <h1 className="text-2xl font-bold text-navy-800">Medical Officer Dashboard</h1>
 
         </div>
-        <p className="page-subtitle">Medical Officer Command Center &middot; Monitor imaging referrals, track case progress, and review pending sign-offs.</p>
       </div>
 
       {/* Stats */}

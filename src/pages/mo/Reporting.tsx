@@ -124,8 +124,7 @@ export default function Reporting() {
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="page-title">Medical Officer Clinical Reporting</h1>
-            <span className="badge-purple font-mono text-xs font-bold">MO REPORTING</span>
+            <h1 className="page-title">Clinical Reporting</h1>
           </div>
           <p className="page-subtitle">Select a case to write a diagnostic report or escalate complex cases to Specialist Radiologist.</p>
         </div>

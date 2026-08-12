@@ -12,7 +12,7 @@ const ROUTE_LABELS: Record<string, string> = {
   fleet: 'Imaging Equipment', users: 'User Management',
   'audit-logs': 'Audit Trail', 'patient-registry': 'Patient Registry',
   analytics: 'Operational Analytics', announcements: 'Announcements',
-  settings: 'System Settings', 'tech-stack': 'Technology Stack',
+  'tech-stack': 'Technology Stack',
 };
 
 export default function Breadcrumb() {

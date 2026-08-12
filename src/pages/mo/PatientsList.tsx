@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Users, Search } from 'lucide-react';
+import { Users, Plus, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { normalizeNric, formatNric } from '../../utils/malaysianNric';
 
@@ -22,18 +22,28 @@ export default function PatientsList() {
   );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="page-title">Medical Officer Patient Registry</h1>
-
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-navy-800">Patient Registry</h1>
+          <p className="text-sm text-surface-500">View and manage clinical patient records.</p>
         </div>
-        <p className="page-subtitle">Search, view, and manage patient clinical records for Medical Officer referrals.</p>
-      </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-        <input type="text" placeholder="Search by name or IC number..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-field pl-10" />
+        <div className="flex items-center gap-2.5">
+          <div className="relative w-60">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-400" />
+            <input
+              type="text"
+              placeholder="Filter by name or IC..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-field pl-9 py-2.5 text-xs w-full"
+            />
+          </div>
+          <Link to="/patients/register" className="btn-primary text-xs flex items-center gap-1.5 whitespace-nowrap shrink-0">
+            <Plus className="w-3.5 h-3.5" /> Register Patient
+          </Link>
+        </div>
       </div>
 
       <div className="card p-0 overflow-hidden">
@@ -72,3 +82,5 @@ export default function PatientsList() {
     </div>
   );
 }
+
+

@@ -93,7 +93,7 @@ export default function ClinicsManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Clinic Management</h1>
-          <p className="page-subtitle">Create, edit, and manage healthcare centres</p>
+          <p className="page-subtitle">Manage healthcare facilities, locations, and operational status.</p>
         </div>
         <button onClick={openCreate} className="btn-primary text-sm flex items-center gap-1.5">
           <Plus className="w-4 h-4" /> Add Clinic
@@ -105,7 +105,7 @@ export default function ClinicsManagement() {
         <input type="text" placeholder="Search clinics..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-field pl-10" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         {filtered.map((clinic) => (
           <div key={clinic.id} className="card">
             <div className="flex items-start justify-between mb-3">
@@ -182,9 +182,8 @@ export default function ClinicsManagement() {
               {MODALITIES.map((mod) => (
                 <button
                   key={mod} type="button" onClick={() => toggleModality(mod)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    form.modalities.includes(mod) ? 'bg-navy-50 border-navy-300 text-navy-700' : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.modalities.includes(mod) ? 'bg-navy-50 border-navy-300 text-navy-700' : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                    }`}
                 >
                   {mod}
                 </button>

@@ -45,7 +45,6 @@ const PatientDetail = safeLazy(() => import('./pages/shared/PatientDetail'));
 const FleetManagement = safeLazy(() => import('./pages/admin/FleetManagement'));
 const UsersManagement = safeLazy(() => import('./pages/admin/UsersManagement'));
 const AuditLogs = safeLazy(() => import('./pages/admin/AuditLogs'));
-const Settings = safeLazy(() => import('./pages/admin/Settings'));
 const Analytics = safeLazy(() => import('./pages/admin/Analytics'));
 const Announcements = safeLazy(() => import('./pages/admin/Announcements'));
 const TechStack = safeLazy(() => import('./pages/admin/TechStack'));
@@ -148,7 +147,6 @@ function AppRoutes() {
         <Route path="/ai-scheduler" element={<ProtectedRoute allowedRoles={['Administrator']}><AISchedulerMap /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute allowedRoles={['Administrator']}><Analytics /></ProtectedRoute>} />
         <Route path="/announcements" element={<ProtectedRoute allowedRoles={['Administrator']}><Announcements /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute allowedRoles={['Administrator']}><Settings /></ProtectedRoute>} />
         <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['Administrator']}><AuditLogs /></ProtectedRoute>} />
         <Route path="/tech-stack" element={<ProtectedRoute allowedRoles={['Administrator']}><TechStack /></ProtectedRoute>} />
         <Route path="/recycle-bin" element={<ProtectedRoute allowedRoles={['Administrator']}><RecycleBin /></ProtectedRoute>} />
