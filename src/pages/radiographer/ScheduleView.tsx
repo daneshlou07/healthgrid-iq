@@ -133,9 +133,6 @@ export default function ScheduleView() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold text-navy-900 tracking-tight">My Radiography Schedule</h1>
-            <span className="px-2 py-0.5 bg-navy-50 text-navy-700 border border-navy-200 font-mono text-[11px] font-bold rounded-md">
-              RADIOGRAPHER
-            </span>
           </div>
           <p className="text-xs text-surface-500 mt-1">
             Manage daily scanning appointments, patient slots, and emergency triage workloads.
@@ -146,22 +143,20 @@ export default function ScheduleView() {
         <div className="flex items-center gap-1 bg-surface-100 p-1 border border-surface-300 rounded-xl">
           <button
             onClick={() => setViewMode('agenda')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              viewMode === 'agenda'
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${viewMode === 'agenda'
                 ? 'bg-navy-700 text-white shadow-xs'
                 : 'text-surface-600 hover:text-navy-900 hover:bg-surface-200'
-            }`}
+              }`}
           >
             <ListFilter className="w-3.5 h-3.5" />
             <span>Agenda View</span>
           </button>
           <button
             onClick={() => setViewMode('timetable')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              viewMode === 'timetable'
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${viewMode === 'timetable'
                 ? 'bg-navy-700 text-white shadow-xs'
                 : 'text-surface-600 hover:text-navy-900 hover:bg-surface-200'
-            }`}
+              }`}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
             <span>Timetable Grid</span>
@@ -187,11 +182,10 @@ export default function ScheduleView() {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           <button
             onClick={() => setFilterTab('today')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              filterTab === 'today'
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${filterTab === 'today'
                 ? 'bg-navy-700 text-white'
                 : 'bg-surface-100 text-surface-700 hover:bg-surface-200 border border-surface-300'
-            }`}
+              }`}
           >
             <span>Today</span>
             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${filterTab === 'today' ? 'bg-white/20 text-white' : 'bg-surface-200 text-surface-700'}`}>
@@ -201,11 +195,10 @@ export default function ScheduleView() {
 
           <button
             onClick={() => setFilterTab('upcoming')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              filterTab === 'upcoming'
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${filterTab === 'upcoming'
                 ? 'bg-navy-700 text-white'
                 : 'bg-surface-100 text-surface-700 hover:bg-surface-200 border border-surface-300'
-            }`}
+              }`}
           >
             <span>Upcoming</span>
             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${filterTab === 'upcoming' ? 'bg-white/20 text-white' : 'bg-surface-200 text-surface-700'}`}>
@@ -215,11 +208,10 @@ export default function ScheduleView() {
 
           <button
             onClick={() => setFilterTab('unscheduled')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              filterTab === 'unscheduled'
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${filterTab === 'unscheduled'
                 ? 'bg-amber-600 text-white'
                 : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
-            }`}
+              }`}
           >
             <span>Unscheduled</span>
             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${filterTab === 'unscheduled' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'}`}>
@@ -230,11 +222,10 @@ export default function ScheduleView() {
           {criticalCount > 0 && (
             <button
               onClick={() => setFilterTab('critical')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                filterTab === 'critical'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${filterTab === 'critical'
                   ? 'bg-red-600 text-white'
                   : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-              }`}
+                }`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
               <span>Critical</span>
@@ -246,11 +237,10 @@ export default function ScheduleView() {
 
           <button
             onClick={() => setFilterTab('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-              filterTab === 'all'
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${filterTab === 'all'
                 ? 'bg-navy-700 text-white'
                 : 'bg-surface-100 text-surface-700 hover:bg-surface-200 border border-surface-300'
-            }`}
+              }`}
           >
             All ({radiographerCases.length})
           </button>
@@ -279,11 +269,10 @@ export default function ScheduleView() {
                   {dateCases.map((c) => (
                     <div
                       key={c.id}
-                      className={`p-4 bg-white border rounded-xl shadow-xs transition-all hover:border-navy-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                        c.severity === 'Critical' || c.isCriticalFinding
+                      className={`p-4 bg-white border rounded-xl shadow-xs transition-all hover:border-navy-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${c.severity === 'Critical' || c.isCriticalFinding
                           ? 'border-l-4 border-l-red-500 border-surface-300'
                           : 'border-surface-300'
-                      }`}
+                        }`}
                     >
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
