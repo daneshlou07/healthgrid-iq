@@ -150,6 +150,7 @@ function AppRoutes() {
         <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['Administrator']}><AuditLogs /></ProtectedRoute>} />
         <Route path="/tech-stack" element={<ProtectedRoute allowedRoles={['Administrator']}><TechStack /></ProtectedRoute>} />
         <Route path="/recycle-bin" element={<ProtectedRoute allowedRoles={['Administrator']}><RecycleBin /></ProtectedRoute>} />
+        <Route path="/trash" element={<ProtectedRoute allowedRoles={['Administrator']}><RecycleBin /></ProtectedRoute>} />
       </Route>
 
       {/* Public patient report access — no login required */}

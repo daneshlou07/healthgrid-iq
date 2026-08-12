@@ -278,7 +278,7 @@ function getNavGroups(
                 'Trash / Recycle Bin',
                 'Tong Sampah / Tong Kitar Semula'
               ),
-              path: '/trash',
+              path: '/recycle-bin',
               icon: <Trash2 className="w-[18px] h-[18px]" />,
             },
             {
