@@ -620,9 +620,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Soft Delete — moves item to trash
   const softDelete = (type: TrashItem['type'], id: string, deletedBy: string) => {
-    if (!USE_DEMO_STORAGE) {
-      throw new Error('Local soft delete is available only in demo mode. Use the server-backed archive workflow.');
-    }
     let data: any = null;
     switch (type) {
       case 'user': data = users.find((u) => u.id === id); setUsers((prev) => prev.filter((u) => u.id !== id)); break;
@@ -635,14 +632,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (data) {
       const trashItem: TrashItem = { id: `trash-${Date.now()}`, type, data, deletedAt: new Date().toISOString(), deletedBy };
       setTrash((prev) => { const next = [trashItem, ...prev]; saveTrash(next); return next; });
+      if (isFirebaseConfigured()) {
+        const db = getFirestoreDb();
+        if (db) {
+          const colName = type === 'clinic' ? 'clinics' : type === 'user' ? 'users' : type === 'equipment' ? 'equipment' : type === 'patient' ? 'patients' : type === 'case' ? 'cases' : 'patientRequests';
+          deleteDoc(doc(db, colName, id)).catch((err) => console.warn(`Failed deleting ${colName}/${id} from Firestore:`, err));
+        }
+      }
     }
   };
 
   // Restore from trash
   const restoreFromTrash = (trashItemId: string) => {
-    if (!USE_DEMO_STORAGE) {
-      throw new Error('Local restore is available only in demo mode. Use the server-backed archive workflow.');
-    }
     const item = trash.find((t) => t.id === trashItemId);
     if (!item) return;
     switch (item.type) {
@@ -654,13 +655,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       case 'patientRequest': setPatientRequests((prev) => [...prev, item.data]); break;
     }
     setTrash((prev) => { const next = prev.filter((t) => t.id !== trashItemId); saveTrash(next); return next; });
+    if (isFirebaseConfigured() && item.data && item.data.id) {
+      const db = getFirestoreDb();
+      if (db) {
+        const colName = item.type === 'clinic' ? 'clinics' : item.type === 'user' ? 'users' : item.type === 'equipment' ? 'equipment' : item.type === 'patient' ? 'patients' : item.type === 'case' ? 'cases' : 'patientRequests';
+        setDoc(doc(db, colName, item.data.id), item.data, { merge: true }).catch((err) => console.warn(`Failed restoring ${colName}/${item.data.id} to Firestore:`, err));
+      }
+    }
   };
 
   // Permanent delete — removes from trash forever
   const permanentDelete = (trashItemId: string) => {
-    if (!USE_DEMO_STORAGE) {
-      throw new Error('Local deletion is available only in demo mode. Use the server-backed archive workflow.');
-    }
     setTrash((prev) => { const next = prev.filter((t) => t.id !== trashItemId); saveTrash(next); return next; });
   };
 

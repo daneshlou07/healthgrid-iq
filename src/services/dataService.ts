@@ -6,6 +6,7 @@ import {
   setDoc,
   addDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -99,6 +100,33 @@ export async function getClinics(): Promise<Clinic[]> {
   const db = getFirestoreDb()!;
   const snapshot = await getDocs(collection(db, 'clinics'));
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Clinic));
+}
+
+export async function saveClinic(clinic: Clinic): Promise<Clinic> {
+  if (isFirebaseConfigured()) {
+    try {
+      const db = getFirestoreDb();
+      if (db) {
+        await setDoc(doc(db, 'clinics', clinic.id), clinic, { merge: true });
+      }
+    } catch (e) {
+      console.error('Failed saving clinic to Firestore database:', e);
+    }
+  }
+  return clinic;
+}
+
+export async function deleteClinicDoc(id: string): Promise<void> {
+  if (isFirebaseConfigured()) {
+    try {
+      const db = getFirestoreDb();
+      if (db) {
+        await deleteDoc(doc(db, 'clinics', id));
+      }
+    } catch (e) {
+      console.error('Failed deleting clinic from Firestore database:', e);
+    }
+  }
 }
 
 // ==================== PATIENTS ====================

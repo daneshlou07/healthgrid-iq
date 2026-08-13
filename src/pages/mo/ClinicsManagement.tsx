@@ -5,7 +5,8 @@ import { useToast } from '../../components/ux/Toast';
 import type { Clinic } from '../../types';
 import Modal from '../../components/ui/Modal';
 import { PredictiveAddressInput } from '../../components/ui/PredictiveAddressInput';
-import { MapPin, Phone, Mail, Plus, Edit2, Trash2, ShieldCheck, ShieldOff, Search } from 'lucide-react';
+import { saveClinic } from '../../services/dataService';
+import { MapPin, Phone, Mail, Plus, Edit2, Trash2, ShieldCheck, ShieldOff, Search, AlertTriangle } from 'lucide-react';
 
 const MODALITIES = ['X-Ray', 'CT', 'MRI', 'Ultrasound', 'Mammography', 'Fluoroscopy'];
 
@@ -16,6 +17,7 @@ export default function ClinicsManagement() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Clinic | null>(null);
+  const [deletingClinic, setDeletingClinic] = useState<Clinic | null>(null);
   const [form, setForm] = useState({
     name: '', address: '', phone: '', email: '',
     latitude: '', longitude: '', modalities: [] as string[],
@@ -46,10 +48,12 @@ export default function ClinicsManagement() {
   const handleSave = async () => {
     if (!currentUser) return;
     if (editing) {
-      setClinics((prev) => prev.map((c) => c.id === editing.id ? {
-        ...c, name: form.name, address: form.address, phone: form.phone, email: form.email,
-        latitude: parseFloat(form.latitude) || c.latitude, longitude: parseFloat(form.longitude) || c.longitude,
-      } : c));
+      const updated: Clinic = {
+        ...editing, name: form.name, address: form.address, phone: form.phone, email: form.email,
+        latitude: parseFloat(form.latitude) || editing.latitude, longitude: parseFloat(form.longitude) || editing.longitude,
+      };
+      setClinics((prev) => prev.map((c) => c.id === editing.id ? updated : c));
+      await saveClinic(updated);
       await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'CLINIC_UPDATED', target: `clinics/${editing.id}`, details: `Updated clinic: ${form.name}`, timestamp: new Date().toISOString() });
       toast.success(`${form.name} updated`);
     } else {
@@ -60,6 +64,7 @@ export default function ClinicsManagement() {
         status: 'active',
       };
       setClinics((prev) => [...prev, newClinic]);
+      await saveClinic(newClinic);
       await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'CLINIC_CREATED', target: `clinics/${newClinic.id}`, details: `Created clinic: ${form.name}`, timestamp: new Date().toISOString() });
       toast.success(`${form.name} created`);
     }
@@ -69,12 +74,14 @@ export default function ClinicsManagement() {
   const toggleStatus = async (clinic: Clinic) => {
     if (!currentUser) return;
     const newStatus = clinic.status === 'active' ? 'inactive' : 'active';
-    setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: newStatus } : c));
+    const updated: Clinic = { ...clinic, status: newStatus };
+    setClinics((prev) => prev.map((c) => c.id === clinic.id ? updated : c));
+    await saveClinic(updated);
     await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: newStatus === 'active' ? 'CLINIC_ACTIVATED' : 'CLINIC_DEACTIVATED', target: `clinics/${clinic.id}`, details: `${newStatus === 'active' ? 'Activated' : 'Deactivated'} clinic: ${clinic.name}`, timestamp: new Date().toISOString() });
     toast.info(`${clinic.name} ${newStatus}`);
   };
 
-  const deleteClinic = async (clinic: Clinic) => {
+  const confirmDeleteClinic = async (clinic: Clinic) => {
     if (!currentUser) return;
     softDelete('clinic', clinic.id, currentUser.name);
     await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'CLINIC_DELETED', target: `clinics/${clinic.id}`, details: `Moved to trash: ${clinic.name}`, timestamp: new Date().toISOString() });
@@ -105,7 +112,7 @@ export default function ClinicsManagement() {
         <input type="text" placeholder="Search clinics..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-field pl-10" />
       </div>
 
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map((clinic) => (
           <div key={clinic.id} className="card">
             <div className="flex items-start justify-between mb-3">
@@ -119,11 +126,11 @@ export default function ClinicsManagement() {
               <div className="text-[10px] text-surface-400 pt-1">Lat: {clinic.latitude.toFixed(4)}, Lon: {clinic.longitude.toFixed(4)}</div>
             </div>
             <div className="flex items-center gap-1 mt-3 pt-3 border-t border-surface-200">
-              <button onClick={() => openEdit(clinic)} className="p-1.5 text-surface-400 hover:text-navy-600 hover:bg-navy-50 rounded transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-              <button onClick={() => toggleStatus(clinic)} className="p-1.5 text-surface-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title={clinic.status === 'active' ? 'Deactivate' : 'Activate'}>
+              <button onClick={() => openEdit(clinic)} className="p-1.5 text-surface-400 hover:text-navy-600 hover:bg-navy-50 rounded transition-colors" title="Edit Clinic"><Edit2 className="w-3.5 h-3.5" /></button>
+              <button onClick={() => toggleStatus(clinic)} className="p-1.5 text-surface-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title={clinic.status === 'active' ? 'Deactivate Clinic' : 'Activate Clinic'}>
                 {clinic.status === 'active' ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
               </button>
-              <button onClick={() => deleteClinic(clinic)} className="p-1.5 text-surface-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setDeletingClinic(clinic)} className="p-1.5 text-surface-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete Clinic"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         ))}
@@ -195,6 +202,36 @@ export default function ClinicsManagement() {
             <button onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
             <button onClick={handleSave} disabled={!form.name || !form.address || !form.phone || !form.email} className="btn-primary disabled:opacity-50">
               {editing ? 'Save Changes' : 'Create Clinic'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={!!deletingClinic} onClose={() => setDeletingClinic(null)} title="Delete Healthcare Center">
+        <div className="space-y-4">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700 text-xs">
+            <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-red-800">Confirm Deletion</p>
+              <p className="mt-0.5">Are you sure you want to delete <strong>{deletingClinic?.name}</strong>?</p>
+            </div>
+          </div>
+          <p className="text-xs text-surface-600">
+            This healthcare center will be removed from active clinic listings and stored in the <strong>Recycle Bin</strong> where administrators can review or restore it if needed.
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <button onClick={() => setDeletingClinic(null)} className="btn-secondary text-xs">Cancel</button>
+            <button
+              onClick={() => {
+                if (deletingClinic) {
+                  confirmDeleteClinic(deletingClinic);
+                  setDeletingClinic(null);
+                }
+              }}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-medium transition-colors"
+            >
+              Delete Center
             </button>
           </div>
         </div>
