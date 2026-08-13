@@ -132,8 +132,9 @@ function AppRoutes() {
         <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><RoleRouter moPage={MoReviewQueue} defaultPage={ReviewQueue} /></ProtectedRoute>} />
         <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><RoleRouter moPage={MoReporting} defaultPage={Reporting} /></ProtectedRoute>} />
 
-        {/* Onboarding routes */}
+        {/* Onboarding & Credentials routes */}
         <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
+        <Route path="/credentials" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
 
         {/* Track Status route */}
         <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoTrackStatus /></ProtectedRoute>} />

@@ -83,7 +83,7 @@ export default function DepartmentDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link to="/patients/register" className="card-hover group">
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Register Patient</h3>
           <p className="text-xs text-surface-500 mt-1">Add a patient to the radiology patient registry</p>
@@ -95,6 +95,13 @@ export default function DepartmentDashboard() {
         <Link to="/track-status" className="card-hover group">
           <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Track Status</h3>
           <p className="text-xs text-surface-500 mt-1">Monitor case pipeline — flag delays and bottlenecks</p>
+        </Link>
+        <Link to="/onboarding" className="card-hover group">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-navy-700 group-hover:text-navy-800">Clinical Credentials</h3>
+            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">VERIFIED</span>
+          </div>
+          <p className="text-xs text-surface-500 mt-1">MMC registration &amp; clinical requisition authorization</p>
         </Link>
       </div>
     </div>

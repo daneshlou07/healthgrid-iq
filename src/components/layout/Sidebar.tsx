@@ -6,10 +6,12 @@ import { useLanguage } from '../../context/LanguageContext';
 import type { UserRole } from '../../types';
 
 import {
-  LayoutDashboard,
+  House,
   Users,
+  UserPlus,
   FolderOpen,
   FileText,
+  FilePlus2,
   ClipboardList,
   Upload,
   Eye,
@@ -28,6 +30,11 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Inbox,
+  ArrowRightLeft,
+  FileImage,
+  ClipboardPenLine,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface NavItem {
@@ -60,7 +67,7 @@ function getNavGroups(
             {
               label: t('Dashboard', 'Papan Pemuka'),
               path: '/dashboard',
-              icon: <LayoutDashboard className="w-[18px] h-[18px]" />,
+              icon: <House className="w-[18px] h-[18px]" />,
             },
             {
               label: t('My Schedule', 'Jadual Saya'),
@@ -77,6 +84,11 @@ function getNavGroups(
               path: '/upload',
               icon: <Upload className="w-[18px] h-[18px]" />,
             },
+            {
+              label: t('My Credentials', 'Kelayakan Saya'),
+              path: '/onboarding',
+              icon: <ShieldCheck className="w-[18px] h-[18px]" />,
+            },
           ],
         },
       ];
@@ -89,7 +101,7 @@ function getNavGroups(
             {
               label: t('Dashboard', 'Papan Pemuka'),
               path: '/dashboard',
-              icon: <LayoutDashboard className="w-[18px] h-[18px]" />,
+              icon: <House className="w-[18px] h-[18px]" />,
             },
             {
               label: t('Review Queue', 'Giliran Semakan'),
@@ -106,6 +118,11 @@ function getNavGroups(
               path: '/reports',
               icon: <FolderOpen className="w-[18px] h-[18px]" />,
             },
+            {
+              label: t('Specialist Credentials', 'Kelayakan Pakar'),
+              path: '/onboarding',
+              icon: <ShieldCheck className="w-[18px] h-[18px]" />,
+            },
           ],
         },
       ];
@@ -113,32 +130,60 @@ function getNavGroups(
     case 'Medical Officer':
       return [
         {
-          title: t('CLINICAL CARE', 'PENJAGAAN KLINIKAL'),
+          title: t(
+            'CLINICAL CARE',
+            'PENJAGAAN KLINIKAL'
+          ),
           items: [
             {
-              label: t('Dashboard', 'Papan Pemuka'),
+              label: t(
+                'Dashboard',
+                'Papan Pemuka'
+              ),
               path: '/dashboard',
-              icon: <LayoutDashboard className="w-[18px] h-[18px]" />,
+              icon: (
+                <House className="w-[18px] h-[18px]" />
+              ),
             },
             {
-              label: t('Patient Registry', 'Pendaftaran Pesakit'),
+              label: t(
+                'Patient Registry',
+                'Pendaftaran Pesakit'
+              ),
               path: '/patients',
-              icon: <Users className="w-[18px] h-[18px]" />,
+              icon: (
+                <Users className="w-[18px] h-[18px]" />
+              ),
             },
             {
-              label: t('Register Patient', 'Daftar Pesakit'),
+              label: t(
+                'Register Patient',
+                'Daftar Pesakit'
+              ),
               path: '/patients/register',
-              icon: <Users className="w-[18px] h-[18px]" />,
+              icon: (
+                <UserPlus className="w-[18px] h-[18px]" />
+              ),
             },
             {
-              label: t('All Medical Cases', 'Semua Kes Perubatan'),
+              label: t(
+                'All Medical Cases',
+                'Semua Kes Perubatan'
+              ),
               path: '/cases',
-              icon: <FolderOpen className="w-[18px] h-[18px]" />,
+              icon: (
+                <FolderOpen className="w-[18px] h-[18px]" />
+              ),
             },
             {
-              label: t('New Case Registration', 'Pendaftaran Kes Baharu'),
+              label: t(
+                'New Case Registration',
+                'Pendaftaran Kes Baharu'
+              ),
               path: '/cases/new',
-              icon: <FileText className="w-[18px] h-[18px]" />,
+              icon: (
+                <FilePlus2 className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -146,7 +191,9 @@ function getNavGroups(
                 'Permohonan Pemindahan Pesakit'
               ),
               path: '/requests',
-              icon: <Truck className="w-[18px] h-[18px]" />,
+              icon: (
+                <Inbox className="w-[18px] h-[18px]" />
+              ),
               badge: pendingRequests,
             },
             {
@@ -155,7 +202,9 @@ function getNavGroups(
                 'Jejak Status Pemindahan'
               ),
               path: '/track-status',
-              icon: <CheckSquare className="w-[18px] h-[18px]" />,
+              icon: (
+                <ArrowRightLeft className="w-[18px] h-[18px]" />
+              ),
             },
           ],
         },
@@ -171,7 +220,9 @@ function getNavGroups(
                 'Laporan Pengimejan'
               ),
               path: '/reports',
-              icon: <FileText className="w-[18px] h-[18px]" />,
+              icon: (
+                <FileImage className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -179,7 +230,9 @@ function getNavGroups(
                 'Giliran Semakan Diagnostik'
               ),
               path: '/review-queue',
-              icon: <Eye className="w-[18px] h-[18px]" />,
+              icon: (
+                <Eye className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -187,7 +240,27 @@ function getNavGroups(
                 'Pelaporan Klinikal'
               ),
               path: '/reporting',
-              icon: <ScrollText className="w-[18px] h-[18px]" />,
+              icon: (
+                <ClipboardPenLine className="w-[18px] h-[18px]" />
+              ),
+            },
+          ],
+        },
+        {
+          title: t(
+            'ACCOUNT & VERIFICATION',
+            'AKAUN & PENGESAHAN'
+          ),
+          items: [
+            {
+              label: t(
+                'Clinical Credentials',
+                'Kelayakan Klinikal'
+              ),
+              path: '/onboarding',
+              icon: (
+                <ShieldCheck className="w-[18px] h-[18px]" />
+              ),
             },
           ],
         },
@@ -196,12 +269,20 @@ function getNavGroups(
     case 'Administrator':
       return [
         {
-          title: t('MANAGEMENT', 'PENGURUSAN'),
+          title: t(
+            'MANAGEMENT',
+            'PENGURUSAN'
+          ),
           items: [
             {
-              label: t('Dashboard', 'Papan Pemuka'),
+              label: t(
+                'Dashboard',
+                'Papan Pemuka'
+              ),
               path: '/dashboard',
-              icon: <LayoutDashboard className="w-[18px] h-[18px]" />,
+              icon: (
+                <House className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -209,7 +290,9 @@ function getNavGroups(
                 'Pengurusan Klinik'
               ),
               path: '/clinics',
-              icon: <Building2 className="w-[18px] h-[18px]" />,
+              icon: (
+                <Building2 className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -217,7 +300,9 @@ function getNavGroups(
                 'Penjadualan Sumber'
               ),
               path: '/scheduling',
-              icon: <Calendar className="w-[18px] h-[18px]" />,
+              icon: (
+                <Calendar className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -225,7 +310,9 @@ function getNavGroups(
                 'Penjadual AI'
               ),
               path: '/ai-scheduler',
-              icon: <Brain className="w-[18px] h-[18px]" />,
+              icon: (
+                <Brain className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -233,7 +320,9 @@ function getNavGroups(
                 'Pengurusan Pesakit'
               ),
               path: '/patients',
-              icon: <Users className="w-[18px] h-[18px]" />,
+              icon: (
+                <Users className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -241,7 +330,9 @@ function getNavGroups(
                 'Gambaran Keseluruhan Kes'
               ),
               path: '/cases',
-              icon: <FolderOpen className="w-[18px] h-[18px]" />,
+              icon: (
+                <FolderOpen className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -249,13 +340,18 @@ function getNavGroups(
                 'Permohonan Pemindahan'
               ),
               path: '/requests',
-              icon: <Truck className="w-[18px] h-[18px]" />,
+              icon: (
+                <Truck className="w-[18px] h-[18px]" />
+              ),
               badge: pendingRequests,
             },
           ],
         },
         {
-          title: t('SYSTEM', 'SISTEM'),
+          title: t(
+            'SYSTEM',
+            'SISTEM'
+          ),
           items: [
             {
               label: t(
@@ -263,7 +359,9 @@ function getNavGroups(
                 'Laporan Sistem'
               ),
               path: '/reports',
-              icon: <FileText className="w-[18px] h-[18px]" />,
+              icon: (
+                <FileText className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -271,7 +369,9 @@ function getNavGroups(
                 'Pengurusan Pengguna'
               ),
               path: '/users',
-              icon: <UserCheck className="w-[18px] h-[18px]" />,
+              icon: (
+                <UserCheck className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -279,7 +379,9 @@ function getNavGroups(
                 'Tong Sampah / Tong Kitar Semula'
               ),
               path: '/recycle-bin',
-              icon: <Trash2 className="w-[18px] h-[18px]" />,
+              icon: (
+                <Trash2 className="w-[18px] h-[18px]" />
+              ),
             },
             {
               label: t(
@@ -287,7 +389,9 @@ function getNavGroups(
                 'Log Audit'
               ),
               path: '/audit-logs',
-              icon: <ScrollText className="w-[18px] h-[18px]" />,
+              icon: (
+                <ScrollText className="w-[18px] h-[18px]" />
+              ),
             },
           ],
         },
@@ -298,19 +402,23 @@ function getNavGroups(
   }
 }
 
-export default function Sidebar({ onClose }: SidebarProps) {
+export default function Sidebar({
+  onClose,
+}: SidebarProps) {
   const { currentUser } = useAuth();
   const { patientRequests } = useData();
   const { t } = useLanguage();
   const location = useLocation();
 
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] =
+    React.useState(false);
 
   if (!currentUser) return null;
 
-  const pendingRequests = patientRequests.filter(
-    (r) => r.status === 'Pending'
-  ).length;
+  const pendingRequests =
+    patientRequests.filter(
+      (r) => r.status === 'Pending'
+    ).length;
 
   const groups = getNavGroups(
     currentUser.role,
@@ -330,12 +438,17 @@ export default function Sidebar({ onClose }: SidebarProps) {
         transition-all
         duration-300
         ease-in-out
-        ${collapsed ? 'w-[72px]' : 'w-60'}
+        ${collapsed
+          ? 'w-[72px]'
+          : 'w-60'
+        }
       `}
     >
+
       {/* =========================
           LOGO / HEADER
       ========================== */}
+
       <div
         className={`
           relative
@@ -348,6 +461,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
           }
         `}
       >
+
         <div
           className={`
             flex items-center
@@ -360,21 +474,18 @@ export default function Sidebar({ onClose }: SidebarProps) {
             }
           `}
         >
+
           {collapsed ? (
-            <div
+            <img
+              src="/assets/iq-logo-transparent.png"
+              alt="HealthGrid IQ"
               className="
-                w-10 h-10
-                rounded-xl
-                bg-[#0F4C42]
-                text-white
-                flex items-center justify-center
-                font-bold
-                text-lg
+                w-11
+                h-11
+                object-contain
                 select-none
               "
-            >
-              H
-            </div>
+            />
           ) : (
             <img
               src="/assets/healthgrid-iq-logo-transparent.png"
@@ -388,31 +499,45 @@ export default function Sidebar({ onClose }: SidebarProps) {
               "
             />
           )}
+
         </div>
 
         {/* Desktop Collapse Button */}
+
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() =>
+            setCollapsed(!collapsed)
+          }
           className={`
             absolute
             -right-3
             top-6
             z-30
-            w-6 h-6
+            w-6
+            h-6
             rounded-full
             bg-white
             border border-[#E2E8E6]
-            flex items-center justify-center
+            flex
+            items-center
+            justify-center
             text-[#45645E]
             hover:text-[#0F4C42]
             hover:border-[#BFD8D0]
             shadow-sm
-            transition-all duration-200
+            transition-all
+            duration-200
             cursor-pointer
           `}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={
+            collapsed
+              ? 'Expand sidebar'
+              : 'Collapse sidebar'
+          }
           aria-label={
-            collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+            collapsed
+              ? 'Expand sidebar'
+              : 'Collapse sidebar'
           }
         >
           {collapsed ? (
@@ -426,180 +551,209 @@ export default function Sidebar({ onClose }: SidebarProps) {
       {/* =========================
           NAVIGATION
       ========================== */}
+
       <nav
         className={`
           flex-1
           overflow-y-auto
           py-3
           transition-all duration-300
-          ${collapsed ? 'px-2' : 'px-3'}
+          ${collapsed
+            ? 'px-2'
+            : 'px-3'
+          }
         `}
       >
-        {groups.map((group, gi) => (
-          <div
-            key={group.title}
-            className={`
-              transition-all duration-300
-              ${gi > 0 ? 'mt-4' : ''}
-            `}
-          >
-            {/* Section Title */}
-            <p
+
+        {groups.map(
+          (group, gi) => (
+            <div
+              key={group.title}
               className={`
-                px-3
-                mb-1.5
-                text-[10px]
-                font-semibold
-                text-[#6B8580]
-                uppercase
-                tracking-wider
-                whitespace-nowrap
-                overflow-hidden
-                transition-all duration-200
-                ${collapsed
-                  ? 'opacity-0 h-0 mb-0'
-                  : 'opacity-100 h-auto'
+                transition-all duration-300
+                ${gi > 0
+                  ? 'mt-4'
+                  : ''
                 }
               `}
             >
-              {group.title}
-            </p>
 
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const isActive =
-                  location.pathname === item.path;
+              {/* Section Title */}
 
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => {
-                      if (
-                        onClose &&
-                        window.innerWidth < 1024
-                      ) {
-                        onClose();
-                      }
-                    }}
-                    className={`
-                      group
-                      relative
-                      flex
-                      items-center
-                      ${collapsed
-                        ? 'justify-center px-2'
-                        : 'gap-2.5 px-3'
-                      }
-                      py-2
-                      rounded-lg
-                      text-[13px]
-                      font-medium
-                      transition-all
-                      duration-200
-                      ${isActive
-                        ? 'bg-[#EFF6F3] text-[#0F4C42] font-semibold border border-[#D8E8E2]'
-                        : 'text-[#45645E] hover:text-[#0F4C42] hover:bg-[#F3F8F6] border border-transparent'
-                      }
-                    `}
-                  >
-                    {/* Icon */}
-                    <span
-                      className={`
-                        flex
-                        items-center
-                        justify-center
-                        shrink-0
-                        transition-colors
-                        duration-200
-                        ${isActive
-                          ? 'text-[#0F4C42]'
-                          : 'text-[#45645E]'
-                        }
-                      `}
-                    >
-                      {item.icon}
-                    </span>
+              <p
+                className={`
+                  px-3
+                  mb-1.5
+                  text-[10px]
+                  font-semibold
+                  text-[#6B8580]
+                  uppercase
+                  tracking-wider
+                  whitespace-nowrap
+                  overflow-hidden
+                  transition-all duration-200
+                  ${collapsed
+                    ? 'opacity-0 h-0 mb-0'
+                    : 'opacity-100 h-auto'
+                  }
+                `}
+              >
+                {group.title}
+              </p>
 
-                    {/* Label */}
-                    <span
-                      className={`
-                        flex-1
-                        whitespace-nowrap
-                        overflow-hidden
-                        transition-all
-                        duration-200
-                        ${collapsed
-                          ? 'opacity-0 w-0 flex-none'
-                          : 'opacity-100 w-auto'
-                        }
-                      `}
-                    >
-                      {item.label}
-                    </span>
+              <div className="space-y-0.5">
 
-                    {/* Badge */}
-                    {item.badge !== undefined &&
-                      item.badge > 0 && (
+                {group.items.map(
+                  (item) => {
+                    const isActive =
+                      location.pathname ===
+                      item.path;
+
+                    return (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => {
+                          if (
+                            onClose &&
+                            window.innerWidth <
+                            1024
+                          ) {
+                            onClose();
+                          }
+                        }}
+                        className={`
+                          group
+                          relative
+                          flex
+                          items-center
+                          ${collapsed
+                            ? 'justify-center px-2'
+                            : 'gap-2.5 px-3'
+                          }
+                          py-2
+                          rounded-lg
+                          text-[13px]
+                          font-medium
+                          transition-all
+                          duration-200
+                          ${isActive
+                            ? 'bg-[#EFF6F3] text-[#0F4C42] font-semibold border border-[#D8E8E2]'
+                            : 'text-[#45645E] hover:text-[#0F4C42] hover:bg-[#F3F8F6] border border-transparent'
+                          }
+                        `}
+                      >
+
+                        {/* Icon */}
+
                         <span
                           className={`
-                            shrink-0
-                            w-5 h-5
-                            bg-red-500
-                            text-white
-                            text-[10px]
-                            font-bold
-                            rounded-full
                             flex
                             items-center
                             justify-center
-                            transition-all duration-200
-                            ${collapsed
-                              ? 'absolute -top-1 -right-1'
-                              : ''
+                            shrink-0
+                            transition-colors
+                            duration-200
+                            ${isActive
+                              ? 'text-[#0F4C42]'
+                              : 'text-[#45645E]'
                             }
                           `}
                         >
-                          {item.badge}
+                          {item.icon}
                         </span>
-                      )}
 
-                    {/* Tooltip */}
-                    {collapsed && (
-                      <span
-                        className="
-                          absolute
-                          left-full
-                          ml-3
-                          px-2.5
-                          py-1.5
-                          rounded-md
-                          bg-[#0F4C42]
-                          text-white
-                          text-xs
-                          font-medium
-                          whitespace-nowrap
-                          opacity-0
-                          invisible
-                          group-hover:opacity-100
-                          group-hover:visible
-                          pointer-events-none
-                          transition-all
-                          duration-150
-                          z-50
-                          shadow-md
-                        "
-                      >
-                        {item.label}
-                      </span>
-                    )}
-                  </NavLink>
-                );
-              })}
+                        {/* Label */}
+
+                        <span
+                          className={`
+                            flex-1
+                            whitespace-nowrap
+                            overflow-hidden
+                            transition-all
+                            duration-200
+                            ${collapsed
+                              ? 'opacity-0 w-0 flex-none'
+                              : 'opacity-100 w-auto'
+                            }
+                          `}
+                        >
+                          {item.label}
+                        </span>
+
+                        {/* Badge */}
+
+                        {item.badge !==
+                          undefined &&
+                          item.badge > 0 && (
+                            <span
+                              className={`
+                                shrink-0
+                                w-5
+                                h-5
+                                bg-red-500
+                                text-white
+                                text-[10px]
+                                font-bold
+                                rounded-full
+                                flex
+                                items-center
+                                justify-center
+                                transition-all
+                                duration-200
+                                ${collapsed
+                                  ? 'absolute -top-1 -right-1'
+                                  : ''
+                                }
+                              `}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+
+                        {/* Tooltip */}
+
+                        {collapsed && (
+                          <span
+                            className="
+                              absolute
+                              left-full
+                              ml-3
+                              px-2.5
+                              py-1.5
+                              rounded-md
+                              bg-[#0F4C42]
+                              text-white
+                              text-xs
+                              font-medium
+                              whitespace-nowrap
+                              opacity-0
+                              invisible
+                              group-hover:opacity-100
+                              group-hover:visible
+                              pointer-events-none
+                              transition-all
+                              duration-150
+                              z-50
+                              shadow-md
+                            "
+                          >
+                            {item.label}
+                          </span>
+                        )}
+
+                      </NavLink>
+                    );
+                  }
+                )}
+
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        )}
+
       </nav>
+
     </aside>
   );
 }

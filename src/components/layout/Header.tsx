@@ -5,7 +5,8 @@ import { useNotifications } from '../../context/NotificationContext';
 import type { Case } from '../../types';
 import { useSearchPalette } from '../ux/SearchPalette';
 import { useToast } from '../ux/Toast';
-import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen, PanelLeftClose, PanelLeft, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import Modal from '../ui/Modal';
 import ClinicalGlossaryModal from '../ui/ClinicalGlossaryModal';
@@ -262,6 +263,9 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
                   <button onClick={() => { setShowProfile(false); setShowProfileModal(true); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-surface-700 hover:bg-surface-100 transition-colors text-left">
                     <User className="w-4 h-4 text-surface-400" /> My Profile
                   </button>
+                  <Link to="/onboarding" onClick={() => setShowProfile(false)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-surface-700 hover:bg-surface-100 transition-colors text-left">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" /> Clinical Credentials
+                  </Link>
                   <button onClick={() => { setShowProfile(false); setShowPasswordModal(true); setPasswordForm({ current: '', newPass: '', confirm: '' }); setPasswordError(''); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-surface-700 hover:bg-surface-100 transition-colors text-left">
                     <Lock className="w-4 h-4 text-surface-400" /> Change Password
                   </button>
@@ -301,6 +305,45 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
                 <input value={editableEmail} onChange={(e) => setEditableEmail(e.target.value)} className="input-field text-sm" />
               </div>
               <button onClick={handleSaveProfile} className="btn-primary text-xs">Save Changes</button>
+            </div>
+          </div>
+
+          {/* Credentials & Registration Section */}
+          <div className="pt-4 border-t border-surface-200">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Professional Credentials &amp; Registration</span>
+              </div>
+              <Link to="/onboarding" onClick={() => setShowProfileModal(false)} className="text-xs font-semibold text-navy-600 hover:text-navy-800 hover:underline">
+                View Full Page &rarr;
+              </Link>
+            </div>
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Medical Registration:</span>
+                <span className="font-semibold text-slate-800">
+                  {currentUser.role === 'Radiologist' ? 'Malaysian Medical Council & NSR' : currentUser.role === 'Medical Officer' ? 'Malaysian Medical Council (MMC)' : 'Allied Health Professions Council'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Registration Number:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {currentUser.mmcNumber || (currentUser.role === 'Radiologist' ? 'NSR-129481 / MMC-48291' : currentUser.role === 'Medical Officer' ? 'MMC-84920' : 'MAHPC-99104')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Clinical Authorization:</span>
+                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Verified &amp; Active
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Digital Signature:</span>
+                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Active for Requisitions &amp; Reports
+                </span>
+              </div>
             </div>
           </div>
 

@@ -14,8 +14,8 @@ export default function MedicalOfficerCredentials() {
 
   const name = currentUser?.name || 'Dr. Medical Officer';
   const roleTitle = 'Medical Officer';
-  const department = 'Emergency & Clinical Radiology Intake';
-  const mmcNo = 'MMC-84920';
+  const department = currentUser?.specialty ? `Department of ${currentUser.specialty}` : 'Emergency & Clinical Radiology Intake';
+  const mmcNo = currentUser?.mmcNumber || 'MMC-84920';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
