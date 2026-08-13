@@ -221,7 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userEmail === cleanId ||
         userId === cleanId ||
         userName === cleanId ||
-        ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com')
+        ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com') ||
+        ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin')
       );
     });
 

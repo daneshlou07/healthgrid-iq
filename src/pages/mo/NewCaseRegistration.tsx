@@ -316,651 +316,808 @@ export default function NewCaseRegistration() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
+    <div className="w-full max-w-6xl mx-auto px-4 lg:px-6 pb-10">
+
+      {/* =========================================================
+          PAGE HEADER
+      ========================================================== */}
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
         <div>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-[#EFF6F3] flex items-center justify-center">
+              <FileCheck2 className="w-5 h-5 text-[#0F4C42]" />
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6B8580]">
+              {t('RADIOLOGY CASE', 'Pendaftaran Kes')}
+            </span>
+          </div>
+
           <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
-            {t('Register New Radiology Case', 'Daftar Kes Radiologi Baharu')}
+            {t('Register New Case', 'Daftar Kes Radiologi Baharu')}
           </h1>
-          <p className="text-xs text-surface-500 mt-1">
-            {t('MOH PER.SS-RA301 Radiology Referral & Examination Request Form', 'Borang Permohonan Pemeriksaan Radiologi KKM PER.SS-RA301')}
-          </p>
         </div>
       </div>
 
-      {/* Stepper Bar */}
-      <div className="bg-white border border-surface-200 rounded-xl p-3 shadow-sm flex items-center justify-between">
-        {[
-          { step: 1, label: t('1. Patient & Indication', '1. Pesakit & Indikasi') },
-          { step: 2, label: t('2. Modality & Exam', '2. Modaliti & Ujian') },
-          { step: 3, label: t('3. Case Screening', '3. Saringan Kes') },
-          { step: 4, label: t('4. Priority & Submit', '4. Keutamaan & Hantar') },
-        ].map((item) => (
-          <button
-            key={item.step}
-            type="button"
-            onClick={() => {
-              if (item.step === 1) setCurrentStep(1);
-              if (item.step === 2 && step1Valid) setCurrentStep(2);
-              if (item.step === 3 && step1Valid && step2Valid) setCurrentStep(3);
-              if (item.step === 4 && step1Valid && step2Valid && step3Valid) setCurrentStep(4);
-            }}
-            className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-              currentStep === item.step
-                ? 'bg-navy-900 text-white shadow-sm'
-                : item.step < currentStep
-                ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
-                : 'text-surface-400 hover:text-surface-600'
-            }`}
-          >
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ── STEP 1: PATIENT & INDICATION ─────────────────────────────────── */}
-        {currentStep === 1 && (
-          <div className="card space-y-5 bg-white p-6 border border-surface-200 rounded-xl shadow-sm">
-            <h2 className="text-base font-bold text-navy-900 border-b pb-2">
-              {t('Step 1: Patient Selection & Clinical Indication', 'Langkah 1: Pemilihan Pesakit & Indikasi Klinikal')}
-            </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-surface-700 mb-1">
-                  {t('Location (Ward / Clinic / A&E)', 'Lokasi (Wad / Klinik / A&E)')} *
-                </label>
-                <select
-                  value={wardOrClinic}
-                  onChange={(e) => setWardOrClinic(e.target.value)}
-                  className="input-field text-xs bg-white"
-                  required
-                >
-                  <option value="">{t('-- Select Location --', '-- Pilih Lokasi --')}</option>
-                  {LOCATION_PRESETS.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                </select>
-                {wardOrClinic === 'Other' && (
-                  <input
-                    type="text"
-                    value={customWardOrClinic}
-                    onChange={(e) => setCustomWardOrClinic(e.target.value)}
-                    className="input-field text-xs mt-2"
-                    placeholder={t('Specify location details (e.g., Ward 4B, Room 12)', 'Nyatakan butiran lokasi (cth. Wad 4B, Bilik 12)')}
-                    required
-                  />
-                )}
-              </div>
+        {/* =========================================================
+            WORKFLOW STEPPER
+        ========================================================== */}
+        <section className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-surface-200 bg-surface-50/60">
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { step: 1, label: t('Patient & Indication', 'Pesakit & Indikasi') },
+                { step: 2, label: t('Modality & Exam', 'Modaliti & Ujian') },
+                { step: 3, label: t('Clinical Screening', 'Saringan Klinikal') },
+                { step: 4, label: t('Priority & Submit', 'Keutamaan & Hantar') },
+              ].map((item) => {
+                const accessible =
+                  item.step === 1 ||
+                  (item.step === 2 && step1Valid) ||
+                  (item.step === 3 && step1Valid && step2Valid) ||
+                  (item.step === 4 && step1Valid && step2Valid && step3Valid);
 
-              <div>
-                <label className="block text-xs font-bold text-surface-700 mb-1">
-                  {t('Requesting Specialty / Department', 'Jabatan / Disiplin Pemohon')} *
-                </label>
-                <select
-                  value={disiplin}
-                  onChange={(e) => setDisiplin(e.target.value)}
-                  className="input-field text-xs bg-white"
-                  required
-                >
-                  <option value="">{t('-- Select Specialty / Department --', '-- Pilih Jabatan / Disiplin --')}</option>
-                  {SPECIALTY_PRESETS.map((spec) => (
-                    <option key={spec} value={spec}>
-                      {spec}
-                    </option>
-                  ))}
-                </select>
-                {disiplin === 'Other' && (
-                  <input
-                    type="text"
-                    value={customDisiplin}
-                    onChange={(e) => setCustomDisiplin(e.target.value)}
-                    className="input-field text-xs mt-2"
-                    placeholder={t('Specify specialty / department name', 'Nyatakan nama jabatan / disiplin')}
-                    required
-                  />
-                )}
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-surface-700 mb-1">
-                  {t('Select Registered Patient', 'Pilih Pesakit Berdaftar')} *
-                </label>
-                <PatientSearchSelect patients={patients} value={patientId} onChange={setPatientId} />
-              </div>
-            </div>
-
-            {/* Selected Patient Auto-Summary Card */}
-            {selectedPatient && (
-              <div className="p-4 bg-navy-50/60 border border-navy-200 rounded-xl flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-navy-900">{selectedPatient.name}</h3>
-                    <span className="text-xs font-mono bg-white px-2 py-0.5 rounded border text-navy-800 font-bold">
-                      {selectedPatient.mrn}
+                return (
+                  <button
+                    key={item.step}
+                    type="button"
+                    disabled={!accessible}
+                    onClick={() => {
+                      if (!accessible) return;
+                      setCurrentStep(item.step as 1 | 2 | 3 | 4);
+                    }}
+                    className={`
+                      inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold
+                      border transition-all
+                      ${currentStep === item.step
+                        ? 'bg-[#0F4C42] text-white border-[#0F4C42] shadow-sm'
+                        : item.step < currentStep
+                          ? 'bg-[#EFF6F3] text-[#0F4C42] border-[#D8E8E2] hover:bg-[#E5F1ED]'
+                          : 'bg-white text-surface-500 border-surface-200 hover:bg-surface-50'
+                      }
+                      disabled:cursor-not-allowed
+                    `}
+                  >
+                    <span className={`
+                      w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold
+                      ${currentStep === item.step
+                        ? 'bg-white/15 text-white'
+                        : item.step < currentStep
+                          ? 'bg-white text-[#0F4C42]'
+                          : 'bg-surface-100 text-surface-500'
+                      }
+                    `}>
+                      {item.step}
                     </span>
-                    {paymentBadge && (
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${paymentBadge.color}`}>
-                        {paymentBadge.label}
-                      </span>
-                    )}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================
+            STEP 1 — PATIENT & INDICATION
+        ========================================================== */}
+        {currentStep === 1 && (
+          <>
+            <section className="bg-white border border-surface-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#EFF6F3] flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-[#0F4C42]" />
                   </div>
-                  <p className="text-xs text-surface-600 mt-1">
-                    NRIC: <span className="font-mono">{selectedPatient.nric}</span> &middot; Gender: {selectedPatient.gender} &middot; DOB: {selectedPatient.dob}
-                  </p>
-                  <p className="text-xs text-surface-500 mt-0.5">
-                    Address: {selectedPatient.address} &middot; Phone: {selectedPatient.phone}
-                  </p>
-                  {selectedPatient.medicalHistory && (
-                    <div className="mt-2 text-xs bg-white/90 p-2 rounded-lg border border-navy-200 text-navy-900">
-                      <span className="font-bold text-navy-900">Baseline Medical History: </span>
-                      <span>{selectedPatient.medicalHistory}</span>
-                    </div>
-                  )}
+                  <div>
+                    <h2 className="text-sm font-bold text-navy-900">
+                      {t('Patient & Referral Details', 'Maklumat Pesakit & Rujukan')}
+                    </h2>
+                    <p className="text-[11px] text-surface-500 mt-0.5">
+                      {t(
+                        'Select the registered patient and provide the clinical referral context.',
+                        'Pilih pesakit berdaftar dan masukkan konteks rujukan klinikal.'
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-bold text-surface-700 mb-1">
-                {t('Clinical Indication & Referral Notes', 'Indikasi Klinikal & Nota Rujukan')} *
-              </label>
-              <textarea
-                required
-                rows={3}
-                value={indication}
-                onChange={(e) => setIndication(e.target.value)}
-                className="input-field text-xs"
-                placeholder={t(
-                  'Enter acute symptoms, clinical history, reason for scan, and any special notes for radiographer/radiologist...',
-                  'Masukkan simptom akut, sejarah klinikal, sebab imbasan, dan nota rujukan...'
+              <div className="p-6 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                      {t('Location (Ward / Clinic / A&E) *', 'Lokasi (Wad / Klinik / A&E) *')}
+                    </label>
+                    <select
+                      value={wardOrClinic}
+                      onChange={(e) => setWardOrClinic(e.target.value)}
+                      className="select-field w-full"
+                      required
+                    >
+                      <option value="">{t('-- Select Location --', '-- Pilih Lokasi --')}</option>
+                      {LOCATION_PRESETS.map((loc) => (
+                        <option key={loc} value={loc}>{loc}</option>
+                      ))}
+                    </select>
+
+                    {wardOrClinic === 'Other' && (
+                      <input
+                        type="text"
+                        value={customWardOrClinic}
+                        onChange={(e) => setCustomWardOrClinic(e.target.value)}
+                        className="input-field text-sm mt-2 w-full"
+                        placeholder={t(
+                          'Specify location details (e.g., Ward 4B, Room 12)',
+                          'Nyatakan butiran lokasi (cth. Wad 4B, Bilik 12)'
+                        )}
+                        required
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                      {t('Requesting Specialty / Department *', 'Jabatan / Disiplin Pemohon *')}
+                    </label>
+                    <select
+                      value={disiplin}
+                      onChange={(e) => setDisiplin(e.target.value)}
+                      className="select-field w-full"
+                      required
+                    >
+                      <option value="">
+                        {t('-- Select Specialty / Department --', '-- Pilih Jabatan / Disiplin --')}
+                      </option>
+                      {SPECIALTY_PRESETS.map((spec) => (
+                        <option key={spec} value={spec}>{spec}</option>
+                      ))}
+                    </select>
+
+                    {disiplin === 'Other' && (
+                      <input
+                        type="text"
+                        value={customDisiplin}
+                        onChange={(e) => setCustomDisiplin(e.target.value)}
+                        className="input-field text-sm mt-2 w-full"
+                        placeholder={t('Specify specialty / department name', 'Nyatakan nama jabatan / disiplin')}
+                        required
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                    {t('Select Registered Patient *', 'Pilih Pesakit Berdaftar *')}
+                  </label>
+                  <PatientSearchSelect patients={patients} value={patientId} onChange={setPatientId} />
+                </div>
+
+                {selectedPatient && (
+                  <div className="rounded-lg bg-[#F3F8F6] border border-[#D8E8E2] p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-bold text-[#0F4C42]">{selectedPatient.name}</h3>
+                          <span className="text-[10px] font-mono font-bold bg-white px-2 py-1 rounded border border-[#D8E8E2] text-[#0F4C42]">
+                            {selectedPatient.mrn}
+                          </span>
+                          {paymentBadge && (
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${paymentBadge.color}`}>
+                              {paymentBadge.label}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-surface-600 mt-2">
+                          NRIC: <span className="font-mono">{selectedPatient.nric}</span>
+                          <span className="mx-1.5 text-surface-300">•</span>
+                          {selectedPatient.gender}
+                          <span className="mx-1.5 text-surface-300">•</span>
+                          DOB: {selectedPatient.dob}
+                        </p>
+                        <p className="text-xs text-surface-500 mt-1">
+                          {selectedPatient.address}
+                        </p>
+                        {selectedPatient.medicalHistory && (
+                          <div className="mt-3 rounded-lg bg-white border border-[#D8E8E2] px-3 py-2">
+                            <p className="text-[10px] font-semibold text-[#0F4C42] mb-0.5">
+                              {t('Baseline Medical History', 'Sejarah Perubatan Asas')}
+                            </p>
+                            <p className="text-xs text-surface-600">{selectedPatient.medicalHistory}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 )}
-              />
-              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] font-bold text-surface-500">Quick Presets:</span>
-                {[
-                  'Acute Shortness of Breath — Rule out Pneumonia / Effusion',
-                  'Blunt Trauma / Fall — Acute Pain, Rule out Fracture',
-                  'Acute Right Lower Quadrant Abdominal Pain — Suspected Appendicitis',
-                  'Chronic Lumbar Spine Pain with Radiculopathy',
-                  'Routine Pre-Operative Chest Assessment',
-                ].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setIndication((prev) => (prev ? `${prev} ; ${preset}` : preset))}
-                    className="text-[11px] bg-surface-100 hover:bg-navy-50 hover:border-navy-300 text-navy-800 border border-surface-300 px-2 py-0.5 rounded-md transition-all cursor-pointer"
-                  >
-                    + {preset}
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-bold text-surface-700 mb-2">
-                {t('Clinical Severity', 'Tahap Keutamaan Klinikal')}
-              </label>
-              <div className="flex gap-2">
-                {SEVERITIES.map((sev) => (
-                  <button
-                    key={sev}
-                    type="button"
-                    onClick={() => setSeverity(sev)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-                      severity === sev ? 'bg-navy-900 text-white border-navy-900' : 'bg-white text-surface-700 border-surface-300 hover:bg-surface-50'
-                    }`}
-                  >
-                    {sev}
-                  </button>
-                ))}
-              </div>
-            </div>
+                <div>
+                  <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                    {t('Clinical Indication & Referral Notes *', 'Indikasi Klinikal & Nota Rujukan *')}
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={indication}
+                    onChange={(e) => setIndication(e.target.value)}
+                    className="input-field text-sm resize-none w-full"
+                    placeholder={t(
+                      'Enter acute symptoms, clinical history, reason for scan, and any special notes for radiographer/radiologist...',
+                      'Masukkan simptom akut, sejarah klinikal, sebab imbasan, dan nota rujukan...'
+                    )}
+                  />
 
-            <div className="flex justify-end pt-2">
+                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-semibold text-surface-400">
+                      {t('Quick Presets', 'Pilihan Pantas')}:
+                    </span>
+                    {SYMPTOM_SUGGESTIONS.slice(0, 7).map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setIndication((prev) => (prev ? `${prev} ; ${preset}` : preset))}
+                        className="text-[10px] bg-surface-50 hover:bg-[#EFF6F3] hover:border-[#BFD8D0] text-surface-700 border border-surface-200 px-2 py-1 rounded-md transition-all"
+                      >
+                        + {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-surface-700 mb-2">
+                    {t('Clinical Severity', 'Tahap Keutamaan Klinikal')}
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {SEVERITIES.map((sev) => (
+                      <button
+                        key={sev}
+                        type="button"
+                        onClick={() => setSeverity(sev)}
+                        className={`
+                          px-3 py-2 rounded-lg text-xs font-semibold border transition-all
+                          ${severity === sev
+                            ? 'bg-[#0F4C42] text-white border-[#0F4C42]'
+                            : 'bg-white text-surface-700 border-surface-200 hover:bg-surface-50'
+                          }
+                        `}
+                      >
+                        {sev}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div className="bg-white border border-surface-200 rounded-xl shadow-sm px-6 py-4 flex justify-end">
               <button
                 type="button"
                 disabled={!step1Valid}
                 onClick={() => setCurrentStep(2)}
-                className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50"
+                className="btn-primary text-sm px-5 py-2.5 flex items-center gap-2 disabled:opacity-60"
               >
-                <span>{t('Next: Imaging Modality', 'Seterusnya: Modaliti')}</span>
+                {t('Next: Imaging Modality', 'Seterusnya: Modaliti')}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-          </div>
+          </>
         )}
 
-        {/* ── STEP 2: MODALITY & EXAMINATIONS ─────────────────────────────── */}
+        {/* =========================================================
+            STEP 2 — MODALITY & EXAMINATIONS
+        ========================================================== */}
         {currentStep === 2 && (
-          <div className="card space-y-6 bg-white p-6 border border-surface-200 rounded-xl shadow-sm">
-            <h2 className="text-base font-bold text-navy-900 border-b pb-2">
-              {t('Step 2: Imaging Modality & Examination Requests', 'Langkah 2: Modaliti & Permohonan Ujian')}
-            </h2>
-
-            <div>
-              <label className="block text-xs font-bold text-surface-700 mb-2">
-                {t('Imaging Modality', 'Modaliti Radiologi')} *
-              </label>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                {MODALITIES.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => handleModalityChange(m)}
-                    className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex flex-col items-center gap-0.5 ${
-                      modality === m
-                        ? 'bg-navy-800 text-white border-navy-800 shadow-md ring-2 ring-navy-200'
-                        : 'bg-white border-surface-300 text-surface-700 hover:border-surface-400 hover:bg-surface-50'
-                    }`}
-                  >
-                    <span>{m}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Effective Dose Indicator */}
-            {primaryExamDose && (
-              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <Activity className="w-4 h-4 text-amber-700 shrink-0" />
+          <>
+            <section className="bg-white border border-surface-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#EFF6F3] flex items-center justify-center shrink-0">
+                    <Activity className="w-4 h-4 text-[#0F4C42]" />
+                  </div>
                   <div>
-                    <p className="text-xs font-bold text-amber-950">
-                      {t('Effective Dose Reference:', 'Dos Berkesan:')} {primaryExamDose.examination} — <span className="font-mono text-amber-800">{primaryExamDose.dosMsv} mSv</span>
-                    </p>
-                    <p className="text-[10px] text-amber-700">
-                      Equivalency: <strong>~{primaryExamDose.chestXrayRatio} Chest X-Ray(s)</strong> (MOH UNSCEAR benchmark)
+                    <h2 className="text-sm font-bold text-navy-900">
+                      {t('Imaging Modality & Examination Requests', 'Modaliti & Permohonan Pemeriksaan')}
+                    </h2>
+                    <p className="text-[11px] text-surface-500 mt-0.5">
+                      {t(
+                        'Select the imaging modality and specify the requested examination.',
+                        'Pilih modaliti pengimejan dan nyatakan pemeriksaan yang diperlukan.'
+                      )}
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDoseModal(true)}
-                  className="text-xs text-amber-900 font-bold underline px-2 py-1 bg-amber-100/60 rounded-lg hover:bg-amber-200/60 transition-colors shrink-0"
-                >
-                  {t('View Dose Table', 'Lihat Jadual Dos')}
-                </button>
-              </div>
-            )}
-
-            {/* Repeatable Exam Cards */}
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-surface-700 uppercase tracking-wider">
-                  {t('Requested Examinations', 'Senarai Pemeriksaan')} ({examCards.length})
-                </h3>
-                <button
-                  type="button"
-                  onClick={handleAddCard}
-                  className="btn-secondary text-xs flex items-center gap-1.5 py-1 px-2.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{t('Add Examination', 'Tambah Ujian')}</span>
-                </button>
               </div>
 
-              {examCards.map((card, index) => {
-                const partRef = modalityRef.bodyParts.find((b) => b.name === card.bodyPart);
-                const supportsLaterality = partRef?.supportsLaterality ?? true;
-                const sideOpts = getSideOptions(supportsLaterality);
+              <div className="p-6 space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-surface-700 mb-2">
+                    {t('Imaging Modality *', 'Modaliti Radiologi *')}
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {MODALITIES.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => handleModalityChange(m)}
+                        className={`
+                          min-h-[64px] rounded-lg text-xs font-semibold border transition-all
+                          flex items-center justify-center
+                          ${modality === m
+                            ? 'bg-[#EFF6F3] text-[#0F4C42] border-[#A9C9BF] shadow-sm'
+                            : 'bg-white border-surface-200 text-surface-700 hover:bg-surface-50 hover:border-surface-300'
+                          }
+                        `}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                return (
-                  <div key={card.id} className="p-4 bg-surface-50 border border-surface-200 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-navy-800">
-                        {t('Exam Card', 'Kad Ujian')} #{index + 1}
-                      </span>
-                      {index > 0 && (
-                        <button type="button" onClick={() => handleRemoveCard(index)} className="text-xs text-red-600 font-semibold hover:text-red-700 flex items-center gap-1">
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Remove</span>
-                        </button>
+                {primaryExamDose && (
+                  <div className="rounded-lg bg-[#FFF9E8] border border-[#F0D58A] px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <Activity className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-amber-900">
+                          {t('Effective Dose Reference', 'Rujukan Dos Berkesan')}
+                        </p>
+                        <p className="text-[11px] text-amber-800 mt-0.5">
+                          {primaryExamDose.examination} — <span className="font-mono font-bold">{primaryExamDose.dosMsv} mSv</span>
+                          <span className="mx-1.5">•</span>
+                          ~{primaryExamDose.chestXrayRatio} Chest X-Ray(s)
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDoseModal(true)}
+                      className="text-[11px] font-semibold text-amber-900 bg-white/70 border border-amber-200 rounded-md px-3 py-1.5 hover:bg-white"
+                    >
+                      {t('View Dose Table', 'Lihat Jadual Dos')}
+                    </button>
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-navy-900">
+                        {t('Requested Examinations', 'Senarai Pemeriksaan')} ({examCards.length})
+                      </h3>
+                      <p className="text-[10px] text-surface-400 mt-0.5">
+                        {t('Add one or more examination requests for this case.', 'Tambah satu atau lebih permohonan pemeriksaan untuk kes ini.')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddCard}
+                      className="btn-secondary text-xs flex items-center gap-1.5 py-2 px-3"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {t('Add Examination', 'Tambah Ujian')}
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {examCards.map((card, index) => {
+                      const partRef = modalityRef.bodyParts.find((b) => b.name === card.bodyPart);
+                      const supportsLaterality = partRef?.supportsLaterality ?? true;
+                      const sideOpts = getSideOptions(supportsLaterality);
+
+                      return (
+                        <div key={card.id} className="rounded-lg border border-surface-200 overflow-hidden">
+                          <div className="px-4 py-3 bg-surface-50/60 border-b border-surface-200 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-bold text-navy-900">
+                                {t('Examination Request', 'Permohonan Pemeriksaan')} #{index + 1}
+                              </p>
+                            </div>
+                            {index > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCard(index)}
+                                className="text-[11px] text-red-600 font-semibold hover:text-red-700 flex items-center gap-1"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                {t('Remove', 'Buang')}
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="p-4 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                                  {t('Anatomical Region / Body Part *', 'Bahagian Anatomi *')}
+                                </label>
+                                <select
+                                  value={card.bodyPart}
+                                  onChange={(e) => handleBodyPartChange(index, e.target.value)}
+                                  className="select-field w-full"
+                                  required
+                                >
+                                  <option value="">{t('-- Select Body Part --', '-- Pilih Bahagian --')}</option>
+                                  {modalityRef.bodyParts.map((b) => (
+                                    <option key={b.name} value={b.name}>{b.name}</option>
+                                  ))}
+                                  <option value="Other">{t('Other / Custom', 'Lain-lain / Tersuai')}</option>
+                                </select>
+                              </div>
+
+                              {card.bodyPart === 'Other' && (
+                                <div>
+                                  <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                                    {t('Custom Body Part *', 'Bahagian Tersuai *')}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={card.customBodyPart}
+                                    onChange={(e) => updateCard(index, { customBodyPart: e.target.value })}
+                                    className="input-field w-full"
+                                    placeholder={t('Specify body part', 'Nyatakan bahagian')}
+                                    required
+                                  />
+                                </div>
+                              )}
+
+                              {supportsLaterality && (
+                                <div>
+                                  <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                                    {t('Laterality (Side) *', 'Sisi *')}
+                                  </label>
+                                  <select
+                                    value={card.side}
+                                    onChange={(e) => updateCard(index, { side: e.target.value as ExaminationSide })}
+                                    className="select-field w-full"
+                                  >
+                                    {sideOpts.map((s) => <option key={s} value={s}>{s}</option>)}
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+
+                            {partRef && (
+                              <div>
+                                <label className="block text-sm font-semibold text-surface-700 mb-2">
+                                  {modalityRef.optionTypeLabel} *
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                  {partRef.defaultViewsOrProtocols.map((opt) => {
+                                    const isSelected = card.viewsOrProtocol.includes(opt);
+                                    return (
+                                      <button
+                                        key={opt}
+                                        type="button"
+                                        onClick={() => toggleCardOption(index, opt)}
+                                        className={`
+                                          px-3 py-2 rounded-lg text-xs font-semibold border transition-all
+                                          ${isSelected
+                                            ? 'bg-[#0F4C42] text-white border-[#0F4C42]'
+                                            : 'bg-white text-surface-700 border-surface-200 hover:bg-surface-50'
+                                          }
+                                        `}
+                                      >
+                                        {opt}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            <div>
+                              <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                                {t('Examination Notes', 'Nota Pemeriksaan')}
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={card.notes}
+                                onChange={(e) => updateCard(index, { notes: e.target.value })}
+                                className="input-field w-full resize-none"
+                                placeholder={t('Optional notes for the radiographer or radiologist...', 'Nota tambahan untuk radiografer atau radiologis...')}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div className="bg-white border border-surface-200 rounded-xl shadow-sm px-6 py-4 flex items-center justify-between gap-3">
+              <button type="button" onClick={() => setCurrentStep(1)} className="btn-secondary text-sm flex items-center gap-1.5">
+                <ChevronLeft className="w-4 h-4" />
+                {t('Back', 'Kembali')}
+              </button>
+              <button type="button" disabled={!step2Valid} onClick={() => setCurrentStep(3)} className="btn-primary text-sm flex items-center gap-1.5 disabled:opacity-60">
+                {t('Next: Clinical Screening', 'Seterusnya: Saringan Klinikal')}
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* =========================================================
+            STEP 3 — CLINICAL SCREENING
+        ========================================================== */}
+        {currentStep === 3 && (
+          <>
+            <section className="bg-white border border-surface-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#EFF6F3] flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-4 h-4 text-[#0F4C42]" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-navy-900">
+                      {t('Clinical Screening', 'Saringan Klinikal')}
+                    </h2>
+                    <p className="text-[11px] text-surface-500 mt-0.5">
+                      {t(
+                        'Complete the safety checks required for this imaging request.',
+                        'Lengkapkan pemeriksaan keselamatan yang diperlukan untuk permohonan ini.'
                       )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {selectedPatient && (
+                  <div className="rounded-lg bg-[#F8FAFC] border border-surface-200 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <User className="w-4 h-4 text-[#0F4C42]" />
+                      <span className="text-xs font-bold text-navy-900">
+                        {t('Patient Profile', 'Profil Pesakit')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                      <div><span className="text-surface-400 block text-[10px]">Name</span><span className="font-semibold text-surface-700">{selectedPatient.name}</span></div>
+                      <div><span className="text-surface-400 block text-[10px]">MRN</span><span className="font-semibold text-surface-700 font-mono">{selectedPatient.mrn}</span></div>
+                      <div><span className="text-surface-400 block text-[10px]">Gender</span><span className="font-semibold text-surface-700">{selectedPatient.gender}</span></div>
+                      <div><span className="text-surface-400 block text-[10px]">Payment</span><span className="font-semibold text-surface-700">{paymentBadge?.label || '—'}</span></div>
+                    </div>
+                  </div>
+                )}
+
+                {isFemalePatient && (
+                  <div className="rounded-lg border border-pink-200 bg-pink-50/50 p-4 space-y-4">
+                    <div>
+                      <h3 className="text-xs font-bold text-pink-900">
+                        {t('Pregnancy Screening', 'Saringan Kehamilan')}
+                      </h3>
+                      <p className="text-[10px] text-pink-700 mt-0.5">
+                        {t('Radiation safety check for female patients.', 'Pemeriksaan keselamatan radiasi untuk pesakit wanita.')}
+                      </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-medium text-surface-700 mb-1">
-                          {t('Anatomical Region / Body Part', 'Bahagian Anggota / Anatomi')} *
+                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                          {t('Is Patient Currently Pregnant? *', 'Adakah Pesakit Mengandung? *')}
                         </label>
                         <select
-                          value={card.bodyPart}
-                          onChange={(e) => handleBodyPartChange(index, e.target.value)}
-                          className="select-field text-xs"
                           required
+                          value={isPregnant}
+                          onChange={(e) => setIsPregnant(e.target.value as MohYaTidak)}
+                          className="select-field w-full"
                         >
-                          <option value="">-- Select Body Part --</option>
-                          {modalityRef.bodyParts.map((b) => (
-                            <option key={b.name} value={b.name}>{b.name}</option>
-                          ))}
-                          <option value="Other">Other / Custom</option>
+                          <option value="">-- Select --</option>
+                          <option value="No">No (Tidak)</option>
+                          <option value="Yes">Yes (Ya)</option>
                         </select>
                       </div>
 
-                      {card.bodyPart === 'Other' && (
-                        <div>
-                          <label className="block text-xs font-medium text-surface-700 mb-1">Custom Body Part *</label>
-                          <input
-                            type="text"
-                            value={card.customBodyPart}
-                            onChange={(e) => updateCard(index, { customBodyPart: e.target.value })}
-                            className="input-field text-xs"
-                            placeholder="Specify body part"
-                            required
-                          />
-                        </div>
-                      )}
+                      <div>
+                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                          {t('Last Menstrual Period (LMP)', 'Tarikh Haid Terakhir (LMP)')}
+                        </label>
+                        <input type="date" value={lmp} onChange={(e) => setLmp(e.target.value)} className="input-field w-full" />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                      {supportsLaterality && (
-                        <div>
-                          <label className="block text-xs font-medium text-surface-700 mb-1">Laterality (Side) *</label>
-                          <select
-                            value={card.side}
-                            onChange={(e) => updateCard(index, { side: e.target.value as ExaminationSide })}
-                            className="select-field text-xs"
-                          >
-                            {sideOpts.map((s) => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        </div>
-                      )}
+                <div className="rounded-lg border border-surface-200 bg-white p-4">
+                  <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                    {t('Patient Transport / Mobility Mode', 'Mod Pengangkutan / Pergerakan Pesakit')}
+                  </label>
+                  <select
+                    value={hasMobileDevice}
+                    onChange={(e) => setHasMobileDevice(e.target.value as MohYaTidak)}
+                    className="select-field w-full md:max-w-md"
+                  >
+                    <option value="No">Ambulatory / Walking (Mobile)</option>
+                    <option value="Yes">Wheelchair / Stretcher / Trolley Required</option>
+                  </select>
+                </div>
+
+                {['CT', 'MRI', 'Fluoro', 'Angio'].includes(modality) && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-xs font-bold text-blue-950">
+                          {t('Contrast Media Screening', 'Saringan Media Kontras')}
+                        </h3>
+                        <p className="text-[10px] text-blue-700 mt-0.5">
+                          {t('Complete renal safety information when IV contrast is required.', 'Lengkapkan maklumat keselamatan buah pinggang apabila media kontras IV diperlukan.')}
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={contrastMediaRequired}
+                        onChange={(e) => setContrastMediaRequired(e.target.checked)}
+                        className="w-4 h-4 accent-[#0F4C42] rounded shrink-0"
+                      />
                     </div>
 
-                    {partRef && (
-                      <div>
-                        <label className="block text-xs font-semibold text-surface-700 mb-1.5">
-                          {modalityRef.optionTypeLabel} *
-                        </label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {partRef.defaultViewsOrProtocols.map((opt) => {
-                            const isSelected = card.viewsOrProtocol.includes(opt);
-                            return (
-                              <button
-                                key={opt}
-                                type="button"
-                                onClick={() => toggleCardOption(index, opt)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                                  isSelected ? 'bg-navy-800 text-white border-navy-800' : 'bg-white text-surface-700 border-surface-300 hover:bg-surface-100'
-                                }`}
-                              >
-                                {opt}
-                              </button>
-                            );
-                          })}
+                    {contrastMediaRequired && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-surface-700 mb-1.5">Renal Lab Test Date *</label>
+                          <input type="date" required value={renalFunctionDate} onChange={(e) => setRenalFunctionDate(e.target.value)} className="input-field w-full" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-surface-700 mb-1.5">Serum Creatinine (µmol/L) *</label>
+                          <input type="number" required value={creatinine} onChange={(e) => setCreatinine(e.target.value)} className="input-field w-full" placeholder="e.g. 78" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-surface-700 mb-1.5">eGFR (mL/min/1.73m²) *</label>
+                          <input type="number" required value={egfr} onChange={(e) => setEgfr(e.target.value)} className="input-field w-full" placeholder="e.g. 95" />
                         </div>
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </div>
+            </section>
 
-            <div className="flex items-center justify-between pt-2">
-              <button type="button" onClick={() => setCurrentStep(1)} className="btn-secondary text-xs flex items-center gap-1">
+            <div className="bg-white border border-surface-200 rounded-xl shadow-sm px-6 py-4 flex items-center justify-between gap-3">
+              <button type="button" onClick={() => setCurrentStep(2)} className="btn-secondary text-sm flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" />
-                <span>{t('Back', 'Kembali')}</span>
+                {t('Back', 'Kembali')}
               </button>
-              <button type="button" disabled={!step2Valid} onClick={() => setCurrentStep(3)} className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50">
-                <span>{t('Next: Case Screening', 'Seterusnya: Saringan')}</span>
+              <button type="button" disabled={!step3Valid} onClick={() => setCurrentStep(4)} className="btn-primary text-sm flex items-center gap-1.5 disabled:opacity-60">
+                {t('Next: Priority & Submit', 'Seterusnya: Keutamaan & Hantar')}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-          </div>
+          </>
         )}
 
-        {/* ── STEP 3: CASE-SPECIFIC CLINICAL SCREENING ─────────────────────── */}
-        {currentStep === 3 && (
-          <div className="card space-y-5 bg-white p-6 border border-surface-200 rounded-xl shadow-sm">
-            <h2 className="text-base font-bold text-navy-900 border-b pb-2">
-              {t('Step 3: Clinical Screening (MOH PER.SS-RA301)', 'Langkah 3: Saringan Klinikal (KKM PER.SS-RA301)')}
-            </h2>
-
-            {/* Master Patient Inheritance Summary Badge Card */}
-            {selectedPatient && (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    {t('Master Patient & Billing Profile (Auto-Inherited)', 'Profil Pesakit & Bayaran Induk (Warisan Otomatik)')}
-                  </span>
-                  {paymentBadge && (
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-md border ${paymentBadge.color}`}>
-                      {paymentBadge.label}
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600 pt-1">
-                  <div><span className="font-semibold">Name:</span> {selectedPatient.name}</div>
-                  <div><span className="font-semibold">MRN:</span> {selectedPatient.mrn}</div>
-                  <div><span className="font-semibold">NRIC:</span> {selectedPatient.nric}</div>
-                  <div><span className="font-semibold">Gender:</span> {selectedPatient.gender}</div>
-                  <div><span className="font-semibold">Asthma:</span> {selectedPatient.hasAsthma || 'No'}</div>
-                  <div><span className="font-semibold">Prior Contrast Reaction:</span> {selectedPatient.previousContrastReaction || 'No'}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Episode-Specific Screening */}
-            <div className="space-y-4">
-              {/* Pregnancy Screening (For Female Patients) */}
-              {isFemalePatient && (
-                <div className="p-4 bg-pink-50/70 border border-pink-200 rounded-xl space-y-3">
-                  <h3 className="text-xs font-bold text-pink-950 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>{t('Pregnancy Screening (Field 13)', 'Saringan Kehamilan (Ruangan 13)')}</span>
-                    <span className="text-[10px] text-pink-700 cursor-help" title="Radiation Safety Check — Prevents accidental X-Ray radiation exposure to fetus">(i)</span>
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
-                        <span>{t('Is Patient Currently Pregnant?', 'Adakah Pesakit Mengandung?')} *</span>
-                        <span className="text-[10px] text-slate-400 cursor-help" title="Required for radiation safety protocol">(i)</span>
-                      </label>
-                      <select
-                        required
-                        value={isPregnant}
-                        onChange={(e) => setIsPregnant(e.target.value as MohYaTidak)}
-                        className="select-field text-xs font-semibold"
-                      >
-                        <option value="">-- Select --</option>
-                        <option value="No">No (Tidak)</option>
-                        <option value="Yes">Yes (Ya)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
-                        <span>{t('Last Menstrual Period (LMP)', 'Tarikh Haid Terakhir (LMP)')}</span>
-                        <span className="text-[10px] text-slate-400 cursor-help" title="Last Menstrual Period — Verifies radiation safety window">(i)</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={lmp}
-                        onChange={(e) => setLmp(e.target.value)}
-                        className="input-field text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Patient Mobility & Transport */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {t('Patient Transport / Mobility Mode', 'Mod Pengangkutan / Pergerakan Pesakit')}
-                </label>
-                <select
-                  value={hasMobileDevice}
-                  onChange={(e) => setHasMobileDevice(e.target.value as MohYaTidak)}
-                  className="select-field text-xs font-semibold max-w-xs"
-                >
-                  <option value="No">Ambulatory / Walking (Mobile)</option>
-                  <option value="Yes">Wheelchair / Stretcher / Trolley Required</option>
-                </select>
-              </div>
-
-              {/* Contrast Media Renal Screening (If IV Contrast Scan) */}
-              {['CT', 'MRI', 'Fluoro', 'Angio'].includes(modality) && (
-                <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-navy-900">
-                      {t('Requires IV Contrast Media Administration?', 'Memerlukan Pentadbiran Media Kontras?')}
-                    </label>
-                    <input
-                      type="checkbox"
-                      checked={contrastMediaRequired}
-                      onChange={(e) => setContrastMediaRequired(e.target.checked)}
-                      className="w-4 h-4 text-navy-800 rounded"
-                    />
-                  </div>
-
-                  {contrastMediaRequired && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Renal Lab Test Date *</label>
-                        <input
-                          type="date"
-                          required
-                          value={renalFunctionDate}
-                          onChange={(e) => setRenalFunctionDate(e.target.value)}
-                          className="input-field text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Serum Creatinine (µmol/L) *</label>
-                        <input
-                          type="number"
-                          required
-                          value={creatinine}
-                          onChange={(e) => setCreatinine(e.target.value)}
-                          className="input-field text-xs"
-                          placeholder="e.g. 78"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">eGFR (mL/min/1.73m²) *</label>
-                        <input
-                          type="number"
-                          required
-                          value={egfr}
-                          onChange={(e) => setEgfr(e.target.value)}
-                          className="input-field text-xs"
-                          placeholder="e.g. 95"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <button type="button" onClick={() => setCurrentStep(2)} className="btn-secondary text-xs flex items-center gap-1">
-                <ChevronLeft className="w-4 h-4" />
-                <span>{t('Back', 'Kembali')}</span>
-              </button>
-              <button type="button" disabled={!step3Valid} onClick={() => setCurrentStep(4)} className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50">
-                <span>{t('Next: Scheduling & Priority', 'Seterusnya: Penjadualan')}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 4: PRIORITY & SUBMIT ────────────────────────────────────── */}
+        {/* =========================================================
+            STEP 4 — PRIORITY & SUBMIT
+        ========================================================== */}
         {currentStep === 4 && (
-          <div className="card space-y-5 bg-white p-6 border border-surface-200 rounded-xl shadow-sm">
-            <h2 className="text-base font-bold text-navy-900 border-b pb-2">
-              {t('Step 4: Scheduling Priority & Referral Submission', 'Langkah 4: Keutamaan & Penyerahan')}
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {t('Workflow Priority', 'Tahap Keutamaan Workflow')}
-                </label>
-                <select
-                  value={workflowPriority}
-                  onChange={(e) => setWorkflowPriority(e.target.value as 'Emergency' | 'Non-Emergency')}
-                  className="select-field text-xs font-bold"
-                >
-                  <option value="Emergency">Emergency (Immediate Slot / PACS Van Routing)</option>
-                  <option value="Non-Emergency">Non-Emergency / Elective Appointment</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {t('Preferred Diagnostic Centre / PACS Van', 'Pilihan Klinik / Van PACS')}
-                </label>
-                <select
-                  value={preferredClinicId}
-                  onChange={(e) => setPreferredClinicId(e.target.value)}
-                  className="select-field text-xs"
-                >
-                  <option value="">-- No preference (AI Auto-Assign) --</option>
-                  {clinics.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {workflowPriority === 'Non-Emergency' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">Preferred Appointment Date</label>
-                    <input
-                      type="date"
-                      value={scheduledDate}
-                      onChange={(e) => setScheduledDate(e.target.value)}
-                      className="input-field text-xs"
-                    />
+          <>
+            <section className="bg-white border border-surface-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#EFF6F3] flex items-center justify-center shrink-0">
+                    <Check className="w-4 h-4 text-[#0F4C42]" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">Preferred Time Slot</label>
-                    <input
-                      type="time"
-                      value={scheduledTime}
-                      onChange={(e) => setScheduledTime(e.target.value)}
-                      className="input-field text-xs"
-                    />
+                    <h2 className="text-sm font-bold text-navy-900">
+                      {t('Priority & Referral Submission', 'Keutamaan & Penyerahan Rujukan')}
+                    </h2>
+                    <p className="text-[11px] text-surface-500 mt-0.5">
+                      {t(
+                        'Choose the workflow priority and preferred diagnostic location before submitting.',
+                        'Pilih keutamaan aliran kerja dan lokasi diagnostik pilihan sebelum menghantar.'
+                      )}
+                    </p>
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
 
-            <div className="flex items-center justify-between pt-4 border-t">
-              <button type="button" onClick={() => setCurrentStep(3)} className="btn-secondary text-xs flex items-center gap-1">
+              <div className="p-6 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                      {t('Workflow Priority', 'Tahap Keutamaan Workflow')}
+                    </label>
+                    <select
+                      value={workflowPriority}
+                      onChange={(e) => setWorkflowPriority(e.target.value as 'Emergency' | 'Non-Emergency')}
+                      className="select-field w-full"
+                    >
+                      <option value="Emergency">Emergency (Immediate Slot / PACS Van Routing)</option>
+                      <option value="Non-Emergency">Non-Emergency / Elective Appointment</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                      {t('Preferred Diagnostic Centre / PACS Van', 'Pilihan Klinik / Van PACS')}
+                    </label>
+                    <select value={preferredClinicId} onChange={(e) => setPreferredClinicId(e.target.value)} className="select-field w-full">
+                      <option value="">-- No preference (AI Auto-Assign) --</option>
+                      {clinics.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {workflowPriority === 'Non-Emergency' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                          {t('Preferred Appointment Date', 'Tarikh Temujanji Pilihan')}
+                        </label>
+                        <input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="input-field w-full" />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                          {t('Preferred Time Slot', 'Slot Masa Pilihan')}
+                        </label>
+                        <input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="input-field w-full" />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="rounded-lg bg-[#F3F8F6] border border-[#D8E8E2] p-4">
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-[#0F4C42]">
+                        {t('Ready to submit radiology referral', 'Sedia untuk menghantar rujukan radiologi')}
+                      </p>
+                      <p className="text-[10px] text-surface-500 mt-0.5">
+                        {selectedPatient?.name || '—'} · {modality} · {severity} · {workflowPriority}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div className="bg-white border border-surface-200 rounded-xl shadow-sm px-6 py-4 flex items-center justify-between gap-3">
+              <button type="button" onClick={() => setCurrentStep(3)} className="btn-secondary text-sm flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" />
-                <span>{t('Back', 'Kembali')}</span>
+                {t('Back', 'Kembali')}
               </button>
-              <button type="submit" disabled={!isFormValid || submitting} className="btn-primary text-xs px-5 py-2.5 font-bold flex items-center gap-2">
-                {submitting ? 'Submitting Case...' : 'Submit Radiology Case Referral'}
+
+              <button
+                type="submit"
+                disabled={!isFormValid || submitting}
+                className="btn-primary flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed text-sm px-6 py-2.5 min-w-[210px]"
+              >
+                {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+                {submitting
+                  ? t('Submitting Case...', 'Menghantar Kes...')
+                  : t('Submit Radiology Case', 'Hantar Kes Radiologi')}
               </button>
             </div>
-          </div>
+          </>
         )}
       </form>
 
-      {/* SENARAI DOS BERKESAN MODAL */}
+      {/* =========================================================
+          DOSE REFERENCE MODAL
+      ========================================================== */}
       {showDoseModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
-            <div className="p-4 bg-navy-900 text-white flex items-center justify-between">
+          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-surface-200">
+            <div className="px-5 py-4 bg-[#0F4C42] text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-sm">
-                  {t('EFFECTIVE RADIATION DOSE REFERENCE LIST', 'SENARAI DOS BERKESAN UNTUK PEMERIKSAAN RADIOLOGI')}
+                  {t('Effective Radiation Dose Reference List', 'Senarai Dos Berkesan Pemeriksaan Radiologi')}
                 </h3>
-                <p className="text-[10px] text-navy-200">Kementerian Kesihatan Malaysia PER.SS-RA301 Benchmark</p>
+                <p className="text-[10px] text-emerald-100 mt-0.5">
+                  Kementerian Kesihatan Malaysia PER.SS-RA301 Benchmark
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowDoseModal(false)}
-                className="w-7 h-7 rounded-full bg-navy-800 hover:bg-red-600 text-white flex items-center justify-center font-bold text-xs transition-colors"
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-red-500 text-white flex items-center justify-center font-bold text-xs transition-colors"
               >
                 ✕
               </button>

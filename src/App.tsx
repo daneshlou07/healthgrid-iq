@@ -141,7 +141,7 @@ function AppRoutes() {
 
         {/* Administrator routes (full CRUD access) */}
         <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />
-        <Route path="/clinics" element={<ProtectedRoute allowedRoles={['Administrator']}><ClinicsManagement /></ProtectedRoute>} />
+        <Route path="/clinics" element={<ProtectedRoute allowedRoles={['Super Admin']}><ClinicsManagement /></ProtectedRoute>} />
         <Route path="/fleet" element={<ProtectedRoute allowedRoles={['Administrator']}><FleetManagement /></ProtectedRoute>} />
         <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['Administrator']}><PatientRegistry /></ProtectedRoute>} />
         <Route path="/patient-requests" element={<ProtectedRoute allowedRoles={['Administrator']}><PatientRequestsReview /></ProtectedRoute>} />

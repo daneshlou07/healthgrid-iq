@@ -23,8 +23,12 @@ export default function ProtectedRoute({ children, allowedRoles }: Props) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && currentUser && !allowedRoles.includes(currentUser.role)) {
-    return <Navigate to="/dashboard" replace />;
+  if (allowedRoles && currentUser) {
+    const hasRole = allowedRoles.includes(currentUser.role) ||
+      (currentUser.role === 'Super Admin' && allowedRoles.includes('Administrator'));
+    if (!hasRole) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return <>{children}</>;

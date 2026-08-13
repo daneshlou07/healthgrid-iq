@@ -23,7 +23,7 @@ const DEMO_RADIOGRAPHERS = [
 ];
 
 
-const OTHER_ROLES = ['Administrator', 'Radiology Department', 'Radiologist'] as const;
+const OTHER_ROLES = ['Super Admin', 'Administrator', 'Radiology Department', 'Radiologist'] as const;
 
 export default function DevAccountSwitcher() {
   const { currentUser, loginAsUser } = useAuth();
@@ -42,8 +42,11 @@ export default function DevAccountSwitcher() {
   const scheduledCount = (userId: string) =>
     cases.filter((c) => c.radiographerId === userId && c.status === 'SCHEDULED').length;
 
+  const isMasterAdmin = currentUser?.email === 'daneshlou05@gmail.com';
   const otherUsers = users.filter(
-    (u) => u.status === 'active' && !DEMO_RADIOGRAPHERS.some((d) => d.id === u.id)
+    (u) => u.status === 'active' &&
+           !DEMO_RADIOGRAPHERS.some((d) => d.id === u.id) &&
+           (isMasterAdmin || (u.email !== 'daneshlou05@gmail.com' && u.id !== 'admin-002'))
   );
 
   return (

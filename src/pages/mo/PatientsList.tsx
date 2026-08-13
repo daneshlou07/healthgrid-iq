@@ -25,8 +25,7 @@ export default function PatientsList() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-navy-800">Patient Registry</h1>
-          <p className="text-sm text-surface-500">View and manage clinical patient records.</p>
+
         </div>
 
         <div className="flex items-center gap-2.5">

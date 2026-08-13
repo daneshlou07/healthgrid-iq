@@ -167,22 +167,22 @@ function getNavGroups(
             },
             {
               label: t(
-                'All Medical Cases',
-                'Semua Kes Perubatan'
-              ),
-              path: '/cases',
-              icon: (
-                <FolderOpen className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
                 'New Case Registration',
                 'Pendaftaran Kes Baharu'
               ),
               path: '/cases/new',
               icon: (
                 <FilePlus2 className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'All Medical Cases',
+                'Semua Kes Perubatan'
+              ),
+              path: '/cases',
+              icon: (
+                <FolderOpen className="w-[18px] h-[18px]" />
               ),
             },
             {
@@ -267,6 +267,7 @@ function getNavGroups(
       ];
 
     case 'Administrator':
+    case 'Super Admin':
       return [
         {
           title: t(
@@ -284,16 +285,20 @@ function getNavGroups(
                 <House className="w-[18px] h-[18px]" />
               ),
             },
-            {
-              label: t(
-                'Clinic Management',
-                'Pengurusan Klinik'
-              ),
-              path: '/clinics',
-              icon: (
-                <Building2 className="w-[18px] h-[18px]" />
-              ),
-            },
+            ...(role === 'Super Admin'
+              ? [
+                {
+                  label: t(
+                    'Clinic Management',
+                    'Pengurusan Klinik'
+                  ),
+                  path: '/clinics',
+                  icon: (
+                    <Building2 className="w-[18px] h-[18px]" />
+                  ),
+                },
+              ]
+              : []),
             {
               label: t(
                 'Resource Scheduling',

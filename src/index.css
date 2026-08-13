@@ -183,3 +183,47 @@
     }
   }
 }
+
+/* === MASCOT ANIMATIONS === */
+@keyframes mascotFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes mascotShadow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(0.82);
+    opacity: 0.15;
+  }
+}
+
+@keyframes mascotPulseRing {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.6;
+  }
+}
+
+.animate-mascot-float {
+  animation: mascotFloat 3.5s ease-in-out infinite;
+}
+
+.animate-mascot-shadow {
+  animation: mascotShadow 3.5s ease-in-out infinite;
+}
+
+.animate-mascot-ring {
+  animation: mascotPulseRing 3.5s ease-in-out infinite;
+}

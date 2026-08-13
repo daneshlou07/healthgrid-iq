@@ -18,6 +18,7 @@ export default function DashboardRouter() {
       case 'Medical Officer':
         return <MoDashboard />;
       case 'Administrator':
+      case 'Super Admin':
         return <AdminDashboard />;
       default:
         return <MoDashboard />;

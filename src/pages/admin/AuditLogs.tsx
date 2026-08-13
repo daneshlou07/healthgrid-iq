@@ -17,12 +17,13 @@ export default function AuditLogs() {
 
   const actions = [...new Set(logs.map((l) => l.action))];
   const filtered = logs.filter((log) => {
-    // Hide Super Admin audit logs if viewing as regular Admin
-    const isSuperAdminLog = log.userId === 'admin-002' ||
-                            log.userName === 'Super Admin' ||
-                            log.userName === 'Danesh Lou' ||
-                            log.details?.toLowerCase().includes('daneshlou05@gmail.com');
-    if (!isMasterAdmin && isSuperAdminLog) return false;
+    // Hide Master Admin audit logs & traces if viewing as regular Admin or Super Admin
+    const isMasterAdminLog = log.userId === 'admin-002' ||
+                             log.userName === 'Master Admin' ||
+                             log.userName === 'Super Admin' ||
+                             log.userName === 'Danesh Lou' ||
+                             log.details?.toLowerCase().includes('daneshlou05@gmail.com');
+    if (!isMasterAdmin && isMasterAdminLog) return false;
 
     const matchSearch = log.details.toLowerCase().includes(search.toLowerCase()) || log.userName.toLowerCase().includes(search.toLowerCase());
     const matchAction = filterAction === 'all' || log.action === filterAction;

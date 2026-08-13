@@ -6,7 +6,7 @@ import type { Case } from '../../types';
 import { useSearchPalette } from '../ux/SearchPalette';
 import { useToast } from '../ux/Toast';
 import { Link } from 'react-router-dom';
-import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen, PanelLeftClose, PanelLeft, ShieldCheck } from 'lucide-react';
+import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen, PanelLeftClose, PanelLeft, ShieldCheck, Bot, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import Modal from '../ui/Modal';
 import ClinicalGlossaryModal from '../ui/ClinicalGlossaryModal';
@@ -45,6 +45,20 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showGlossaryModal, setShowGlossaryModal] = useState(false);
+  const [mascotActive, setMascotActive] = useState<boolean>(() => {
+    return localStorage.getItem('healthgrid_mascot_visible') !== 'false';
+  });
+
+  useEffect(() => {
+    const handleVisibilityEvent = (e: CustomEvent<{ visible: boolean }>) => {
+      if (typeof e.detail?.visible === 'boolean') {
+        setMascotActive(e.detail.visible);
+      }
+    };
+
+    window.addEventListener('healthgrid:mascot-visibility' as any, handleVisibilityEvent);
+    return () => window.removeEventListener('healthgrid:mascot-visibility' as any, handleVisibilityEvent);
+  }, []);
 
   const criticalCases = cases.filter((c: Case) => c.isCriticalFinding && c.status !== 'FINALIZED' && !c.criticalFindingAcknowledged);
   const [showCriticalModal, setShowCriticalModal] = useState(false);
@@ -195,6 +209,28 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          {/* AI Mascot Toggle */}
+          <button 
+            onClick={() => {
+              const nextState = !mascotActive;
+              localStorage.setItem('healthgrid_mascot_visible', String(nextState));
+              window.dispatchEvent(new CustomEvent('healthgrid:mascot-visibility', { detail: { visible: nextState } }));
+              setMascotActive(nextState);
+            }}
+            className={`p-1.5 px-2.5 rounded-lg transition-all duration-150 flex items-center gap-1.5 text-xs font-semibold ${
+              mascotActive 
+                ? 'text-[#0F4C42] bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300/80 shadow-xs' 
+                : 'text-surface-500 hover:text-navy-700 hover:bg-surface-100 border border-surface-200'
+            }`}
+            title={mascotActive ? 'Hide AI Desktop Pet Mascot' : 'Show AI Desktop Pet Mascot'}
+            aria-label="Toggle Desktop Pet Mascot"
+          >
+            <Bot className={`w-4 h-4 ${mascotActive ? 'text-[#0F4C42]' : 'text-surface-400'}`} />
+            <span className="hidden sm:inline text-[11px] font-medium">
+              {mascotActive ? 'Mascot On' : 'Mascot Off'}
+            </span>
+          </button>
+
           {/* Notifications */}
           <div className="relative" ref={notifRef}>
             <button onClick={() => { setShowNotifications(!showNotifications); setShowProfile(false); }} className="relative p-2 text-surface-500 hover:text-navy-600 hover:bg-surface-100 rounded-lg transition-colors" aria-label="Notifications">

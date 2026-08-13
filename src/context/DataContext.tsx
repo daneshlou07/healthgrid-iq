@@ -25,9 +25,9 @@ import type { User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, Mob
 
 // --- LocalStorage Persistence Layer ---
 const STORAGE_KEY = 'healthgrid_data';
-// Bump this version whenever seed data changes (e.g. new demo images).
+// Bump this version whenever seed data changes (e.g. new demo images or system roles).
 // Any cached data from a previous version will be discarded and reloaded from mock.
-const STORAGE_VERSION = '8'; // v8: Fresh demo dataset for presentation
+const STORAGE_VERSION = '9'; // v9: Super Admin role & Theta Edge Berhad account
 const USE_DEMO_STORAGE = isDemoMode();
 
 interface PersistedData {
@@ -167,32 +167,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const loadAll = useCallback(async () => {
     setLoading(true);
 
-    const persisted = loadFromStorage();
-    let initUsers = persisted?.users || [];
-    let initCases = persisted?.cases || [];
-    let initPatients = persisted?.patients || [];
-    let initClinics = persisted?.clinics || [];
-    let initReports = persisted?.reports || [];
-    let initRequests = persisted?.patientRequests || [];
-    let initLogs = persisted?.auditLogs || [];
-    let initEquipment = persisted?.equipment || [];
+    const isConfigured = isFirebaseConfigured();
+    const persisted = !isConfigured ? loadFromStorage() : null;
 
-    // Fall back to mock data if empty
-    if (!persisted) {
+    let initUsers: User[] = [];
+    let initCases: Case[] = [];
+    let initPatients: Patient[] = [];
+    let initClinics: Clinic[] = [];
+    let initReports: Report[] = [];
+    let initRequests: PatientRequest[] = [];
+    let initLogs: AuditLog[] = [];
+    let initEquipment: MobilePacsVan[] = [];
+
+    if (isConfigured || !persisted) {
       try {
-        const [u, c, p, cl, r, pr, eq] = await Promise.all([
+        const [u, c, p, cl, r, pr, eq, al] = await Promise.all([
           getUsers(), getCases(), getPatients(), getClinics(),
           getReports(), getPatientRequests(), getMobilePacsVans(),
+          getAuditLogs().catch(() => []),
         ]);
         initUsers = u; initCases = c; initPatients = p; initClinics = cl;
-        initReports = r; initRequests = pr; initEquipment = eq;
-        // Audit logs are administrator-only and are loaded by the dedicated
-        // audit page. Avoid making all clinical data unavailable to non-admin
-        // users just because that protected query is denied.
-        if (USE_DEMO_STORAGE) initLogs = await getAuditLogs();
+        initReports = r; initRequests = pr; initEquipment = eq; initLogs = al;
       } catch (e) {
-        console.warn('Mock loading error:', e);
+        console.warn('Firestore initial loading error:', e);
       }
+    } else if (persisted) {
+      initUsers = persisted.users || [];
+      initCases = persisted.cases || [];
+      initPatients = persisted.patients || [];
+      initClinics = persisted.clinics || [];
+      initReports = persisted.reports || [];
+      initRequests = persisted.patientRequests || [];
+      initLogs = persisted.auditLogs || [];
+      initEquipment = persisted.equipment || [];
     }
 
     setUsers(initUsers);

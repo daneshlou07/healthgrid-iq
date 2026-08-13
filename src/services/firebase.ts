@@ -24,6 +24,7 @@ const firebaseConfig = {
  * must fail closed instead of silently granting a mock administrator session.
  */
 export function isDemoMode(): boolean {
+  if (isFirebaseConfigured()) return false;
   return import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE !== 'false';
 }
 

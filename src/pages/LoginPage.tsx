@@ -85,7 +85,7 @@ export default function LoginPage() {
               <form onSubmit={handleForgotSubmit} className="space-y-4">
                 <div className="p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] text-[13px] text-[#334155] space-y-1.5">
                   <p className="font-semibold text-[#0F172A]">System Security Policy Notice:</p>
-                  <p className="leading-relaxed">To reset your account password, please submit your request below and contact a <strong>System Admin</strong> or <strong>Super Admin</strong>.</p>
+                  <p className="leading-relaxed">To reset your account password, please submit your request below and contact a <strong>System Admin</strong> or <strong>Master Admin</strong>.</p>
                 </div>
 
                 {forgotError && (
@@ -126,7 +126,7 @@ export default function LoginPage() {
                   <p className="font-semibold text-[#0F172A]">Please contact system administration to issue your reset password:</p>
                   <ul className="list-disc pl-4 space-y-1 font-medium">
                     <li><strong>System Admin</strong>: Tan Wei Ming (<code>weiming.tan@healthgrid.my</code>)</li>
-                    <li><strong>Super Admin</strong>: System Super Administrator</li>
+                    <li><strong>Master Admin</strong>: Master Administrator (<code>daneshlou05@gmail.com</code>)</li>
                   </ul>
                 </div>
 

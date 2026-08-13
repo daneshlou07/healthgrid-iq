@@ -6,13 +6,13 @@ import ErrorBoundary from '../ux/ErrorBoundary';
 import SessionTimeout from '../ux/SessionTimeout';
 import { Menu, PanelLeftClose, PanelLeft } from 'lucide-react';
 import PageLoader from '../ux/PageLoader';
-
+import HealthGridMascot from '../mascot/HealthGridMascot';
 
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-100">
+    <div className="flex h-screen overflow-hidden bg-surface-100 relative">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
@@ -42,9 +42,13 @@ export default function MainLayout() {
         </main>
       </div>
       <SessionTimeout />
+      
+      {/* Desktop-Pet AI Mascot (Visual Prototype) */}
+      <HealthGridMascot />
     </div>
   );
 }
+
 
 
 
