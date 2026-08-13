@@ -60,9 +60,7 @@ System Admins manage system configuration, fleet dispatch, user account creation
 | Name | Role | Email Identifier | User ID | Password |
 |---|---|---|---|---|
 | **Tan Wei Ming** | System Admin | `weiming.tan@healthgrid.my` | `admin-001` | `password123` |
-| **Master Admin** | Master Admin | `daneshlou05@gmail.com` | `admin-002` | `password123` |
 
----
 
 ## ⚡ Quick Sign-In Instructions
 1. Open the HealthGrid IQ Sign-In page.

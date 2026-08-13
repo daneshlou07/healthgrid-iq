@@ -139,8 +139,8 @@ export default function AllCases() {
           counts={counts}
         />
 
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+        <div className="relative w-60">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-400" />
           <input
             type="text"
             placeholder="Filter queue by case #, patient, symptom..."

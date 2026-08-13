@@ -578,7 +578,13 @@ export default function NewCaseRegistration() {
                         className={`
                           px-3 py-2 rounded-lg text-xs font-semibold border transition-all
                           ${severity === sev
-                            ? 'bg-[#0F4C42] text-white border-[#0F4C42]'
+                            ? sev === 'Mild'
+                              ? 'bg-blue-100 text-blue-700 border-blue-200'
+                              : sev === 'Moderate'
+                                ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                : sev === 'Severe'
+                                  ? 'bg-orange-100 text-orange-700 border-orange-200'
+                                  : 'bg-red-600 text-white border-red-600'
                             : 'bg-white text-surface-700 border-surface-200 hover:bg-surface-50'
                           }
                         `}
