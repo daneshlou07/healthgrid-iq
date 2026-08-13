@@ -23,7 +23,9 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Fleet Vehicles" value={equipment.length} icon={<Truck className="w-5 h-5" />} color="navy" />
         <StatsCard title="Audit Events" value={auditLogs.length} icon={<ScrollText className="w-5 h-5" />} color="purple" />
-        <StatsCard title="Clinics" value={clinics.filter((c) => c.status === 'active').length} icon={<Building2 className="w-5 h-5" />} color="emerald" />
+        <Link to="/clinics">
+          <StatsCard title="Clinics" value={clinics.filter((c) => c.status === 'active').length} icon={<Building2 className="w-5 h-5" />} color="emerald" />
+        </Link>
         <StatsCard title="Users" value={users.length} icon={<Users className="w-5 h-5" />} color="amber" />
       </div>
 

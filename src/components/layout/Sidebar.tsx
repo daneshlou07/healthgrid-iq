@@ -285,7 +285,7 @@ function getNavGroups(
                 <House className="w-[18px] h-[18px]" />
               ),
             },
-            ...(role === 'Super Admin'
+            ...(role === 'Super Admin' || role === 'Administrator'
               ? [
                 {
                   label: t(
