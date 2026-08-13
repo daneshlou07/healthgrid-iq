@@ -17,19 +17,41 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // Generate sourcemaps for error tracking but don't expose them in the browser
+    sourcemap: 'hidden',
+    // Suppress warnings for legitimately large vendor bundles (Firebase ~560 kB)
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks(id: string) {
+          // Normalize path separators for cross-platform compatibility (Windows uses \)
+          const normalizedId = id.replace(/\\/g, '/');
+
           // Split vendor chunks for better caching
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
+          if (
+            normalizedId.includes('node_modules/react/') ||
+            normalizedId.includes('node_modules/react-dom/') ||
+            normalizedId.includes('node_modules/react-router')
+          ) {
             return 'react-vendor';
           }
-          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+          if (
+            normalizedId.includes('node_modules/firebase/') ||
+            normalizedId.includes('node_modules/@firebase/')
+          ) {
             return 'firebase-vendor';
           }
-          if (id.includes('node_modules/leaflet')) {
+          if (normalizedId.includes('node_modules/leaflet')) {
             return 'map-vendor';
+          }
+          if (normalizedId.includes('node_modules/jspdf')) {
+            return 'pdf-vendor';
+          }
+          if (normalizedId.includes('node_modules/html2canvas')) {
+            return 'canvas-vendor';
+          }
+          if (normalizedId.includes('node_modules/lucide-react')) {
+            return 'icons-vendor';
           }
         },
       },
