@@ -51,21 +51,28 @@ export default function HealthGridMascot() {
     return () => window.removeEventListener('healthgrid:mascot-visibility' as any, handleVisibilityEvent);
   }, []);
 
+  // Strict screen boundary clamping (prevents mascot from running off-screen)
+  const PADDING = 16;
+  const MASCOT_WIDTH = 84;
+  const MASCOT_HEIGHT = 100;
+
+  const clampPosition = (x: number, y: number): { x: number; y: number } => {
+    const minX = PADDING;
+    const maxX = Math.max(PADDING, window.innerWidth - MASCOT_WIDTH - PADDING);
+    const minY = PADDING;
+    const maxY = Math.max(PADDING, window.innerHeight - MASCOT_HEIGHT - PADDING);
+
+    return {
+      x: Math.max(minX, Math.min(maxX, x)),
+      y: Math.max(minY, Math.min(maxY, y)),
+    };
+  };
+
   // Recalculate screen boundary on window resize
   useEffect(() => {
     const handleResize = () => {
-      if (position && mascotRef.current) {
-        const mascotWidth = 80;
-        const mascotHeight = 90;
-        const minX = -mascotWidth + 24;
-        const maxX = window.innerWidth - 24;
-        const minY = -mascotHeight + 30;
-        const maxY = window.innerHeight - 24;
-
-        setPosition((prev) => prev ? {
-          x: Math.max(minX, Math.min(maxX, prev.x)),
-          y: Math.max(minY, Math.min(maxY, prev.y)),
-        } : null);
+      if (position) {
+        setPosition(prev => (prev ? clampPosition(prev.x, prev.y) : null));
       }
     };
 
@@ -108,17 +115,10 @@ export default function HealthGridMascot() {
       const deltaY = moveEvent.clientY - dragStartRef.current.startY;
       if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) hasDraggedRef.current = true;
 
-      const mascotWidth = 80;
-      const mascotHeight = 90;
-      const minX = -mascotWidth + 24;
-      const maxX = window.innerWidth - 24;
-      const minY = -mascotHeight + 30;
-      const maxY = window.innerHeight - 24;
+      const rawX = dragStartRef.current.initialX + deltaX;
+      const rawY = dragStartRef.current.initialY + deltaY;
 
-      setPosition({
-        x: Math.max(minX, Math.min(maxX, dragStartRef.current.initialX + deltaX)),
-        y: Math.max(minY, Math.min(maxY, dragStartRef.current.initialY + deltaY)),
-      });
+      setPosition(clampPosition(rawX, rawY));
     };
 
     const handleMouseUp = () => {
@@ -149,12 +149,10 @@ export default function HealthGridMascot() {
       const deltaY = moveTouch.clientY - dragStartRef.current.startY;
       if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) hasDraggedRef.current = true;
 
-      const mascotWidth = 80;
-      const mascotHeight = 90;
-      setPosition({
-        x: Math.max(-mascotWidth + 24, Math.min(window.innerWidth - 24, dragStartRef.current.initialX + deltaX)),
-        y: Math.max(-mascotHeight + 30, Math.min(window.innerHeight - 24, dragStartRef.current.initialY + deltaY)),
-      });
+      const rawX = dragStartRef.current.initialX + deltaX;
+      const rawY = dragStartRef.current.initialY + deltaY;
+
+      setPosition(clampPosition(rawX, rawY));
     };
 
     const handleTouchEnd = () => {
@@ -261,18 +259,12 @@ export default function HealthGridMascot() {
     ? { position: 'fixed', left: `${position.x}px`, top: `${position.y}px`, bottom: 'auto', right: 'auto', zIndex: 9999 }
     : { zIndex: 9999 };
 
-  const isOffEdge = position
-    ? position.x < 0 || position.x > window.innerWidth - 70 || position.y < 0 || position.y > window.innerHeight - 70
-    : false;
-
   return (
     <>
       <div
         ref={mascotRef}
         style={style}
-        className={`fixed ${!position ? 'bottom-6 right-6' : ''} z-[9999] flex flex-col items-center justify-center select-none group touch-none transition-opacity duration-150 ${
-          isOffEdge ? 'opacity-90 hover:opacity-100' : ''
-        }`}
+        className={`fixed ${!position ? 'bottom-6 right-6' : ''} z-[9999] flex flex-col items-center justify-center select-none group touch-none transition-opacity duration-150`}
         aria-label="HealthGrid Copilot — Click to open AI assistant"
       >
         {/* Hover Tooltip */}
