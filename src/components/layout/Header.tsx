@@ -222,12 +222,12 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
                 ? 'text-[#0F4C42] bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300/80 shadow-xs' 
                 : 'text-surface-500 hover:text-navy-700 hover:bg-surface-100 border border-surface-200'
             }`}
-            title={mascotActive ? 'Hide AI Desktop Pet Mascot' : 'Show AI Desktop Pet Mascot'}
-            aria-label="Toggle Desktop Pet Mascot"
+            title={mascotActive ? 'Hide AI Copilot' : 'Show AI Copilot'}
+            aria-label="Toggle AI Copilot"
           >
             <Bot className={`w-4 h-4 ${mascotActive ? 'text-[#0F4C42]' : 'text-surface-400'}`} />
             <span className="hidden sm:inline text-[11px] font-medium">
-              {mascotActive ? 'Mascot On' : 'Mascot Off'}
+              {mascotActive ? 'Copilot On' : 'Copilot Off'}
             </span>
           </button>
 

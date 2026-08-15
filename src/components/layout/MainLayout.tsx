@@ -43,7 +43,7 @@ export default function MainLayout() {
       </div>
       <SessionTimeout />
       
-      {/* Desktop-Pet AI Mascot (Visual Prototype) */}
+      {/* HealthGrid AI Copilot — Desktop Pet */}
       <HealthGridMascot />
     </div>
   );
