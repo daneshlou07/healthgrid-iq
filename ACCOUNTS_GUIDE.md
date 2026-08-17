@@ -63,7 +63,7 @@ Every active healthcare center is assigned a dedicated 4-person core clinical un
 | Role | Name | Email Identifier | User ID | Password |
 |---|---|---|---|---|
 | **Super Admin** | Theta Edge Berhad | `theta.admin@healthgrid.my` | `superadmin-001` | `password123` |
-| **Master Admin** | Master Admin | `daneshlou05@gmail.com` | `admin-master` | `password123` |
+
 
 ---
 
