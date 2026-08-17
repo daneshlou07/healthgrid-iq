@@ -5,27 +5,205 @@ import { useNotifications } from '../../context/NotificationContext';
 import type { Case } from '../../types';
 import { useSearchPalette } from '../ux/SearchPalette';
 import { useToast } from '../ux/Toast';
-import { Link } from 'react-router-dom';
-import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen, PanelLeftClose, PanelLeft, ShieldCheck, Bot, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen, PanelLeftClose, PanelLeft, ShieldCheck, Bot, Sparkles, X } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import Modal from '../ui/Modal';
 import ClinicalGlossaryModal from '../ui/ClinicalGlossaryModal';
 
-// Notification categories
-type NotifCategory = 'critical' | 'reports' | 'scheduling' | 'announcements' | 'system';
-const CATEGORY_META: Record<NotifCategory, { label: string; color: string; icon: React.ReactNode }> = {
-  critical: { label: 'Critical Alerts', color: 'text-red-600', icon: <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> },
-  reports: { label: 'Pending Reports', color: 'text-purple-600', icon: <Clock className="w-3.5 h-3.5 text-purple-500" /> },
-  scheduling: { label: 'Scheduling Updates', color: 'text-navy-600', icon: <Clock className="w-3.5 h-3.5 text-navy-500" /> },
-  announcements: { label: 'Announcements', color: 'text-amber-600', icon: <Megaphone className="w-3.5 h-3.5 text-amber-500" /> },
-  system: { label: 'System', color: 'text-surface-600', icon: <Info className="w-3.5 h-3.5 text-surface-400" /> },
+// Notification categories / priorities used by the HealthGrid IQ notification center.
+type NotifCategory =
+  | 'critical'
+  | 'reports'
+  | 'scheduling'
+  | 'patient_requests'
+  | 'equipment'
+  | 'system'
+  | 'announcements';
+
+type NotifPriority = 'critical' | 'high' | 'normal' | 'low';
+
+type NotificationView = {
+  id: string;
+  title: string;
+  message: string;
+  type?: string;
+  category?: NotifCategory;
+  priority?: NotifPriority;
+  read: boolean;
+  createdAt: string;
+  actionType?: 'navigate' | 'critical' | 'none';
+  actionTarget?: string;
 };
 
-function categorizeNotification(type: string): NotifCategory {
-  if (type === 'error') return 'critical';
-  if (type === 'warning') return 'scheduling';
-  if (type === 'success') return 'reports';
+const CATEGORY_META: Record<NotifCategory, { label: string; color: string; icon: React.ReactNode; order: number }> = {
+  critical: {
+    label: 'Critical',
+    color: 'text-red-600',
+    icon: <AlertTriangle className="w-3.5 h-3.5 text-red-500" />,
+    order: 0,
+  },
+  reports: {
+    label: 'Reports',
+    color: 'text-purple-600',
+    icon: <Clock className="w-3.5 h-3.5 text-purple-500" />,
+    order: 1,
+  },
+  scheduling: {
+    label: 'Scheduling',
+    color: 'text-blue-600',
+    icon: <Clock className="w-3.5 h-3.5 text-blue-500" />,
+    order: 2,
+  },
+  patient_requests: {
+    label: 'Patient Requests',
+    color: 'text-orange-600',
+    icon: <Info className="w-3.5 h-3.5 text-orange-500" />,
+    order: 3,
+  },
+  equipment: {
+    label: 'Equipment',
+    color: 'text-emerald-600',
+    icon: <Bot className="w-3.5 h-3.5 text-emerald-500" />,
+    order: 4,
+  },
+  system: {
+    label: 'System',
+    color: 'text-slate-600',
+    icon: <Info className="w-3.5 h-3.5 text-slate-400" />,
+    order: 5,
+  },
+  announcements: {
+    label: 'Announcements',
+    color: 'text-amber-600',
+    icon: <Megaphone className="w-3.5 h-3.5 text-amber-500" />,
+    order: 6,
+  },
+};
+
+const PRIORITY_ORDER: Record<NotifPriority, number> = {
+  critical: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+};
+
+function inferNotificationCategory(notification: NotificationView): NotifCategory {
+  if (notification.category) return notification.category;
+
+  const text = `${notification.title} ${notification.message}`.toLowerCase();
+
+  if (notification.type === 'error' || text.includes('critical') || text.includes('emergency')) {
+    return 'critical';
+  }
+
+  if (
+    text.includes('patient request') ||
+    text.includes('profile update request') ||
+    text.includes('archive request')
+  ) {
+    return 'patient_requests';
+  }
+
+  if (
+    text.includes('report') ||
+    text.includes('radiologist') ||
+    text.includes('diagnostic')
+  ) {
+    return 'reports';
+  }
+
+  if (
+    text.includes('schedule') ||
+    text.includes('assigned') ||
+    text.includes('appointment') ||
+    notification.type === 'warning'
+  ) {
+    return 'scheduling';
+  }
+
+  if (
+    text.includes('equipment') ||
+    text.includes('pacs') ||
+    text.includes('machine')
+  ) {
+    return 'equipment';
+  }
+
+  if (
+    text.includes('announcement') ||
+    text.includes('new feature')
+  ) {
+    return 'announcements';
+  }
+
   return 'system';
+}
+
+function inferNotificationPriority(notification: NotificationView, category: NotifCategory): NotifPriority {
+  if (notification.priority) return notification.priority;
+  if (category === 'critical' || notification.type === 'error') return 'critical';
+  if (category === 'patient_requests') return 'high';
+  return 'normal';
+}
+
+function inferNotificationAction(notification: NotificationView, category: NotifCategory) {
+  if (notification.actionType || notification.actionTarget) {
+    return {
+      actionType: notification.actionType || 'navigate',
+      actionTarget: notification.actionTarget,
+    } as const;
+  }
+
+  const text = `${notification.title} ${notification.message}`.toLowerCase();
+
+  if (category === 'critical') {
+    return { actionType: 'critical' as const, actionTarget: undefined };
+  }
+
+  // These paths match the main HealthGrid IQ workflows used by the current demo.
+  if (category === 'patient_requests') {
+    return { actionType: 'navigate' as const, actionTarget: '/patient-requests' };
+  }
+
+  if (category === 'scheduling') {
+    return { actionType: 'navigate' as const, actionTarget: '/scheduler' };
+  }
+
+  if (category === 'equipment') {
+    return { actionType: 'navigate' as const, actionTarget: '/mobile-pacs' };
+  }
+
+  if (category === 'reports') {
+    const caseMatch = text.match(/(?:case|study)\s+([a-z0-9-]+)/i);
+    return {
+      actionType: 'navigate' as const,
+      actionTarget: caseMatch?.[1] ? `/reports/${caseMatch[1]}` : '/reports',
+    };
+  }
+
+  return { actionType: 'none' as const, actionTarget: undefined };
+}
+
+function formatNotificationTime(date: string) {
+  const timestamp = new Date(date).getTime();
+  if (Number.isNaN(timestamp)) return '—';
+
+  const diff = Math.max(0, Date.now() - timestamp);
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diff < minute) return 'Just now';
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+  if (diff < 7 * day) return `${Math.floor(diff / day)}d ago`;
+
+  return new Date(date).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: new Date(date).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+  });
 }
 
 interface HeaderProps {
@@ -35,10 +213,11 @@ interface HeaderProps {
 
 export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
   const { currentUser, logout } = useAuth();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll } = useNotifications();
   const { cases } = useData();
   const { open: openSearch } = useSearchPalette();
   const { language, toggleLanguage, t } = useLanguage();
+  const navigate = useNavigate();
   const toast = useToast();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -152,13 +331,60 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
     <span className="text-[11px] font-bold text-navy-700">{currentUser.name.charAt(0)}</span>
   );
 
-  // Group notifications by category
-  const groupedNotifs = notifications.reduce<Record<NotifCategory, typeof notifications>>((acc, n) => {
-    const cat = categorizeNotification(n.type);
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(n);
+  // Normalize notification data so the UI remains compatible with existing NotificationContext data.
+  const normalizedNotifications: NotificationView[] = notifications.map((notification) => {
+    const view = notification as NotificationView;
+    const category = inferNotificationCategory(view);
+    const priority = inferNotificationPriority(view, category);
+    const action = inferNotificationAction(view, category);
+
+    return {
+      ...view,
+      category,
+      priority,
+      actionType: action.actionType,
+      actionTarget: action.actionTarget,
+    };
+  });
+
+  // Clinical priority first, then category order, then newest first.
+  const sortedNotifications = [...normalizedNotifications].sort((a, b) => {
+    const priorityDifference = PRIORITY_ORDER[a.priority || 'normal'] - PRIORITY_ORDER[b.priority || 'normal'];
+    if (priorityDifference !== 0) return priorityDifference;
+
+    const categoryDifference = CATEGORY_META[a.category || 'system'].order - CATEGORY_META[b.category || 'system'].order;
+    if (categoryDifference !== 0) return categoryDifference;
+
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const groupedNotifs = sortedNotifications.reduce<Record<NotifCategory, NotificationView[]>>((acc, notification) => {
+    const category = notification.category || 'system';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(notification);
     return acc;
-  }, {} as any);
+  }, {} as Record<NotifCategory, NotificationView[]>);
+
+  const orderedCategories = (Object.keys(groupedNotifs) as NotifCategory[]).sort(
+    (a, b) => CATEGORY_META[a].order - CATEGORY_META[b].order,
+  );
+
+  const handleNotificationClick = (notification: NotificationView) => {
+    if (!notification.read) {
+      markAsRead(notification.id);
+    }
+
+    setShowNotifications(false);
+
+    if (notification.actionType === 'critical') {
+      setShowCriticalModal(true);
+      return;
+    }
+
+    if (notification.actionType === 'navigate' && notification.actionTarget) {
+      navigate(notification.actionTarget);
+    }
+  };
 
   return (
     <>
@@ -210,18 +436,17 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
 
         <div className="ml-auto flex items-center gap-2">
           {/* AI Mascot Toggle */}
-          <button 
+          <button
             onClick={() => {
               const nextState = !mascotActive;
               localStorage.setItem('healthgrid_mascot_visible', String(nextState));
               window.dispatchEvent(new CustomEvent('healthgrid:mascot-visibility', { detail: { visible: nextState } }));
               setMascotActive(nextState);
             }}
-            className={`p-1.5 px-2.5 rounded-lg transition-all duration-150 flex items-center gap-1.5 text-xs font-semibold ${
-              mascotActive 
-                ? 'text-[#0F4C42] bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300/80 shadow-xs' 
+            className={`p-1.5 px-2.5 rounded-lg transition-all duration-150 flex items-center gap-1.5 text-xs font-semibold ${mascotActive
+                ? 'text-[#0F4C42] bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300/80 shadow-xs'
                 : 'text-surface-500 hover:text-navy-700 hover:bg-surface-100 border border-surface-200'
-            }`}
+              }`}
             title={mascotActive ? 'Hide AI Copilot' : 'Show AI Copilot'}
             aria-label="Toggle AI Copilot"
           >
@@ -238,39 +463,151 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
               {unreadCount > 0 && <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadCount}</span>}
             </button>
             {showNotifications && (
-              <div className="absolute right-0 top-12 w-96 bg-white border border-surface-300 rounded-xl shadow-elevated z-50">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-surface-200">
-                  <h3 className="text-sm font-semibold text-navy-800">Notifications</h3>
-                  {unreadCount > 0 && <button onClick={markAllAsRead} className="text-[11px] text-purple-500 font-medium hover:text-purple-600">Mark all read</button>}
-                </div>
-                <div className="max-h-[400px] overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="p-8 text-center"><Bell className="w-8 h-8 text-surface-300 mx-auto mb-2" /><p className="text-sm text-surface-400">No notifications</p></div>
-                  ) : (
-                    Object.entries(groupedNotifs).map(([cat, notifs]) => (
-                      <div key={cat}>
-                        <div className="px-4 py-2 bg-surface-50 border-b border-surface-200 flex items-center gap-2">
-                          {CATEGORY_META[cat as NotifCategory]?.icon}
-                          <span className={`text-[11px] font-semibold uppercase tracking-wider ${CATEGORY_META[cat as NotifCategory]?.color}`}>
-                            {CATEGORY_META[cat as NotifCategory]?.label}
-                          </span>
-                          <span className="text-[10px] text-surface-400 ml-auto">{notifs.filter((n) => !n.read).length} unread</span>
-                        </div>
-                        {notifs.map((n) => (
-                          <div key={n.id} onClick={() => markAsRead(n.id)} className={`px-4 py-3 border-b border-surface-100 cursor-pointer hover:bg-surface-50 transition-colors ${!n.read ? 'bg-blue-50/20' : ''}`}>
-                            <div className="flex items-start gap-2.5">
-                              <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.read ? 'bg-surface-300' : 'bg-emerald-500'}`} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-surface-800">{n.title}</p>
-                                <p className="text-xs text-surface-500 mt-0.5 truncate">{n.message}</p>
-                                <p className="text-[10px] text-surface-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ))
+              <div className="absolute right-0 top-12 w-[420px] max-w-[calc(100vw-24px)] bg-white border border-surface-200 rounded-2xl shadow-elevated z-50 overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-surface-200 bg-white">
+                  <div>
+                    <h3 className="text-sm font-semibold text-navy-800">Notifications</h3>
+                    <p className="text-[10px] text-surface-400 mt-0.5">
+                      {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}` : 'All caught up'}
+                    </p>
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-[11px] text-navy-600 font-semibold hover:text-navy-800 hover:underline transition-colors"
+                    >
+                      Mark all read
+                    </button>
                   )}
+                </div>
+
+                {/* Notification list */}
+                <div className="max-h-[430px] overflow-y-auto">
+                  {sortedNotifications.length === 0 ? (
+                    <div className="px-6 py-12 text-center">
+                      <div className="w-12 h-12 rounded-full bg-surface-50 flex items-center justify-center mx-auto mb-3">
+                        <Bell className="w-5 h-5 text-surface-300" />
+                      </div>
+                      <p className="text-sm font-medium text-surface-600">No notifications</p>
+                      <p className="text-xs text-surface-400 mt-1">You're all caught up.</p>
+                    </div>
+                  ) : (
+                    orderedCategories.map((category) => {
+                      const categoryNotifications = groupedNotifs[category];
+                      const unreadInCategory = categoryNotifications.filter((notification) => !notification.read).length;
+                      const meta = CATEGORY_META[category];
+
+                      return (
+                        <div key={category}>
+                          {/* Category header */}
+                          <div className="sticky top-0 z-10 px-4 py-2 bg-surface-50/95 backdrop-blur-sm border-b border-surface-100 flex items-center gap-2">
+                            {meta.icon}
+                            <span className={`text-[10px] font-bold uppercase tracking-[0.12em] ${meta.color}`}>
+                              {meta.label}
+                            </span>
+                            {unreadInCategory > 0 && (
+                              <span className="ml-auto text-[9px] font-semibold text-surface-400">
+                                {unreadInCategory} unread
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Notifications */}
+                          {categoryNotifications.map((notification) => {
+                            const isUnread = !notification.read;
+                            const isCritical = notification.priority === 'critical';
+                            const hasAction =
+                              notification.actionType === 'navigate' && Boolean(notification.actionTarget);
+
+                            return (
+                                <button
+                                key={notification.id}
+                                type="button"
+                                onClick={() => handleNotificationClick(notification)}
+                                className={`w-full text-left px-4 py-3.5 border-b border-surface-100 transition-colors group ${isUnread ? 'bg-emerald-50/25 hover:bg-emerald-50/50' : 'bg-white hover:bg-surface-50'
+                                  } ${isCritical ? 'border-l-2 border-l-red-500' : ''}`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <span
+                                    className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isCritical
+                                        ? 'bg-red-500'
+                                        : isUnread
+                                          ? 'bg-emerald-500'
+                                          : 'bg-surface-300'
+                                      }`}
+                                    aria-hidden="true"
+                                  />
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <p className={`text-sm leading-5 ${isUnread ? 'font-semibold text-surface-900' : 'font-medium text-surface-700'}`}>
+                                        {notification.title}
+                                      </p>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-[10px] text-surface-400 whitespace-nowrap pt-0.5">
+                                          {formatNotificationTime(notification.createdAt)}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeNotification(notification.id);
+                                          }}
+                                          className="p-0.5 rounded hover:bg-surface-200 text-surface-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                          title="Dismiss notification"
+                                          aria-label="Dismiss notification"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <p className="text-xs leading-5 text-surface-500 mt-0.5 line-clamp-2">
+                                      {notification.message}
+                                    </p>
+
+                                    {hasAction && (
+                                      <p className="text-[10px] font-semibold text-navy-600 mt-1.5 group-hover:text-navy-800 transition-colors">
+                                        View details →
+                                      </p>
+                                    )}
+
+                                    {isCritical && (
+                                      <p className="text-[10px] font-semibold text-red-600 mt-1.5">
+                                        Requires acknowledgement
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="border-t border-surface-200 bg-white p-2 flex items-center gap-2">
+                  {sortedNotifications.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearAll();
+                      }}
+                      className="flex-1 py-2 text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowNotifications(false)}
+                    className="flex-1 py-2 text-xs font-semibold text-navy-600 hover:text-navy-800 hover:bg-surface-50 rounded-lg transition-colors"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             )}

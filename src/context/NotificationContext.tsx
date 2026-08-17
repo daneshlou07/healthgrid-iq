@@ -14,6 +14,7 @@ interface NotificationContextType {
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
+  removeNotification: (id: string) => void;
   clearAll: () => void;
 }
 
@@ -204,6 +205,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
   const clearAll = () => {
     // In demo mode: clear localStorage
     // In Firebase mode: we don't permanently delete — just mark all read
@@ -216,7 +221,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead, clearAll }}
+      value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification, clearAll }}
     >
       {children}
     </NotificationContext.Provider>
