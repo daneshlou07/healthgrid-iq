@@ -524,8 +524,8 @@ export function MOHFormPrintView({ caseItem, patient, report, pageFilter }: Prop
 }
 
 /** 
- * Interactive Clinical Modal providing a live visual preview of the A4 document,
- * page toggles, zoom controls, direct browser vector print, and PDF file export.
+ * Direct 1-Click PDF Download Button for MOH PER.SS-RA301 Radiology Form.
+ * Directly renders and exports the 2-page document with perfect formatting.
  */
 export default function DownloadMohFormButton({
   caseItem,
@@ -534,14 +534,7 @@ export default function DownloadMohFormButton({
   buttonClassName = 'h-9 px-3.5 btn-secondary text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 transition-colors',
 }: Props) {
   const printRef = useRef<HTMLDivElement>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState<1 | 2>(1);
-  const [zoomScale, setZoomScale] = useState<number>(0.85);
   const [loading, setLoading] = useState(false);
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   const handleDownload = async () => {
     if (!printRef.current) return;
@@ -600,167 +593,14 @@ export default function DownloadMohFormButton({
     <>
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={handleDownload}
+        disabled={loading}
         className={buttonClassName}
-        title="Preview and Print MOH PER.SS-RA301 Radiology Form"
+        title="Download Radiology Request Form (MOH PER.SS-RA301) as PDF"
       >
-        <FileText className="w-3.5 h-3.5 text-[#0F4C42]" />
-        <span>MOH Form &amp; Print Preview</span>
+        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+        <span>{loading ? 'Generating PDF…' : 'Download MOH Form'}</span>
       </button>
-
-      {/* ── MODAL: Full Document Preview & Print Hub ── */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4">
-          <div className="bg-slate-900 rounded-2xl shadow-2xl flex flex-col w-full max-w-5xl h-[92vh] border border-slate-700 overflow-hidden">
-            
-            {/* Modal Header & Actions Bar */}
-            <div className="bg-slate-950 px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-white">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-wide">
-                    MOH PER.SS-RA301 Document Preview &amp; Print
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    {caseItem.caseNumber} &bull; {caseItem.patientName} &bull; {caseItem.clinicName}
-                  </p>
-                </div>
-              </div>
-
-              {/* Page & Zoom Controls */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(1)}
-                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${
-                      currentPage === 1 ? 'bg-[#0F4C42] text-white shadow-xs' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Page 1: Request Form
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(2)}
-                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${
-                      currentPage === 2 ? 'bg-[#0F4C42] text-white shadow-xs' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Page 2: Official Report
-                  </button>
-                </div>
-
-                <div className="hidden sm:flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
-                  <button
-                    type="button"
-                    onClick={() => setZoomScale((z) => Math.max(0.5, z - 0.1))}
-                    className="p-1 text-slate-400 hover:text-white"
-                    title="Zoom Out"
-                  >
-                    <ZoomOut className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-[11px] px-1.5 font-mono text-slate-300">
-                    {Math.round(zoomScale * 100)}%
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setZoomScale((z) => Math.min(1.3, z + 0.1))}
-                    className="p-1 text-slate-400 hover:text-white"
-                    title="Zoom In"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setZoomScale(0.85)}
-                    className="p-1 text-slate-400 hover:text-white"
-                    title="Reset Zoom"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 border border-slate-600 transition-colors shadow-xs"
-                  title="Direct browser vector print (Print / Save as PDF with 100% vector quality)"
-                >
-                  <Printer className="w-3.5 h-3.5 text-teal-400" />
-                  <span>Direct Print / PDF</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={loading}
-                  className="px-3.5 py-1.5 bg-[#0F4C42] hover:bg-[#0c3c34] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
-                  title="Download as PDF file"
-                >
-                  {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                  <span>{loading ? 'Saving...' : 'Download PDF'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors ml-1"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Document Canvas Preview Area */}
-            <div className="flex-1 overflow-auto bg-slate-900/90 p-4 sm:p-8 flex justify-center items-start">
-              <div
-                style={{
-                  transform: `scale(${zoomScale})`,
-                  transformOrigin: 'top center',
-                  transition: 'transform 0.15s ease-out',
-                }}
-                className="bg-white shadow-2xl rounded-xs border border-slate-300"
-              >
-                {/* Active Page View */}
-                <MOHFormPrintView
-                  caseItem={caseItem}
-                  patient={patient}
-                  report={report}
-                  pageFilter={currentPage}
-                />
-              </div>
-            </div>
-
-            {/* Bottom Footer Info */}
-            <div className="bg-slate-950 px-4 py-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Showing Page {currentPage} of 2 (Kementerian Kesihatan Malaysia Format)</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="px-2 py-0.5 bg-slate-800 disabled:opacity-30 rounded text-[10px] text-white flex items-center gap-1"
-                >
-                  <ChevronLeft className="w-3 h-3" /> Prev Page
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(2)}
-                  disabled={currentPage === 2}
-                  className="px-2 py-0.5 bg-slate-800 disabled:opacity-30 rounded text-[10px] text-white flex items-center gap-1"
-                >
-                  Next Page <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Hidden Full Two-Page DOM for html2canvas Export */}
       <div
