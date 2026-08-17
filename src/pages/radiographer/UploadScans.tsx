@@ -729,9 +729,9 @@ export default function UploadScans() {
                     className="w-4 h-4 text-teal-600 focus:ring-teal-500"
                   />
                   <div>
-                    <p className="font-bold text-sm">{t('Medical Officer (MO)', 'Pegawai Perubatan (MO)')}</p>
+                    <p className="font-bold text-sm">{t('Medical Officer (On-Board / Primary MO)', 'Pegawai Perubatan (Atas Bas / MO Perawat)')}</p>
                     <p className="text-[11px] font-normal text-slate-600 mt-0.5">
-                      {t('Routine primary doctor review & clinical management', 'Semakan rutin doktor perawat')}
+                      {t('Routine screening, rapid on-site diagnosis & direct sign-off', 'Saringan rutin, diagnosis segera atas bas & pengesahan pantas')}
                     </p>
                   </div>
                 </label>
@@ -750,9 +750,9 @@ export default function UploadScans() {
                     className="w-4 h-4 text-purple-600 focus:ring-purple-500"
                   />
                   <div>
-                    <p className="font-bold text-sm">{t('Specialist Radiologist', 'Pakar Radiologi')}</p>
+                    <p className="font-bold text-sm">{t('Specialist Radiologist (Teleradiology)', 'Pakar Radiologi (Teleradiologi Hospital)')}</p>
                     <p className="text-[11px] font-normal text-slate-600 mt-0.5">
-                      {t('Complex diagnostic scan requiring formal specialist report', 'Semakan pakar radiologi')}
+                      {t('Complex diagnostic scan requiring remote hospital specialist review', 'Imbasan kompleks memerlukan laporan pakar radiologi hospital')}
                     </p>
                   </div>
                 </label>

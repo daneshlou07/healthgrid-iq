@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload, QrCode, Smartphone, Navigation, MapPin } from 'lucide-react';
+import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload, QrCode, Smartphone, Navigation, MapPin, Share2 } from 'lucide-react';
 import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 import RadiologyWorksheet from './RadiologyWorksheet';
@@ -12,7 +12,7 @@ import DownloadMohFormButton from '../../components/ui/PrintRadiologyForm';
 import PacsImageViewer from '../../components/ui/PacsImageViewer';
 import PatientSmsModal from '../../components/ui/PatientSmsModal';
 import { exportDossierPdf } from '../../utils/exportDossierPdf';
-import { openWazeNavigation, openGoogleMapsNavigation } from '../../utils/navigationUtils';
+import { openWazeNavigation, openGoogleMapsNavigation, shareNavigationToWhatsApp } from '../../utils/navigationUtils';
 
 /** Loads images from IndexedDB by key and renders them */
 function CaseImages({ imageKeys }: { imageKeys?: string[] }) {
@@ -420,6 +420,15 @@ export default function CaseDetail() {
                         >
                           <MapPin className="w-2.5 h-2.5" />
                           Maps
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => shareNavigationToWhatsApp(caseItem.clinicName || 'Clinic', clinic?.latitude, clinic?.longitude, clinic?.address)}
+                          className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                          title="Share location and navigation links to Driver via WhatsApp"
+                        >
+                          <Share2 className="w-2.5 h-2.5" />
+                          Share
                         </button>
                       </div>
                     );

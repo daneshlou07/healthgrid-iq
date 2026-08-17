@@ -3,9 +3,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatsCard from '../../components/ui/StatsCard';
 import StatusBadge from '../../components/ui/StatusBadge';
-import { Calendar, Upload, CheckCircle, ScanLine, Building2, MapPin, Navigation, Clock, Truck } from 'lucide-react';
+import { Calendar, Upload, CheckCircle, ScanLine, Building2, MapPin, Navigation, Clock, Truck, Share2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { openWazeNavigation, openGoogleMapsNavigation } from '../../utils/navigationUtils';
+import { openWazeNavigation, openGoogleMapsNavigation, shareNavigationToWhatsApp } from '../../utils/navigationUtils';
 
 export default function RadiogrDashboard() {
   const { currentUser } = useAuth();
@@ -67,7 +67,7 @@ export default function RadiogrDashboard() {
           </div>
 
           {assignedClinic && (
-            <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0">
               <button
                 type="button"
                 onClick={() => openWazeNavigation(assignedClinic.latitude, assignedClinic.longitude, assignedClinic.address)}
@@ -86,6 +86,16 @@ export default function RadiogrDashboard() {
               >
                 <MapPin className="w-3.5 h-3.5" />
                 Google Maps
+              </button>
+
+              <button
+                type="button"
+                onClick={() => shareNavigationToWhatsApp(assignedClinic.name, assignedClinic.latitude, assignedClinic.longitude, assignedClinic.address)}
+                className="btn-secondary text-xs flex items-center gap-1.5 text-teal-800 border-teal-300 hover:bg-teal-50"
+                title="Share dispatch location and GPS links to Driver via WhatsApp"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                Share to Driver
               </button>
             </div>
           )}

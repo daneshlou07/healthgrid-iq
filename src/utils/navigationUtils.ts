@@ -29,3 +29,27 @@ export function openGoogleMapsNavigation(lat: number, lon: number, address?: str
   }
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`, '_blank');
 }
+
+/**
+ * Share destination coordinates and navigation links to Driver via WhatsApp
+ */
+export function shareNavigationToWhatsApp(destinationName: string, lat?: number, lon?: number, address?: string): void {
+  const wazeUrl = lat && lon 
+    ? `https://waze.com/ul?ll=${lat},${lon}&navigate=yes`
+    : `https://waze.com/ul?q=${encodeURIComponent(address || destinationName)}&navigate=yes`;
+    
+  const gmapsUrl = lat && lon
+    ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address || destinationName)}`;
+
+  const message = [
+    `*HealthGrid IQ - Dispatch Location*`,
+    `Destination: ${destinationName}`,
+    address ? `Address: ${address}` : '',
+    '',
+    `Waze Navigation: ${wazeUrl}`,
+    `Google Maps: ${gmapsUrl}`,
+  ].filter(Boolean).join('\n');
+
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+}

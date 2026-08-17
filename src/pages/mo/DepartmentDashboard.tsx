@@ -4,9 +4,9 @@ import { useData } from '../../context/DataContext';
 import StatsCard from '../../components/ui/StatsCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { FolderOpen, Clock, CheckCircle, FileText, Calendar, AlertTriangle, Building2, MapPin, Navigation } from 'lucide-react';
+import { FolderOpen, Clock, CheckCircle, FileText, Calendar, AlertTriangle, Building2, MapPin, Navigation, Share2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { openWazeNavigation, openGoogleMapsNavigation } from '../../utils/navigationUtils';
+import { openWazeNavigation, openGoogleMapsNavigation, shareNavigationToWhatsApp } from '../../utils/navigationUtils';
 
 export default function DepartmentDashboard() {
   const { currentUser } = useAuth();
@@ -69,7 +69,7 @@ export default function DepartmentDashboard() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0">
               <button
                 type="button"
                 onClick={() => openWazeNavigation(assignedClinic.latitude, assignedClinic.longitude, assignedClinic.address)}
@@ -88,6 +88,16 @@ export default function DepartmentDashboard() {
               >
                 <MapPin className="w-3.5 h-3.5" />
                 Google Maps
+              </button>
+
+              <button
+                type="button"
+                onClick={() => shareNavigationToWhatsApp(assignedClinic.name, assignedClinic.latitude, assignedClinic.longitude, assignedClinic.address)}
+                className="btn-secondary text-xs flex items-center gap-1.5 text-teal-800 border-teal-300 hover:bg-teal-50"
+                title="Share dispatch location and GPS links to Driver or Team via WhatsApp"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                Share Location
               </button>
             </div>
           </div>
