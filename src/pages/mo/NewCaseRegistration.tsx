@@ -31,7 +31,11 @@ import {
   ShieldCheck,
   Calendar,
   Clock,
+  SlidersHorizontal,
+  RotateCcw,
+  MapPin,
 } from 'lucide-react';
+import { findNearestClinic } from '../../services/routingService';
 
 const MODALITIES = Object.keys(MODALITY_REFERENCE_DATASET);
 
@@ -109,6 +113,51 @@ export default function NewCaseRegistration() {
   const [submitting, setSubmitting] = useState(false);
 
   const selectedPatient = patients.find((p) => p.id === patientId);
+
+  const uniqueClinics = useMemo(() => {
+    const seen = new Set<string>();
+    return clinics.filter((c) => {
+      const key = (c.name || '').trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [clinics]);
+
+  const [isManualClinicOverride, setIsManualClinicOverride] = useState(false);
+
+  // Compute nearest clinic for the selected patient
+  const nearestClinicForPatient = useMemo(() => {
+    if (!selectedPatient) return null;
+    const activeClinics = uniqueClinics.filter((c) => c.status === 'active' || !c.status);
+    if (activeClinics.length === 0) return null;
+
+    if (selectedPatient.latitude && selectedPatient.longitude) {
+      const nearest = findNearestClinic(selectedPatient.latitude, selectedPatient.longitude, activeClinics);
+      if (nearest) {
+        const found = activeClinics.find((c) => c.id === nearest.clinicId);
+        if (found) {
+          return { clinic: found, distanceKm: nearest.distanceKm };
+        }
+      }
+    }
+    if (selectedPatient.preferredClinicId) {
+      const found = activeClinics.find((c) => c.id === selectedPatient.preferredClinicId);
+      if (found) return { clinic: found, distanceKm: 0 };
+    }
+    return null;
+  }, [selectedPatient, uniqueClinics]);
+
+  // When patient changes, automatically default to AI recommended facility unless manual override is toggled
+  React.useEffect(() => {
+    if (selectedPatient && !isManualClinicOverride) {
+      if (nearestClinicForPatient?.clinic.id) {
+        setPreferredClinicId(nearestClinicForPatient.clinic.id);
+      } else if (selectedPatient.preferredClinicId) {
+        setPreferredClinicId(selectedPatient.preferredClinicId);
+      }
+    }
+  }, [selectedPatient, nearestClinicForPatient, isManualClinicOverride]);
 
   // Auto-calculated Payment Category Badge
   const paymentBadge = useMemo(() => {
@@ -424,6 +473,51 @@ export default function NewCaseRegistration() {
               </div>
 
               <div className="p-6 space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                    {t('Select Registered Patient *', 'Pilih Pesakit Berdaftar *')}
+                  </label>
+                  <PatientSearchSelect patients={patients} value={patientId} onChange={setPatientId} />
+                </div>
+
+                {selectedPatient && (
+                  <div className="rounded-lg bg-[#F3F8F6] border border-[#D8E8E2] p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-bold text-[#0F4C42]">{selectedPatient.name}</h3>
+                          <span className="text-[10px] font-mono font-bold bg-white px-2 py-1 rounded border border-[#D8E8E2] text-[#0F4C42]">
+                            {selectedPatient.mrn}
+                          </span>
+                          {paymentBadge && (
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${paymentBadge.color}`}>
+                              {paymentBadge.label}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-surface-600 mt-2">
+                          NRIC: <span className="font-mono">{selectedPatient.nric}</span>
+                          <span className="mx-1.5 text-surface-300">•</span>
+                          {selectedPatient.gender}
+                          <span className="mx-1.5 text-surface-300">•</span>
+                          DOB: {selectedPatient.dob}
+                        </p>
+                        <p className="text-xs text-surface-500 mt-1">
+                          {selectedPatient.address}
+                        </p>
+                        {selectedPatient.medicalHistory && (
+                          <div className="mt-3 rounded-lg bg-white border border-[#D8E8E2] px-3 py-2">
+                            <p className="text-[10px] font-semibold text-[#0F4C42] mb-0.5">
+                              {t('Baseline Medical History', 'Sejarah Perubatan Asas')}
+                            </p>
+                            <p className="text-xs text-surface-600">{selectedPatient.medicalHistory}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-surface-700 mb-1.5">
@@ -486,51 +580,6 @@ export default function NewCaseRegistration() {
                     )}
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                    {t('Select Registered Patient *', 'Pilih Pesakit Berdaftar *')}
-                  </label>
-                  <PatientSearchSelect patients={patients} value={patientId} onChange={setPatientId} />
-                </div>
-
-                {selectedPatient && (
-                  <div className="rounded-lg bg-[#F3F8F6] border border-[#D8E8E2] p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm font-bold text-[#0F4C42]">{selectedPatient.name}</h3>
-                          <span className="text-[10px] font-mono font-bold bg-white px-2 py-1 rounded border border-[#D8E8E2] text-[#0F4C42]">
-                            {selectedPatient.mrn}
-                          </span>
-                          {paymentBadge && (
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${paymentBadge.color}`}>
-                              {paymentBadge.label}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-surface-600 mt-2">
-                          NRIC: <span className="font-mono">{selectedPatient.nric}</span>
-                          <span className="mx-1.5 text-surface-300">•</span>
-                          {selectedPatient.gender}
-                          <span className="mx-1.5 text-surface-300">•</span>
-                          DOB: {selectedPatient.dob}
-                        </p>
-                        <p className="text-xs text-surface-500 mt-1">
-                          {selectedPatient.address}
-                        </p>
-                        {selectedPatient.medicalHistory && (
-                          <div className="mt-3 rounded-lg bg-white border border-[#D8E8E2] px-3 py-2">
-                            <p className="text-[10px] font-semibold text-[#0F4C42] mb-0.5">
-                              {t('Baseline Medical History', 'Sejarah Perubatan Asas')}
-                            </p>
-                            <p className="text-xs text-surface-600">{selectedPatient.medicalHistory}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-surface-700 mb-1.5">
@@ -1037,16 +1086,91 @@ export default function NewCaseRegistration() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                      {t('Preferred Diagnostic Centre / PACS Van', 'Pilihan Klinik / Van PACS')}
-                    </label>
-                    <select value={preferredClinicId} onChange={(e) => setPreferredClinicId(e.target.value)} className="select-field w-full">
-                      <option value="">-- No preference (AI Auto-Assign) --</option>
-                      {clinics.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                  <div className="rounded-xl border border-surface-200 bg-surface-50/60 p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <label className="block text-xs font-bold text-surface-900 uppercase tracking-wide">
+                          {t('Screening Facility & Outreach Unit', 'Pusat Saringan & Unit Bergerak')}
+                        </label>
+                        <p className="text-[11px] text-surface-500">
+                          Workflow automatically routes to the closest screening center to optimize patient commute.
+                        </p>
+                      </div>
+
+                      {!isManualClinicOverride ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsManualClinicOverride(true)}
+                          className="text-xs font-semibold text-teal-700 hover:text-teal-800 hover:underline flex items-center gap-1 shrink-0 px-2 py-1 rounded bg-teal-50 border border-teal-200"
+                          title="Click ONLY if patient explicitly prefers a different clinic"
+                        >
+                          <SlidersHorizontal className="w-3 h-3" />
+                          <span>{t('Manual Override', 'Tukar Pilihan')}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsManualClinicOverride(false);
+                            if (nearestClinicForPatient?.clinic.id) {
+                              setPreferredClinicId(nearestClinicForPatient.clinic.id);
+                            }
+                          }}
+                          className="text-xs font-semibold text-amber-800 hover:text-amber-900 hover:underline flex items-center gap-1 shrink-0 px-2 py-1 rounded bg-amber-100/70 border border-amber-300"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>{t('Reset to AI Workflow', 'Guna Syor AI')}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {!isManualClinicOverride ? (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 flex items-start gap-2.5">
+                        <div className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          <Sparkles className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs font-bold text-emerald-950">
+                              {preferredClinicId
+                                ? uniqueClinics.find((c) => c.id === preferredClinicId)?.name || 'AI Automated Facility'
+                                : 'AI Workflow Auto-Assignment'}
+                            </span>
+                            {nearestClinicForPatient && (
+                              <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded-full">
+                                {nearestClinicForPatient.distanceKm > 0 ? `${nearestClinicForPatient.distanceKm} km` : 'Closest'}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                              AI Workflow Prioritized
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-emerald-800 mt-0.5">
+                            Auto-assigned based on patient residential location to optimize route scheduling.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>Manual Override Active (Patient Explicit Preference)</span>
+                        </div>
+                        <select
+                          value={preferredClinicId}
+                          onChange={(e) => setPreferredClinicId(e.target.value)}
+                          className="select-field w-full bg-white text-xs font-medium"
+                        >
+                          <option value="">-- Select Preferred Clinic --</option>
+                          {uniqueClinics.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                              {nearestClinicForPatient?.clinic.id === c.id ? ' (✨ AI Recommended Nearest)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   {workflowPriority === 'Non-Emergency' && (

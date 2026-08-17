@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -467,12 +467,17 @@ export default function Sidebar({
         `}
       >
 
-        <div
+        <Link
+          to="/"
+          onClick={onClose}
+          title="Return to Dashboard"
           className={`
             flex items-center
             justify-center
             overflow-hidden
             transition-all duration-300
+            hover:opacity-85
+            cursor-pointer
             ${collapsed
               ? 'w-10 h-16'
               : 'flex-1 h-16'
@@ -505,7 +510,7 @@ export default function Sidebar({
             />
           )}
 
-        </div>
+        </Link>
 
         {/* Desktop Collapse Button */}
 

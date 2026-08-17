@@ -54,7 +54,9 @@ export interface Clinic {
   latitude: number;
   longitude: number;
   phone: string;
+  fax?: string;
   email: string;
+  operatingHours?: string;
   status: EntityStatus;
   googlePlaceId?: string;
 }

@@ -120,7 +120,7 @@ function AppRoutes() {
         <Route path="/cases" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoAllCases /></ProtectedRoute>} />
         <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoNewCaseRegistration /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Radiologist', 'Administrator']}><MoDepartmentReports /></ProtectedRoute>} />
-        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoPatientRequests /></ProtectedRoute>} />
+        <Route path="/requests" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'Super Admin']}><RoleRouter moPage={MoPatientRequests} defaultPage={PatientRequestsReview} /></ProtectedRoute>} />
         <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
 
         {/* Radiographer routes */}

@@ -58,11 +58,28 @@ export default function PatientRequestsReview() {
     toast.success('Request deleted');
   };
 
+  const getRequestTypeBadge = (type: string) => {
+    switch (type) {
+      case 'Update':
+        return <span className="badge-info text-[10px]">Update Profile</span>;
+      case 'Archive':
+        return <span className="badge-warning text-[10px]">Archive Record</span>;
+      case 'Transfer':
+        return <span className="badge-primary text-[10px]">Transfer Request</span>;
+      case 'DICOM_COPY':
+        return <span className="badge-neutral text-[10px]">DICOM Copy</span>;
+      case 'REPORT_COPY':
+        return <span className="badge-secondary text-[10px]">Report Copy</span>;
+      default:
+        return <span className="badge-neutral text-[10px]">{type}</span>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Patient Requests</h1>
-        <p className="page-subtitle">Review, approve, reject, or delete profile update and archive requests</p>
+        <h1 className="page-title">Patient Record &amp; Transfer Requests</h1>
+        <p className="page-subtitle">Administrative approval queue for patient transfer, record archiving, and demographic update requests.</p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -84,9 +101,9 @@ export default function PatientRequestsReview() {
             <tr className="border-b border-surface-200">
               <th className="table-header">Patient</th>
               <th className="table-header">MRN</th>
-              <th className="table-header">Type</th>
+              <th className="table-header">Request Type</th>
               <th className="table-header">Requested By</th>
-              <th className="table-header">Date</th>
+              <th className="table-header">Date Submitted</th>
               <th className="table-header">Status</th>
               <th className="table-header text-right">Actions</th>
             </tr>
@@ -96,20 +113,23 @@ export default function PatientRequestsReview() {
               <tr key={req.id} className="hover:bg-surface-100 transition-colors">
                 <td className="table-cell font-medium text-surface-800">{req.patientName}</td>
                 <td className="table-cell font-mono text-xs text-navy-600">{req.mrn}</td>
-                <td className="table-cell"><span className={req.requestType === 'Update' ? 'badge-info text-[10px]' : 'badge-warning text-[10px]'}>{req.requestType}</span></td>
-                <td className="table-cell text-xs text-surface-500">{req.requestedBy}</td>
-                <td className="table-cell text-xs text-surface-500">{new Date(req.dateSubmitted).toLocaleDateString()}</td>
+                <td className="table-cell">{getRequestTypeBadge(req.requestType)}</td>
+                <td className="table-cell text-xs text-surface-600">
+                  <span className="font-medium text-surface-800">{req.requestedBy}</span>
+                  {req.requestedByRole && <span className="text-surface-400 block text-[10px]">{req.requestedByRole}</span>}
+                </td>
+                <td className="table-cell text-xs text-surface-500">{new Date(req.dateSubmitted).toLocaleString()}</td>
                 <td className="table-cell"><StatusBadge status={req.status} /></td>
                 <td className="table-cell text-right">
                   <div className="flex items-center justify-end gap-1">
                     {req.status === 'Pending' && (
                       <>
-                        <button onClick={() => { setSelectedReq(req); setRemarks(''); }} className="p-1.5 text-surface-400 hover:text-navy-600 hover:bg-navy-50 rounded transition-colors" title="Review"><Eye className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => { setSelectedReq(req); setRemarks(''); handleDecision('Approved'); }} className="p-1.5 text-surface-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors" title="Quick Approve"><CheckCircle className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => { setSelectedReq(req); setRemarks(''); handleDecision('Rejected'); }} className="p-1.5 text-surface-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Quick Reject"><XCircle className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { setSelectedReq(req); setRemarks(''); }} className="p-1.5 text-surface-400 hover:text-navy-600 hover:bg-navy-50 rounded transition-colors" title="Review Request Details"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { setSelectedReq(req); setRemarks(''); handleDecision('Approved'); }} className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors" title="Quick Approve"><CheckCircle className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { setSelectedReq(req); setRemarks(''); handleDecision('Rejected'); }} className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors" title="Quick Reject"><XCircle className="w-3.5 h-3.5" /></button>
                       </>
                     )}
-                    <button onClick={() => deleteRequest(req)} className="p-1.5 text-surface-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => deleteRequest(req)} className="p-1.5 text-surface-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete Request"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </td>
               </tr>

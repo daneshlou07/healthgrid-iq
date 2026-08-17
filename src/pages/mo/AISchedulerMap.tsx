@@ -905,23 +905,23 @@ export default function AISchedulerMap() {
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold text-surface-500 uppercase">Healthcare Centre</label>
                     {selectedCase?.clinicId || selectedPatient?.preferredClinicId ? (
-                      <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                        User Designated
+                      <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        Patient Override
                       </span>
                     ) : (
-                      <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                        AI Determined
+                      <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        AI Workflow Optimal
                       </span>
                     )}
                   </div>
                   <select value={selectedClinicId || ''} onChange={(e) => handleClinicChange(e.target.value)} className="select-field text-sm">
-                    {clinics.filter((c) => c.status === 'active').map((c) => {
+                    {Array.from(new Map(clinics.filter((c) => c.status === 'active' || !c.status).map((c) => [c.name.trim().toLowerCase(), c])).values()).map((c) => {
                       const isUserChoice = c.id === (selectedCase?.clinicId || selectedPatient?.preferredClinicId);
                       const isNearest = c.id === recommendedClinicId;
                       let tag = '';
-                      if (isUserChoice && isNearest) tag = ' (User Choice & AI Nearest)';
-                      else if (isUserChoice) tag = ' (User Choice)';
-                      else if (isNearest) tag = ' (AI Nearest)';
+                      if (isUserChoice && isNearest) tag = ' (Patient Choice & AI Nearest)';
+                      else if (isUserChoice) tag = ' (Patient Manual Override)';
+                      else if (isNearest) tag = ' (AI Workflow Nearest)';
 
                       return (
                         <option key={c.id} value={c.id}>
@@ -931,13 +931,13 @@ export default function AISchedulerMap() {
                     })}
                   </select>
                   {selectedClinicId === (selectedCase?.clinicId || selectedPatient?.preferredClinicId) && (
-                    <p className="text-xs text-purple-700 dark:text-purple-400 mt-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-purple-600" /> Preserving user's designated healthcare centre
+                    <p className="text-xs text-amber-800 mt-1 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 text-amber-600" /> Preserving patient's manual clinic preference
                     </p>
                   )}
                   {selectedClinicId === recommendedClinicId && selectedClinicId !== (selectedCase?.clinicId || selectedPatient?.preferredClinicId) && (
                     <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-emerald-600" /> AI Scheduler nearest facility selected
+                      <CheckCircle className="w-3 h-3 text-emerald-600" /> AI Scheduler nearest facility prioritized
                     </p>
                   )}
                 </div>
