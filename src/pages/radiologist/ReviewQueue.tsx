@@ -69,7 +69,7 @@ export default function ReviewQueue() {
   const routineCount = scoredCases.filter((c) => c._urgency.level === 'ROUTINE').length;
 
   const filterTabs: { key: UrgencyFilter; label: string; count: number; className: string }[] = [
-    { key: 'ALL', label: 'All Cases', count: scoredCases.length, className: 'text-slate-700 border-slate-300 bg-white' },
+    { key: 'ALL', label: 'All Cases', count: scoredCases.length, className: 'text-slate-700 border-slate-300 bg-white-50' },
     { key: 'CRITICAL', label: 'AI Critical', count: criticalCount, className: 'text-red-700 border-red-300 bg-red-50' },
     { key: 'HIGH', label: 'AI High', count: highCount, className: 'text-amber-700 border-amber-300 bg-amber-50' },
     { key: 'ROUTINE', label: 'Routine', count: routineCount, className: 'text-slate-600 border-slate-200 bg-slate-50' },
@@ -99,12 +99,11 @@ export default function ReviewQueue() {
             key={tab.key}
             onClick={() => setUrgencyFilter(tab.key)}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${urgencyFilter === tab.key
-              ? tab.className + ' shadow-sm ring-1 ring-offset-1 ring-slate-300'
+              ? tab.className + ' shadow-sm'
               : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
               }`}
           >
-            {tab.key !== 'ALL' && <Brain className="w-3 h-3" />}
-            {tab.key === 'ALL' && <Activity className="w-3 h-3" />}
+            <Brain className="w-3 h-3" />
             {tab.label}
             <span className={`px-1.5 py-0.5 rounded font-mono ${urgencyFilter === tab.key ? 'bg-white/60' : 'bg-slate-100'}`}>
               {tab.count}
@@ -112,6 +111,7 @@ export default function ReviewQueue() {
           </button>
         ))}
       </div>
+
 
       <div className="space-y-3">
         {filteredCases.map((c) => {

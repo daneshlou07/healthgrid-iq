@@ -8,7 +8,7 @@ export interface BodyPartReference {
 }
 
 export interface ModalityReference {
-  modality: 'X-Ray' | 'CT Scan' | 'MRI' | 'Ultrasound';
+  modality: 'X-Ray' | 'CT Scan' | 'MRI' | 'Ultrasound' | 'Mammogram';
   optionTypeLabel: string; // 'Views (Multi-select)' | 'Protocol / Exam Name' | 'MRI Protocol' | 'Ultrasound Examination Type'
   isMultiOptionAllowed: boolean; // X-Ray views can be multi-selected
   bodyParts: BodyPartReference[];
@@ -84,7 +84,7 @@ export const MODALITY_REFERENCE_DATASET: Record<string, ModalityReference> = {
       { name: 'Cervical Spine', bodyRegion: 'Cervical Spine', supportsLaterality: false, defaultViewsOrProtocols: ['CT Cervical Spine'] },
       { name: 'Lumbar Spine', bodyRegion: 'Lumbar Spine', supportsLaterality: false, defaultViewsOrProtocols: ['CT Lumbar Spine'] },
       { name: 'Upper Extremity', bodyRegion: 'Upper Limb', supportsLaterality: true, defaultViewsOrProtocols: ['CT Extremity / Joint 3D'] },
-      { name: 'Lower Extremity', bodyRegion: 'Knee', supportsLaterality: true, defaultViewsOrProtocols: ['CT Extremity / Joint 3D'] },
+      { name: 'Lower Extremity', bodyRegion: 'Lower Limb', supportsLaterality: true, defaultViewsOrProtocols: ['CT Extremity / Joint 3D'] },
     ],
   },
 
@@ -161,12 +161,29 @@ export const MODALITY_REFERENCE_DATASET: Record<string, ModalityReference> = {
       { name: 'Musculoskeletal (MSK)', bodyRegion: 'Upper Limb', supportsLaterality: true, defaultViewsOrProtocols: ['Musculoskeletal Joint / Tendon'] },
     ],
   },
+
+  'Mammogram': {
+    modality: 'Mammogram',
+    optionTypeLabel: 'Mammogram Examination Type',
+    isMultiOptionAllowed: false,
+    availableViewsOrProtocols: [
+      'Diagnostic Mammogram',
+      'Screening Mammogram',
+      'Tomosynthesis (3D Mammogram)',
+      'Ultrasound-Guided Breast Biopsy',
+      'Stereotactic Breast Biopsy',
+    ],
+    bodyParts: [
+      { name: 'Breast', bodyRegion: 'Chest', supportsLaterality: true, defaultViewsOrProtocols: ['Screening Mammogram'] },
+    ],
+  },
 };
 
 export function getModalityRef(modality: string): ModalityReference {
   const normKey = modality === 'X-Ray' ? 'X-Ray'
     : (modality.includes('CT') ? 'CT Scan'
-    : (modality.includes('MRI') ? 'MRI' : 'Ultrasound'));
+      : (modality.includes('MRI') ? 'MRI'
+        : (modality.includes('Ultrasound') ? 'Ultrasound' : 'Mammogram')));
   return MODALITY_REFERENCE_DATASET[normKey] || MODALITY_REFERENCE_DATASET['X-Ray'];
 }
 
