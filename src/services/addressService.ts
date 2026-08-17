@@ -5,6 +5,7 @@
  */
 
 import { reverseGeocode as googleReverseGeocode } from './googleMapsService';
+import { MALAYSIAN_HEALTHCARE_FACILITIES } from '../data/malaysianHealthcareFacilities';
 
 export interface AddressSuggestion {
   id: string;
@@ -393,19 +394,52 @@ export const MALAYSIAN_ADDRESS_DATABASE: AddressSuggestion[] = [
 ];
 
 /**
- * Filter local database using fuzzy query matching
+ * Filter local database using fuzzy query matching and healthcare facility alias expansions
  */
 function searchLocalDatabase(query: string): AddressSuggestion[] {
-  const cleanQuery = query.toLowerCase().trim();
+  let cleanQuery = query.toLowerCase().trim();
   if (!cleanQuery) return [];
 
-  const queryWords = cleanQuery.split(/[\s,]+/).filter(w => w.length > 0);
+  // Alias expansions for common Malaysian healthcare acronyms
+  const acronyms: Record<string, string> = {
+    'hkl': 'hospital kuala lumpur',
+    'ppum': 'pusat perubatan universiti malaya',
+    'hctm': 'hospital canselor tuanku muhriz',
+    'ikn': 'institut kanser negara',
+    'htar': 'hospital tengku ampuan rahimah',
+    'hrpb': 'hospital raja permaisuri bainun',
+    'hsa': 'hospital sultanah aminah',
+    'hsi': 'hospital sultan ismail',
+    'htj': 'hospital tuanku ja\'afar',
+    'htaa': 'hospital tengku ampuan afzan',
+    'hrpz': 'hospital raja perempuan zainab',
+    'hsnz': 'hospital sultanah nur zahirah',
+    'sgh': 'hospital umum sarawak',
+    'sjmc': 'subang jaya medical centre',
+    'kpj': 'kpj damansara specialist',
+  };
 
-  return MALAYSIAN_ADDRESS_DATABASE.filter(item => {
+  const expandedQuery = acronyms[cleanQuery] || cleanQuery;
+  const queryWords = expandedQuery.split(/[\s,]+/).filter(w => w.length > 0);
+
+  // 1. Search healthcare facilities first (highest priority)
+  const matchedFacilities = MALAYSIAN_HEALTHCARE_FACILITIES.filter(item => {
     const fullText = item.formattedAddress.toLowerCase();
-    // Check if all query tokens match anywhere in the address string
+    return queryWords.every(word => {
+      if (word === 'kk' && fullText.includes('klinik kesihatan')) return true;
+      if (word === 'kd' && fullText.includes('klinik desa')) return true;
+      if (word === 'hosp' && fullText.includes('hospital')) return true;
+      return fullText.includes(word);
+    });
+  });
+
+  // 2. Search general addresses
+  const matchedAddresses = MALAYSIAN_ADDRESS_DATABASE.filter(item => {
+    const fullText = item.formattedAddress.toLowerCase();
     return queryWords.every(word => fullText.includes(word));
-  }).slice(0, 8);
+  });
+
+  return [...matchedFacilities, ...matchedAddresses].slice(0, 10);
 }
 
 /**

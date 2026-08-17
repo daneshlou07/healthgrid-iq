@@ -31,7 +31,7 @@ Every active healthcare center is assigned a dedicated 4-person core clinical un
 |---|---|---|---|---|
 | **Medical Officer** | Dr. Michelle Tan | `michelle.tan@healthgrid.my` | `mo-001` | `password123` |
 | **Administrator** | Noraishah Daud | `noraishah.daud@healthgrid.my` | `admin-001` | `password123` |
-| **Radiographer** | Tan Li Wen | `liwen.tan@healthgrid.my` | `rad-001` | `password123` |
+| **Radiographer** | Ahmad Razak | `ahmad.razak@healthgrid.my` | `rad-001` | `password123` |
 | **Radiologist** | Dr. Amira Latiff | `amira.latiff@healthgrid.my` | `rologist-001` | `password123` |
 
 ---

@@ -50,48 +50,80 @@ function generateId(prefix: string): string {
 
 // ==================== USERS ====================
 export async function getUsers(): Promise<User[]> {
-  if (useMock()) return [...mockUsers];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'users'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(collection(db, 'users'));
+      if (!snapshot.empty) {
+        return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+      }
+      // If collection is empty, seed base users to Firestore so database has live records
+      for (const u of mockUsers) {
+        await setDoc(doc(db, 'users', u.id), u, { merge: true });
+      }
+      return [...mockUsers];
+    } catch (e) {
+      console.warn('Firestore getUsers fallback to mock:', e);
+    }
+  }
+  return [...mockUsers];
 }
 
 export async function getUsersByRole(role: string): Promise<User[]> {
-  if (useMock()) return mockUsers.filter((u) => u.role === role);
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'users'), where('role', '==', role));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const q = query(collection(db, 'users'), where('role', '==', role));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+      }
+    } catch (e) {
+      console.warn('Firestore getUsersByRole fallback to mock:', e);
+    }
+  }
+  return mockUsers.filter((u) => u.role === role);
 }
 
 export async function saveUser(user: User): Promise<User> {
-  // Save user profile & password to localStorage for offline / demo persistence
-  try {
-    const existingCustom: User[] = JSON.parse(localStorage.getItem('healthgrid_custom_users') || '[]');
-    const idx = existingCustom.findIndex((u) => u.id === user.id);
-    if (idx !== -1) {
-      existingCustom[idx] = user;
-    } else {
-      existingCustom.push(user);
-    }
-    localStorage.setItem('healthgrid_custom_users', JSON.stringify(existingCustom));
-  } catch (e) {
-    console.warn('Failed saving user locally:', e);
-  }
+  const cleanUser: User = {
+    ...user,
+  };
 
-  // Save user profile & password to Firestore database
+  // 1. Save directly to Firestore database
   if (isFirebaseConfigured()) {
     try {
       const db = getFirestoreDb();
       if (db) {
-        await setDoc(doc(db, 'users', user.id), user, { merge: true });
+        await setDoc(doc(db, 'users', user.id), cleanUser, { merge: true });
       }
     } catch (e) {
       console.error('Failed saving user to Firestore database:', e);
     }
   }
 
-  return user;
+  // 2. Save user profile & password to localStorage for offline cache
+  try {
+    const existingCustom: User[] = JSON.parse(localStorage.getItem('healthgrid_custom_users') || '[]');
+    const idx = existingCustom.findIndex((u) => u.id === user.id);
+    if (idx !== -1) {
+      existingCustom[idx] = cleanUser;
+    } else {
+      existingCustom.push(cleanUser);
+    }
+    localStorage.setItem('healthgrid_custom_users', JSON.stringify(existingCustom));
+
+    // Broadcast across tabs
+    try {
+      const bc = new BroadcastChannel('healthgrid_sync');
+      bc.postMessage({ type: 'DATA_UPDATED', timestamp: Date.now() });
+      bc.close();
+    } catch {}
+  } catch (e) {
+    console.warn('Failed saving user locally:', e);
+  }
+
+  return cleanUser;
 }
 
 // ==================== CLINICS ====================

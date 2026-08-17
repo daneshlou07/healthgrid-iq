@@ -23,29 +23,29 @@ async function wipeCollection(colName) {
 // Data payloads
 const users = [
   // 1. KK Bestari Jaya (clinic-001)
-  { id: 'mo-001', name: 'Dr. Michelle Tan', email: 'michelle.tan@healthgrid.my', role: 'Medical Officer', specialty: 'Community Health', mmcNumber: 'MMC No. 63401', status: 'active', createdAt: '2025-04-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
-  { id: 'admin-001', name: 'Noraishah Daud', email: 'noraishah.daud@healthgrid.my', role: 'Administrator', status: 'active', createdAt: '2025-04-05T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
-  { id: 'rad-001', name: 'Tan Li Wen', email: 'liwen.tan@healthgrid.my', role: 'Radiographer', status: 'active', createdAt: '2025-08-15T08:00:00Z', shift: 'Day', leaveStatus: 'Active', supportedModalities: ['X-Ray', 'MRI', 'CT', 'Ultrasound'], mobilePacsAssignment: 'van-001', deploymentLocationId: 'clinic-001' },
-  { id: 'rologist-001', name: 'Dr. Amira Latiff', email: 'amira.latiff@healthgrid.my', role: 'Radiologist', specialty: 'Diagnostic Radiology', mmcNumber: 'MMC No. 53102', status: 'active', createdAt: '2025-04-10T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
+  { id: 'mo-001', name: 'Dr. Michelle Tan', email: 'michelle.tan@healthgrid.my', role: 'Medical Officer', specialty: 'Community Health', mmcNumber: 'MMC No. 63401', password: 'Password123!', status: 'active', createdAt: '2025-04-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
+  { id: 'admin-001', name: 'Noraishah Daud', email: 'noraishah.daud@healthgrid.my', role: 'Administrator', password: 'Password123!', status: 'active', createdAt: '2025-04-05T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
+  { id: 'rad-001', name: 'Ahmad Razak', email: 'ahmad.razak@healthgrid.my', role: 'Radiographer', password: 'Password123!', status: 'active', createdAt: '2025-02-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', supportedModalities: ['X-Ray', 'MRI', 'CT', 'Ultrasound', 'Mammogram'], mobilePacsAssignment: 'van-001', deploymentLocationId: 'clinic-001' },
+  { id: 'rologist-001', name: 'Dr. Amira Latiff', email: 'amira.latiff@healthgrid.my', role: 'Radiologist', specialty: 'Diagnostic Radiology', mmcNumber: 'MMC No. 53102', password: 'Password123!', status: 'active', createdAt: '2025-04-10T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
 
   // 2. Hospital Tanjong Karang (clinic-002)
-  { id: 'mo-002', name: 'Dr. Zulkifli Rahman', email: 'zulkifli.rahman@healthgrid.my', role: 'Medical Officer', specialty: 'Emergency Medicine', mmcNumber: 'MMC No. 54388', status: 'active', createdAt: '2025-03-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-002' },
-  { id: 'admin-002', name: 'Hamidah Ibrahim', email: 'hamidah.ibrahim@healthgrid.my', role: 'Administrator', status: 'active', createdAt: '2025-03-05T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-002' },
-  { id: 'rad-002', name: 'Zainal Abidin', email: 'zainal.abidin@healthgrid.my', role: 'Radiographer', status: 'active', createdAt: '2025-07-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'], deploymentLocationId: 'clinic-002' },
-  { id: 'rologist-002', name: 'Dr. Chong Wei Kiat', email: 'weikiat.chong@healthgrid.my', role: 'Radiologist', specialty: 'Thoracic Radiology', mmcNumber: 'MMC No. 47210', status: 'active', createdAt: '2025-03-12T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-002' },
+  { id: 'mo-002', name: 'Dr. Zulkifli Rahman', email: 'zulkifli.rahman@healthgrid.my', role: 'Medical Officer', specialty: 'Emergency Medicine', mmcNumber: 'MMC No. 54388', password: 'Password123!', status: 'active', createdAt: '2025-03-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-002' },
+  { id: 'admin-002', name: 'Hamidah Ibrahim', email: 'hamidah.ibrahim@healthgrid.my', role: 'Administrator', password: 'Password123!', status: 'active', createdAt: '2025-03-05T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-002' },
+  { id: 'rad-002', name: 'Zainal Abidin', email: 'zainal.abidin@healthgrid.my', role: 'Radiographer', password: 'Password123!', status: 'active', createdAt: '2025-07-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'], deploymentLocationId: 'clinic-002' },
+  { id: 'rologist-002', name: 'Dr. Chong Wei Kiat', email: 'weikiat.chong@healthgrid.my', role: 'Radiologist', specialty: 'Thoracic Radiology', mmcNumber: 'MMC No. 47210', password: 'Password123!', status: 'active', createdAt: '2025-03-12T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-002' },
 
   // 3. KK Ijok (clinic-003)
-  { id: 'mo-003', name: 'Dr. Faizah Ismail', email: 'faizah.ismail@healthgrid.my', role: 'Medical Officer', specialty: 'Family Medicine', mmcNumber: 'MMC No. 62190', status: 'active', createdAt: '2025-03-15T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-003' },
-  { id: 'admin-003', name: 'Razi Shafie', email: 'razi.shafie@healthgrid.my', role: 'Administrator', status: 'active', createdAt: '2025-03-20T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-003' },
-  { id: 'rad-003', name: 'Syed Farid Hassan', email: 'syed.farid@healthgrid.my', role: 'Radiographer', status: 'active', createdAt: '2025-08-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'], deploymentLocationId: 'clinic-003' },
-  { id: 'rologist-003', name: 'Dr. Suresh Kumar', email: 'suresh.kumar@healthgrid.my', role: 'Radiologist', specialty: 'Abdominal Radiology', mmcNumber: 'MMC No. 46811', status: 'active', createdAt: '2025-03-25T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-003' },
+  { id: 'mo-003', name: 'Dr. Faizah Ismail', email: 'faizah.ismail@healthgrid.my', role: 'Medical Officer', specialty: 'Family Medicine', mmcNumber: 'MMC No. 62190', password: 'Password123!', status: 'active', createdAt: '2025-03-15T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-003' },
+  { id: 'admin-003', name: 'Razi Shafie', email: 'razi.shafie@healthgrid.my', role: 'Administrator', password: 'Password123!', status: 'active', createdAt: '2025-03-20T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-003' },
+  { id: 'rad-003', name: 'Syed Farid Hassan', email: 'syed.farid@healthgrid.my', role: 'Radiographer', password: 'Password123!', status: 'active', createdAt: '2025-08-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'], deploymentLocationId: 'clinic-003' },
+  { id: 'rologist-003', name: 'Dr. Suresh Kumar', email: 'suresh.kumar@healthgrid.my', role: 'Radiologist', specialty: 'Abdominal Radiology', mmcNumber: 'MMC No. 46811', password: 'Password123!', status: 'active', createdAt: '2025-03-25T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-003' },
 
   // System Super/Master Admin
-  { id: 'superadmin-001', name: 'Theta Edge Berhad', email: 'theta.admin@healthgrid.my', role: 'Super Admin', status: 'active', createdAt: '2024-11-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
-  { id: 'admin-master', name: 'Master Admin', email: 'daneshlou05@gmail.com', role: 'Administrator', status: 'active', createdAt: '2025-01-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
-  // Legacy aliases
-  { id: 'mo-legacy', name: 'Dr. Ahmad Razali (Demo)', email: 'mo@healthgrid.com', role: 'Medical Officer', status: 'active', createdAt: '2025-01-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
-  { id: 'admin-legacy', name: 'Tan Wei Ming (Demo)', email: 'weiming.tan@healthgrid.my', role: 'Administrator', status: 'active', createdAt: '2025-01-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
+  { id: 'superadmin-001', name: 'Theta Edge Berhad', email: 'theta.admin@healthgrid.my', role: 'Super Admin', password: 'Password123!', status: 'active', createdAt: '2024-11-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
+  { id: 'admin-master', name: 'Master Admin', email: 'daneshlou05@gmail.com', role: 'Administrator', password: 'Password123!', status: 'active', createdAt: '2025-01-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active' },
+  // Core Operational Aliases
+  { id: 'mo-legacy', name: 'Dr. Ahmad Razali', email: 'mo@healthgrid.com', role: 'Medical Officer', password: 'Password123!', status: 'active', createdAt: '2025-01-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
+  { id: 'admin-legacy', name: 'Tan Wei Ming', email: 'weiming.tan@healthgrid.my', role: 'Administrator', password: 'Password123!', status: 'active', createdAt: '2025-01-01T08:00:00Z', shift: 'Day', leaveStatus: 'Active', deploymentLocationId: 'clinic-001' },
 ];
 
 const clinics = [

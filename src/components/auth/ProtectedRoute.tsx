@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: Props) {
-  const { isAuthenticated, currentUser, isLoading } = useAuth();
+  const { isAuthenticated, currentUser, isLoading, isMasterAdmin } = useAuth();
 
   if (isLoading) {
     return (
@@ -24,8 +24,11 @@ export default function ProtectedRoute({ children, allowedRoles }: Props) {
   }
 
   if (allowedRoles && currentUser) {
-    const hasRole = allowedRoles.includes(currentUser.role) ||
-      (currentUser.role === 'Super Admin' && allowedRoles.includes('Administrator'));
+    const hasRole =
+      isMasterAdmin ||
+      currentUser.role === 'Super Admin' ||
+      allowedRoles.includes(currentUser.role);
+
     if (!hasRole) {
       return <Navigate to="/dashboard" replace />;
     }

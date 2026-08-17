@@ -5,10 +5,12 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import { Link } from 'react-router-dom';
 import { getCaseRegistrar } from '../../utils/caseDisplay';
+import { Navigation } from 'lucide-react';
+import { openWazeNavigation } from '../../utils/navigationUtils';
 
 export default function ScanQueue() {
   const { currentUser } = useAuth();
-  const { cases } = useData();
+  const { cases, clinics } = useData();
 
   const myCases = cases.filter((c) => c.radiographerId === currentUser?.id);
   const scheduled = myCases.filter((c) => c.status === 'SCHEDULED');
@@ -24,28 +26,42 @@ export default function ScanQueue() {
       <div>
         <h2 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Pending ({scheduled.length})</h2>
         <div className="space-y-3">
-          {scheduled.map((c) => (
-            <div key={c.id} className="card">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Link to={`/case/${c.id}`} className="text-sm font-semibold text-navy-700 font-mono hover:underline">{c.caseNumber}</Link>
-                    <SeverityBadge severity={c.severity} />
+          {scheduled.map((c) => {
+            const clinic = clinics.find((cl) => cl.id === c.clinicId || cl.name === c.clinicName);
+            return (
+              <div key={c.id} className="card">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Link to={`/case/${c.id}`} className="text-sm font-semibold text-navy-700 font-mono hover:underline">{c.caseNumber}</Link>
+                      <SeverityBadge severity={c.severity} />
+                    </div>
+                    <p className="text-sm text-surface-700">Patient: {c.patientName}</p>
+                    <p className="text-xs text-surface-500">
+                      Type: {c.scanType}{c.bodyRegion ? ` · ${c.bodyRegion}` : ''} &middot; Clinic: {c.clinicName}
+                    </p>
+                    <p className="text-xs text-surface-500">Registered by: {getCaseRegistrar(c)}</p>
+                    {c.scheduledAt && <p className="text-xs text-emerald-600 mt-1">Scheduled: {new Date(c.scheduledAt).toLocaleString()}</p>}
                   </div>
-                  <p className="text-sm text-surface-700">Patient: {c.patientName}</p>
-                  <p className="text-xs text-surface-500">Type: {c.scanType}{c.bodyRegion ? ` · ${c.bodyRegion}` : ''} &middot; Clinic: {c.clinicName}</p>
-                  <p className="text-xs text-surface-500">Registered by: {getCaseRegistrar(c)}</p>
-                  {c.scheduledAt && <p className="text-xs text-emerald-600 mt-1">Scheduled: {new Date(c.scheduledAt).toLocaleString()}</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Link to={`/case/${c.id}`} className="btn-secondary text-xs">
-                    View Details
-                  </Link>
-                  <Link to={`/upload?caseId=${c.id}`} className="btn-primary text-xs">Upload Scan</Link>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openWazeNavigation(clinic?.latitude || 0, clinic?.longitude || 0, clinic?.address || c.clinicName)}
+                      className="btn-secondary text-xs flex items-center gap-1 text-[#0F4C42] hover:bg-emerald-50"
+                      title="Navigate to clinic with Waze"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      Waze
+                    </button>
+                    <Link to={`/case/${c.id}`} className="btn-secondary text-xs">
+                      View Details
+                    </Link>
+                    <Link to={`/upload?caseId=${c.id}`} className="btn-primary text-xs">Upload Scan</Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {scheduled.length === 0 && <div className="text-center py-8 text-surface-400 text-sm">No pending scans.</div>}
         </div>
       </div>

@@ -4,18 +4,21 @@ import { useData } from '../../context/DataContext';
 import StatsCard from '../../components/ui/StatsCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { FolderOpen, Clock, CheckCircle, FileText, Calendar, AlertTriangle } from 'lucide-react';
+import { FolderOpen, Clock, CheckCircle, FileText, Calendar, AlertTriangle, Building2, MapPin, Navigation } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { openWazeNavigation, openGoogleMapsNavigation } from '../../utils/navigationUtils';
 
 export default function DepartmentDashboard() {
   const { currentUser } = useAuth();
-  const { cases } = useData();
+  const { cases, clinics } = useData();
 
   const pending = cases.filter((c) => c.status === 'CREATED');
   const scheduled = cases.filter((c) => c.status === 'SCHEDULED');
   const scanned = cases.filter((c) => c.status === 'SCANNED');
   const finalized = cases.filter((c) => c.status === 'FINALIZED');
   const recentCases = [...cases].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
+
+  const assignedClinic = clinics.find((c) => c.id === currentUser?.deploymentLocationId);
 
   // Cases that are CREATED (no scheduling) or SCHEDULED but with no radiographer assigned
   const unassigned = cases.filter((c) => (c.status === 'CREATED') || (c.status === 'SCHEDULED' && !c.radiographerId));
@@ -32,9 +35,64 @@ export default function DepartmentDashboard() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold text-navy-800">Medical Officer Dashboard</h1>
-
         </div>
+        <p className="page-subtitle">Patient triage, imaging requisition & diagnostic review</p>
       </div>
+
+      {/* Assigned Deployment Location Card */}
+      {assignedClinic && (
+        <div className="card p-4 border-l-4 border-l-[#0F4C42] bg-white">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-[#0F4C42] uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Assigned Healthcare Facility
+                </span>
+                {currentUser?.shift && (
+                  <span className="text-[11px] font-medium text-surface-600 flex items-center gap-1 bg-surface-100 px-2 py-0.5 rounded">
+                    <Clock className="w-3 h-3 text-surface-500" />
+                    {currentUser.shift} Shift
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-navy-700 shrink-0" />
+                <h2 className="text-base font-bold text-navy-900 truncate">
+                  {assignedClinic.name}
+                </h2>
+              </div>
+
+              <p className="text-xs text-surface-600 flex items-start gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-surface-400 shrink-0 mt-0.5" />
+                <span>{assignedClinic.address}</span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0">
+              <button
+                type="button"
+                onClick={() => openWazeNavigation(assignedClinic.latitude, assignedClinic.longitude, assignedClinic.address)}
+                className="btn-primary text-xs flex items-center gap-1.5 bg-[#0F4C42] hover:bg-[#0c3c34] shadow-sm"
+                title="Launch turn-by-turn navigation in Waze"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                Navigate with Waze
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openGoogleMapsNavigation(assignedClinic.latitude, assignedClinic.longitude, assignedClinic.address)}
+                className="btn-secondary text-xs flex items-center gap-1.5"
+                title="Open location in Google Maps"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                Google Maps
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">

@@ -44,6 +44,7 @@ export default function UsersManagement() {
   const {
     users,
     setUsers,
+    clinics,
     trash,
     softDelete,
     restoreFromTrash,
@@ -67,6 +68,7 @@ export default function UsersManagement() {
     role: UserRole;
     specialty: string;
     shift: string;
+    deploymentLocationId: string;
     password?: string;
   }>({
     name: '',
@@ -74,6 +76,7 @@ export default function UsersManagement() {
     role: 'Medical Officer' as UserRole,
     specialty: '',
     shift: '',
+    deploymentLocationId: '',
     password: 'Password123!',
   });
 
@@ -279,6 +282,10 @@ export default function UsersManagement() {
         LifecycleStatus: u.isDeleted
           ? 'Archived / Deleted'
           : u.status,
+        Location:
+          clinics.find((c) => c.id === u.deploymentLocationId)?.name ||
+          u.deploymentLocationId ||
+          'Unassigned',
         Shift: u.shift || '',
         Specialty: u.specialty || '',
         CreatedAt: u.createdAt
@@ -310,6 +317,7 @@ export default function UsersManagement() {
       role: 'Medical Officer',
       specialty: '',
       shift: '',
+      deploymentLocationId: '',
       password: 'Password123!',
     });
 
@@ -359,6 +367,7 @@ export default function UsersManagement() {
       role: user.role,
       specialty: user.specialty || '',
       shift: user.shift || '',
+      deploymentLocationId: user.deploymentLocationId || '',
       password:
         user.password || 'Password123!',
     });
@@ -394,6 +403,8 @@ export default function UsersManagement() {
           email: form.email,
           role: form.role,
           password: form.password,
+          deploymentLocationId:
+            form.deploymentLocationId || undefined,
           specialty:
             form.specialty || undefined,
           shift:
@@ -434,6 +445,8 @@ export default function UsersManagement() {
         role: form.role,
         password:
           form.password || 'Password123!',
+        deploymentLocationId:
+          form.deploymentLocationId || undefined,
         specialty:
           form.specialty || undefined,
         shift:
@@ -1082,15 +1095,19 @@ export default function UsersManagement() {
                 </th>
 
                 <th className="table-header">
-                  Lifecycle Status
+                  Status
                 </th>
 
                 <th className="table-header">
-                  Shift / Specialty
+                  Location
                 </th>
 
                 <th className="table-header">
-                  Created At
+                  Shift
+                </th>
+
+                <th className="table-header">
+                  Specialty
                 </th>
 
                 <th className="table-header text-right">
@@ -1122,7 +1139,7 @@ export default function UsersManagement() {
                     </td>
 
 
-                    {/* Name */}
+                    {/* Name & Email */}
 
                     <td className="table-cell">
 
@@ -1207,28 +1224,37 @@ export default function UsersManagement() {
                     </td>
 
 
-                    {/* Shift / Specialty */}
+                    {/* Location */}
 
-                    <td className="table-cell text-xs text-surface-500">
+                    <td className="table-cell text-xs text-surface-700 font-medium">
 
-                      {account.specialty
-                        ? account.specialty
-                        : account.shift
-                          ? `Shift: ${account.shift}`
-                          : '—'}
+                      {(() => {
+                        const clinic = clinics.find(
+                          (c) => c.id === account.deploymentLocationId
+                        );
+                        if (clinic) return clinic.name;
+                        if (account.deploymentLocationId)
+                          return account.deploymentLocationId;
+                        return '—';
+                      })()}
 
                     </td>
 
 
-                    {/* Created */}
+                    {/* Shift */}
 
-                    <td className="table-cell text-xs text-surface-500 whitespace-nowrap">
+                    <td className="table-cell text-xs text-surface-600 whitespace-nowrap">
 
-                      {account.createdAt
-                        ? new Date(
-                          account.createdAt
-                        ).toLocaleDateString()
-                        : '—'}
+                      {account.shift || '—'}
+
+                    </td>
+
+
+                    {/* Specialty */}
+
+                    <td className="table-cell text-xs text-surface-600">
+
+                      {account.specialty || '—'}
 
                     </td>
 
@@ -1514,6 +1540,40 @@ export default function UsersManagement() {
                 <option value="Night">
                   Night
                 </option>
+
+              </select>
+
+            </div>
+
+
+            {/* Location (Healthcare Center / Clinic) */}
+
+            <div className="md:col-span-2">
+
+              <label className="block text-sm font-medium text-surface-700 mb-1">
+                Healthcare Center / Clinic (Location)
+              </label>
+
+              <select
+                value={form.deploymentLocationId}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    deploymentLocationId: e.target.value,
+                  })
+                }
+                className="select-field"
+              >
+
+                <option value="">
+                  None / Unassigned
+                </option>
+
+                {clinics.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
 
               </select>
 

@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload, QrCode, Smartphone } from 'lucide-react';
+import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload, QrCode, Smartphone, Navigation, MapPin } from 'lucide-react';
 import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 import RadiologyWorksheet from './RadiologyWorksheet';
@@ -12,6 +12,7 @@ import DownloadMohFormButton from '../../components/ui/PrintRadiologyForm';
 import PacsImageViewer from '../../components/ui/PacsImageViewer';
 import PatientSmsModal from '../../components/ui/PatientSmsModal';
 import { exportDossierPdf } from '../../utils/exportDossierPdf';
+import { openWazeNavigation, openGoogleMapsNavigation } from '../../utils/navigationUtils';
 
 /** Loads images from IndexedDB by key and renders them */
 function CaseImages({ imageKeys }: { imageKeys?: string[] }) {
@@ -393,8 +394,38 @@ export default function CaseDetail() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div><span className="text-xs text-surface-500">Indication / Symptom</span><p className="text-surface-800 font-medium">{getCaseIndication(caseItem) || '—'}</p></div>
               <div><span className="text-xs text-surface-500">Imaging Modality</span><p className="text-surface-800 font-medium">{caseItem.modality || caseItem.scanType}</p></div>
-              <div><span className="text-xs text-surface-500">Body Region(s)</span><p className="text-surface-800">{caseItem.bodyRegion || '—'}</p></div>
-              <div><span className="text-xs text-surface-500">Healthcare Centre</span><p className="text-surface-800">{caseItem.clinicName || 'Pending AI Scheduler'}</p></div>
+              <div>
+                <span className="text-xs text-surface-500">Healthcare Centre</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-surface-800 font-medium">{caseItem.clinicName || 'Pending AI Scheduler'}</p>
+                  {(() => {
+                    const clinic = clinics.find((c) => c.id === caseItem.clinicId || c.name === caseItem.clinicName);
+                    if (!caseItem.clinicName) return null;
+                    return (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openWazeNavigation(clinic?.latitude || 0, clinic?.longitude || 0, clinic?.address || caseItem.clinicName)}
+                          className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-[#0F4C42] border border-emerald-200 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                          title="Navigate to clinic with Waze"
+                        >
+                          <Navigation className="w-2.5 h-2.5" />
+                          Waze
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openGoogleMapsNavigation(clinic?.latitude || 0, clinic?.longitude || 0, clinic?.address || caseItem.clinicName)}
+                          className="px-2 py-0.5 bg-surface-100 hover:bg-surface-200 text-surface-700 border border-surface-300 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                          title="Open location in Google Maps"
+                        >
+                          <MapPin className="w-2.5 h-2.5" />
+                          Maps
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
             {caseItem.notes && (
               <div className="mt-4 pt-4 border-t border-surface-200">

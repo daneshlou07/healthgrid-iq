@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # 1. HealthGrid IQ Web Application
+  healthgrid-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET:-}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:-}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+        VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
+    container_name: healthgrid_app
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - orthanc-pacs
+
+  # 2. Orthanc PACS Server (DICOM Imaging Archive)
+  orthanc-pacs:
+    image: osimis/orthanc:latest
+    container_name: healthgrid_orthanc_pacs
+    restart: unless-stopped
+    ports:
+      - "4242:4242" # DICOM C-STORE Port (Modality input: X-Ray, CT, MRI)
+      - "8042:8042" # Orthanc Web / REST API / DICOMweb (WADO-RS / QIDO-RS)
+    environment:
+      - ORTHANC_NAME=HealthGrid_PACS_Server
+      - VERBOSE_STARTUP=true
+      - MALLOC_ARENA_MAX=2
+    volumes:
+      - orthanc_db:/var/lib/orthanc/db
+      - ./scripts/orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro
+
+volumes:
+  orthanc_db:
+    driver: local

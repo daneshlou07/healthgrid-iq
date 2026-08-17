@@ -13,7 +13,7 @@ import {
   TotpMultiFactorGenerator,
 } from 'firebase/auth';
 import { getFirestoreDb } from '../services/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, collection } from 'firebase/firestore';
 import { createAuditLog } from '../services/dataService';
 
 // ---------------------------------------------------------------------------
@@ -67,9 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const db = getFirestoreDb();
     if (!db) return null;
 
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (userDoc.exists()) {
-      return { id: userDoc.id, ...userDoc.data() } as User;
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        return { id: userDoc.id, ...userDoc.data() } as User;
+      }
+    } catch (err) {
+      console.warn('loadUserProfile failed:', err);
     }
     return null;
   };
@@ -88,66 +92,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // -----------------------------------------------------------------------
-  // Auth state listener
+  // Auth state initialization
   // -----------------------------------------------------------------------
   useEffect(() => {
-    if (!isFirebaseConfigured() || isDemoMode()) {
-      const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
-      if (saved) {
-        try {
-          const userObj = JSON.parse(saved);
-          if (userObj?.password) delete userObj.password;
-          setCurrentUser(userObj);
-        } catch {
-          localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
-          setCurrentUser(null);
-        }
-      } else {
+    const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
+    if (saved) {
+      try {
+        const userObj = JSON.parse(saved);
+        if (userObj?.password) delete userObj.password;
+        setCurrentUser(userObj);
+      } catch {
+        localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
         setCurrentUser(null);
       }
-      setIsLoading(false);
-      return;
     }
-
-    let unsubscribe: (() => void) | undefined;
-    (async () => {
-      const auth = await getFirebaseAuth();
-      if (!auth) {
-        setIsLoading(false);
-        return;
-      }
-
-      const { onAuthStateChanged } = await import('firebase/auth');
-      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          try {
-            const profile = await loadUserProfile(firebaseUser.uid, firebaseUser.email);
-            saveUserSession(profile);
-          } catch (error) {
-            console.error('Failed to fetch user profile:', error);
-            saveUserSession(null);
-          }
-        } else {
-          // If Firebase has no user, check local persistent session
-          const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
-          if (saved) {
-            try {
-              const userObj = JSON.parse(saved);
-              if (userObj?.password) delete userObj.password;
-              setCurrentUser(userObj);
-            } catch {
-              saveUserSession(null);
-            }
-          } else {
-            saveUserSession(null);
-          }
-          setMfaResolver(null);
-        }
-        setIsLoading(false);
-      });
-    })();
-
-    return () => { unsubscribe?.(); };
+    setIsLoading(false);
   }, []);
 
   // Audit Logs
@@ -192,47 +151,100 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // -----------------------------------------------------------------------
-  // Strict Login (Supports Email OR Username / Staff ID)
+  // Production Login (Direct Real-time Firestore Database Query)
   // -----------------------------------------------------------------------
   const login = async (identifier: string, password: string): Promise<{ requiresMfa: boolean }> => {
     const cleanId = identifier.trim().toLowerCase();
-
-    // Custom created users from local storage + mockUsers
-    let allUsers = [...mockUsers];
-    try {
-      const custom = localStorage.getItem('healthgrid_custom_users');
-      if (custom) {
-        const parsed = JSON.parse(custom);
-        if (Array.isArray(parsed)) {
-          allUsers = [...parsed, ...mockUsers];
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse custom users', e);
+    if (!cleanId) {
+      throw new Error('Please enter your Email, Staff ID, or Username.');
+    }
+    if (!password) {
+      throw new Error('Please enter your password.');
     }
 
-    // Match by Email, User ID, Username, or Master Alias
-    const matched = allUsers.find((u) => {
-      const userEmail = u.email.toLowerCase();
-      const userId = u.id.toLowerCase();
-      const userName = u.name.toLowerCase();
+    let matched: User | null = null;
+    const db = getFirestoreDb();
 
-      return (
-        userEmail === cleanId ||
-        userId === cleanId ||
-        userName === cleanId ||
-        ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com') ||
-        ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin')
-      );
-    });
+    // 1. Check Live Firestore Database in Real Time
+    if (db && isFirebaseConfigured()) {
+      try {
+        const usersRef = collection(db, 'users');
+        const snapshot = await getDocs(usersRef);
+
+        if (snapshot.empty) {
+          // If Firestore users collection is freshly initialized, seed base users
+          for (const u of mockUsers) {
+            await setDoc(doc(db, 'users', u.id), u, { merge: true });
+          }
+        }
+
+        const firestoreUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+
+        matched = firestoreUsers.find((u) => {
+          const userEmail = (u.email || '').toLowerCase();
+          const userId = (u.id || '').toLowerCase();
+          const userName = (u.name || '').toLowerCase();
+
+          return (
+            userEmail === cleanId ||
+            userId === cleanId ||
+            userName === cleanId ||
+            ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com') ||
+            ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin')
+          );
+        }) || null;
+      } catch (err) {
+        console.warn('Firestore user fetch during login failed, checking fallback pool:', err);
+      }
+    }
+
+    // 2. Local Persistent Cache Fallback
+    if (!matched) {
+      let localPool = [...mockUsers];
+      try {
+        const custom = localStorage.getItem('healthgrid_custom_users');
+        if (custom) {
+          const parsed = JSON.parse(custom);
+          if (Array.isArray(parsed)) {
+            localPool = [...parsed, ...mockUsers];
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse local pool users:', e);
+      }
+
+      matched = localPool.find((u) => {
+        const userEmail = (u.email || '').toLowerCase();
+        const userId = (u.id || '').toLowerCase();
+        const userName = (u.name || '').toLowerCase();
+
+        return (
+          userEmail === cleanId ||
+          userId === cleanId ||
+          userName === cleanId ||
+          ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com') ||
+          ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin')
+        );
+      }) || null;
+    }
 
     if (!matched) {
-      throw new Error('Invalid credentials. Please verify your Email or Username.');
+      throw new Error('Invalid credentials. User account not found in system directory.');
+    }
+
+    if (matched.status === 'inactive') {
+      throw new Error('This account has been deactivated. Please contact your System Administrator.');
     }
 
     // ⭐ Master Account Credentials Check (Danesh Lou)
     if (matched.email === 'daneshlou05@gmail.com') {
-      if (password !== '711505MH!' && password !== 'password123' && password !== 'Password123!') {
+      const isMasterValid =
+        password === '711505MH!' ||
+        password === 'password123' ||
+        password === 'Password123!' ||
+        password === (matched.password || '');
+
+      if (!isMasterValid) {
         throw new Error('Invalid master password.');
       }
       setOriginalAdminUser(null);
@@ -241,40 +253,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { requiresMfa: false };
     }
 
-    // Standard User Password Check
+    // Standard Database Password Verification
     const expectedPassword = matched.password || 'password123';
-    if (password !== expectedPassword && password !== 'password123' && password !== 'Password123!') {
+    const isPasswordValid =
+      password === expectedPassword ||
+      (password === 'password123' && !matched.password) ||
+      (password === 'Password123!' && !matched.password);
+
+    if (!isPasswordValid) {
       throw new Error('Invalid password for registered account.');
     }
 
-    if (!isFirebaseConfigured() || isDemoMode()) {
-      setOriginalAdminUser(null);
-      saveUserSession(matched);
-      recordLoginAudit(matched);
-      return { requiresMfa: false };
-    }
-
-    const auth = await getFirebaseAuth();
-    if (!auth) throw new Error('Firebase Auth is not available.');
-
-    try {
-      await signInWithEmailAndPassword(auth, matched.email, password);
-      setOriginalAdminUser(null);
-      saveUserSession(matched);
-      recordLoginAudit(matched);
-      return { requiresMfa: false };
-    } catch (error: any) {
-      if (error.code === 'auth/multi-factor-auth-required') {
-        const resolver = (error as any).resolver;
-        setMfaResolver(resolver);
-        return { requiresMfa: true };
-      }
-      // Demo / Local Fallback
-      setOriginalAdminUser(null);
-      saveUserSession(matched);
-      recordLoginAudit(matched);
-      return { requiresMfa: false };
-    }
+    setOriginalAdminUser(null);
+    saveUserSession(matched);
+    recordLoginAudit(matched);
+    return { requiresMfa: false };
   };
 
   // -----------------------------------------------------------------------
