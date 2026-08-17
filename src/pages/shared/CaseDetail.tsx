@@ -9,6 +9,7 @@ import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 import RadiologyWorksheet from './RadiologyWorksheet';
 import DownloadMohFormButton from '../../components/ui/PrintRadiologyForm';
+import PrintMohReferralLetterModal from '../../components/ui/PrintMohReferralLetter';
 import PacsImageViewer from '../../components/ui/PacsImageViewer';
 import PatientSmsModal from '../../components/ui/PatientSmsModal';
 import { exportDossierPdf } from '../../utils/exportDossierPdf';
@@ -275,6 +276,14 @@ export default function CaseDetail() {
               <span>Share Report</span>
             </button>
           )}
+
+          <PrintMohReferralLetterModal
+            caseItem={caseItem}
+            patient={patient}
+            report={report}
+            clinic={clinics.find((c) => c.id === caseItem.clinicId || c.name === caseItem.clinicName)}
+            buttonClassName="h-9 px-3 bg-red-50 hover:bg-red-100 text-red-800 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-red-200 transition-colors whitespace-nowrap shadow-sm"
+          />
 
           <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
         </div>

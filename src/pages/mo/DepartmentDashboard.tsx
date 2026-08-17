@@ -4,7 +4,7 @@ import { useData } from '../../context/DataContext';
 import StatsCard from '../../components/ui/StatsCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { FolderOpen, Clock, CheckCircle, CheckCircle2, FileText, Calendar, AlertTriangle, Building2, MapPin, Navigation, Share2, RotateCcw } from 'lucide-react';
+import { FolderOpen, Clock, CheckCircle, CheckCircle2, FileText, Calendar, AlertTriangle, Building2, MapPin, Navigation, Share2, RotateCcw, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { openWazeNavigation, openGoogleMapsNavigation, shareNavigationToWhatsApp } from '../../utils/navigationUtils';
 
@@ -181,39 +181,91 @@ export default function DepartmentDashboard() {
         )
       )}
 
-      {/* Confirmation Modal for Ending Shift */}
+      {/* ── MODAL: Complete Shift & Official PKD Outreach Summary ── */}
       {showEndShiftModal && assignedClinic && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-surface-200">
-            <div className="flex items-center gap-3 mb-3">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 border border-surface-200 space-y-4">
+            <div className="flex items-center gap-3 border-b border-surface-200 pb-3">
               <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-                <CheckCircle2 className="w-5 h-5" />
+                <FileText className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-navy-900">Complete Duty Shift</h3>
-                <p className="text-xs text-surface-500">{assignedClinic.name}</p>
+                <h3 className="text-base font-bold text-navy-900">
+                  Laporan Ringkasan Tugas Saringan PKD (MOH)
+                </h3>
+                <p className="text-xs text-surface-500">
+                  Outreach Deployment Summary &bull; {assignedClinic.name}
+                </p>
               </div>
             </div>
 
-            <p className="text-xs text-surface-600 mb-6 leading-relaxed">
-              Mark today's clinical deployment at <strong>{assignedClinic.name}</strong> as completed. This will close your active duty session until the next scheduled dispatch.
+            {/* Summary Statistics Card */}
+            <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 space-y-2.5 text-xs">
+              <div className="flex justify-between border-b border-surface-200/80 pb-1.5">
+                <span className="text-surface-500">Pusat / Lokasi Saringan:</span>
+                <span className="font-bold text-navy-900">{assignedClinic.name}</span>
+              </div>
+              <div className="flex justify-between border-b border-surface-200/80 pb-1.5">
+                <span className="text-surface-500">Pegawai Perubatan (MO On-Duty):</span>
+                <span className="font-bold text-navy-900">{currentUser?.name || 'Dr. Michelle Tan'} ({currentUser?.mmcNumber || 'MMC 58921'})</span>
+              </div>
+              <div className="flex justify-between border-b border-surface-200/80 pb-1.5">
+                <span className="text-surface-500">Jumlah Pesakit Disaring (Total Screened):</span>
+                <span className="font-bold text-navy-900">
+                  {cases.filter((c) => c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name).length} Pesakit
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-surface-200/80 pb-1.5">
+                <span className="text-surface-500">Saringan Normal Disahkan (MO Cleared):</span>
+                <span className="font-bold text-emerald-800">
+                  {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && c.status === 'FINALIZED' && !c.isEscalated).length} Kes
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-surface-200/80 pb-1.5">
+                <span className="text-surface-500">Rujukan Teleradiologi Hospital (Escalated):</span>
+                <span className="font-bold text-purple-900">
+                  {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && c.isEscalated).length} Kes
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-surface-500">Surat Rujukan Hospital Dijana:</span>
+                <span className="font-bold text-red-800">
+                  {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && c.severity === 'Critical').length} Rujukan
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-surface-500 leading-relaxed">
+              Semua rekod klinikal, imbasan digital, dan pengesahan diagnosa bagi sesi ini telah disimpan secara automatik dalam pangkalan data RIS/PACS HealthGrid IQ.
             </p>
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-between pt-2 border-t border-surface-200">
               <button
                 type="button"
-                onClick={() => setShowEndShiftModal(false)}
-                className="btn-secondary text-xs px-4 py-2"
+                onClick={() => window.print()}
+                className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5"
+                title="Print official shift summary report"
               >
-                Cancel
+                <FileText className="w-3.5 h-3.5" />
+                Cetak Laporan (Print)
               </button>
-              <button
-                type="button"
-                onClick={handleCompleteShift}
-                className="btn-primary text-xs px-4 py-2 bg-[#0F4C42] hover:bg-[#0c3c34]"
-              >
-                Confirm & Complete Shift
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEndShiftModal(false)}
+                  className="btn-secondary text-xs px-3 py-2"
+                >
+                  Tutup
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCompleteShift}
+                  className="btn-primary text-xs px-4 py-2 bg-[#0F4C42] hover:bg-[#0c3c34] font-bold"
+                >
+                  Sahkan &amp; Tamat Syif
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -227,6 +279,80 @@ export default function DepartmentDashboard() {
         <StatsCard title="Report Finalized" value={finalized.length} icon={<CheckCircle className="w-5 h-5" />} color="emerald" />
         <StatsCard title="Total Cases" value={cases.length} icon={<FileText className="w-5 h-5" />} color="navy" />
       </div>
+
+      {/* ── TODAY'S OUTREACH LIVE MANIFEST (Field Triage & Screening Progress) ── */}
+      {assignedClinic && (
+        <div className="card border-l-4 border-l-[#0F4C42] bg-white space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-surface-200 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-navy-900 flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-[#0F4C42]" />
+                  Today's Field Outreach Manifest — {assignedClinic.name}
+                </h2>
+                <span className="px-2 py-0.5 bg-emerald-50 text-[#0F4C42] text-[10px] font-bold rounded-full border border-emerald-200">
+                  LIVE OUTREACH
+                </span>
+              </div>
+              <p className="text-xs text-surface-500 mt-0.5">
+                Real-time patient throughput, on-site MO triage, and hospital teleradiology escalations.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEndShiftModal(true)}
+                className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1 text-[#0F4C42] border-emerald-300 hover:bg-emerald-50 font-semibold"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                PKD Duty Summary
+              </button>
+              <Link
+                to="/cases/new"
+                className="btn-primary text-xs px-3 py-1.5 bg-[#0F4C42] hover:bg-[#0c3c34] flex items-center gap-1 font-bold shadow-xs"
+              >
+                + Register Screening Patient
+              </Link>
+            </div>
+          </div>
+
+          {/* Outreach Throughput Metrics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-surface-50 p-3 rounded-lg border border-surface-200">
+              <p className="text-[11px] font-semibold text-surface-500 uppercase tracking-wider">Patients Screened</p>
+              <p className="text-xl font-bold text-navy-900 mt-1">
+                {cases.filter((c) => c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name).length}
+              </p>
+              <p className="text-[10px] text-surface-400 mt-0.5">Assigned to this facility</p>
+            </div>
+
+            <div className="bg-emerald-50/60 p-3 rounded-lg border border-emerald-200">
+              <p className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider">Cleared Normal (MO)</p>
+              <p className="text-xl font-bold text-emerald-900 mt-1">
+                {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && c.status === 'FINALIZED' && !c.isEscalated).length}
+              </p>
+              <p className="text-[10px] text-emerald-700 mt-0.5">Routine screening signed off</p>
+            </div>
+
+            <div className="bg-purple-50/60 p-3 rounded-lg border border-purple-200">
+              <p className="text-[11px] font-semibold text-purple-800 uppercase tracking-wider">Teleradiology Sent</p>
+              <p className="text-xl font-bold text-purple-950 mt-1">
+                {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && c.isEscalated).length}
+              </p>
+              <p className="text-[10px] text-purple-700 mt-0.5">Escalated to Specialist</p>
+            </div>
+
+            <div className="bg-amber-50/60 p-3 rounded-lg border border-amber-200">
+              <p className="text-[11px] font-semibold text-amber-800 uppercase tracking-wider">Awaiting MO Review</p>
+              <p className="text-xl font-bold text-amber-900 mt-1">
+                {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && c.status === 'SCANNED' && !c.isEscalated).length}
+              </p>
+              <p className="text-[10px] text-amber-700 mt-0.5">Scanned on bus / pending read</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Cases */}
       <div className="card">

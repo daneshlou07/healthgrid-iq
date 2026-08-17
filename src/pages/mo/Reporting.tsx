@@ -259,44 +259,161 @@ export default function Reporting() {
             )}
           </div>
 
-          {/* Quick Macro Templates Bar */}
-          <div className="flex items-center gap-1.5 flex-wrap bg-surface-50 p-2.5 rounded-lg border border-surface-200">
-            <span className="text-[11px] font-bold text-navy-800 flex items-center gap-1">
-              1-Click Normal Macros:
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setFindings('Lungs are clear without focal consolidation, effusion, or pneumothorax. Cardiothoracic ratio is within normal limits. Osseous structures and pleural spaces are intact.');
-                setImpression('Normal Chest Radiograph.');
-                toast.success('Inserted Normal Chest X-Ray template');
-              }}
-              className="text-[11px] bg-white hover:bg-navy-50 text-navy-800 border border-surface-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
-            >
-              + Normal Chest X-Ray
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFindings('Vertebral body alignment and heights are preserved. Intervertebral disc spaces are maintained. No acute fracture, subluxation, or destructive osseous lesion.');
-                setImpression('Normal Spine Radiograph.');
-                toast.success('Inserted Normal Spine X-Ray template');
-              }}
-              className="text-[11px] bg-white hover:bg-navy-50 text-navy-800 border border-surface-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
-            >
-              + Normal Spine X-Ray
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFindings('Brain parenchyma demonstrates normal attenuation and architecture. Ventricles and sulci are age-appropriate. No acute intracranial hemorrhage, mass effect, or midline shift.');
-                setImpression('Unremarkable Brain CT.');
-                toast.success('Inserted Normal Brain CT template');
-              }}
-              className="text-[11px] bg-white hover:bg-navy-50 text-navy-800 border border-surface-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
-            >
-              + Normal Brain CT
-            </button>
+          {/* 1-Click Clinical Normal Screening Macros */}
+          <div className="space-y-2 bg-surface-50 p-3 rounded-xl border border-surface-200">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-navy-900 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#0F4C42]" />
+                1-Click Normal Fast-Track Macros:
+              </span>
+              <span className="text-[10px] text-surface-500 font-medium">Auto-populates findings &amp; impression</span>
+            </div>
+            
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setFindings('Bilateral breasts demonstrate symmetric fibroglandular parenchyma without architectural distortion. No dominant masses, suspicious pleomorphic microcalcification clusters, or abnormal skin thickening. Both axillary regions appear normal.');
+                  setImpression('BI-RADS 1 — Negative. Normal Routine Screening Mammogram.');
+                  setSuggestions('Continue routine mobile outreach breast screening as scheduled.');
+                  toast.success('Inserted Normal Mammogram (BI-RADS 1) macro');
+                }}
+                className="text-[11px] bg-emerald-50 hover:bg-emerald-100 text-[#0F4C42] border border-emerald-300 font-semibold px-2.5 py-1 rounded-lg cursor-pointer transition-colors shadow-xs"
+              >
+                + Normal Mammogram (BI-RADS 1)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFindings('Bilateral breast parenchyma with scattered benign-appearing macrocalcifications and stable radiolucent fat-density lesions. No suspicious clustered microcalcifications. No focal mass or architectural distortion.');
+                  setImpression('BI-RADS 2 — Benign Findings. No mammographic evidence of malignancy.');
+                  setSuggestions('Routine screening follow-up.');
+                  toast.success('Inserted Benign Mammogram (BI-RADS 2) macro');
+                }}
+                className="text-[11px] bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 font-semibold px-2.5 py-1 rounded-lg cursor-pointer transition-colors shadow-xs"
+              >
+                + Benign Mammogram (BI-RADS 2)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFindings('Lungs are clear without focal consolidation, effusion, or pneumothorax. Cardiothoracic ratio is within normal limits (<0.5). Osseous structures and pleural spaces are intact.');
+                  setImpression('Normal Routine Chest Radiograph.');
+                  setSuggestions('Routine clinical follow-up.');
+                  toast.success('Inserted Normal Chest X-Ray template');
+                }}
+                className="text-[11px] bg-white hover:bg-surface-100 text-surface-800 border border-surface-300 px-2.5 py-1 rounded-lg cursor-pointer transition-colors shadow-xs"
+              >
+                + Normal Chest X-Ray
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFindings('Vertebral body alignment and heights are preserved. Intervertebral disc spaces are maintained. No acute fracture, subluxation, or destructive osseous lesion.');
+                  setImpression('Normal Spine Radiograph.');
+                  setSuggestions('Symptomatic management as indicated.');
+                  toast.success('Inserted Normal Spine X-Ray template');
+                }}
+                className="text-[11px] bg-white hover:bg-surface-100 text-surface-800 border border-surface-300 px-2 py-1 rounded-lg cursor-pointer transition-colors shadow-xs"
+              >
+                + Normal Spine X-Ray
+              </button>
+            </div>
+          </div>
+
+          {/* Clinical Breast Examination (CBE) Palpation & Quadrant Helper */}
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                <Brain className="w-3.5 h-3.5 text-navy-700" />
+                Clinical Breast Exam (CBE) Palpation Findings:
+              </span>
+              <span className="text-[10px] text-slate-500">Tap to append into report</span>
+            </div>
+
+            {/* Right Breast Quadrants */}
+            <div>
+              <p className="text-[10px] font-bold text-slate-600 uppercase mb-1">Right Breast (Payudara Kanan):</p>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { code: 'R-UOQ', label: 'Right UOQ (Upper Outer)' },
+                  { code: 'R-UIQ', label: 'Right UIQ (Upper Inner)' },
+                  { code: 'R-LOQ', label: 'Right LOQ (Lower Outer)' },
+                  { code: 'R-LIQ', label: 'Right LIQ (Lower Inner)' },
+                  { code: 'R-Retro', label: 'Right Retroareolar' },
+                  { code: 'R-Axilla', label: 'Right Axillary Node' },
+                ].map((q) => (
+                  <button
+                    key={q.code}
+                    type="button"
+                    onClick={() => {
+                      const note = `Clinical palpation reveals palpable discrete finding located at ${q.label}. `;
+                      setFindings((prev) => (prev ? `${prev}\n${note}` : note));
+                      toast.info(`Appended ${q.code} to findings`);
+                    }}
+                    className="text-[10px] bg-white hover:bg-teal-50 hover:text-teal-900 hover:border-teal-300 text-slate-700 border border-slate-200 px-2 py-0.5 rounded transition-all"
+                  >
+                    {q.code}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Left Breast Quadrants */}
+            <div>
+              <p className="text-[10px] font-bold text-slate-600 uppercase mb-1">Left Breast (Payudara Kiri):</p>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { code: 'L-UOQ', label: 'Left UOQ (Upper Outer)' },
+                  { code: 'L-UIQ', label: 'Left UIQ (Upper Inner)' },
+                  { code: 'L-LOQ', label: 'Left LOQ (Lower Outer)' },
+                  { code: 'L-LIQ', label: 'Left LIQ (Lower Inner)' },
+                  { code: 'L-Retro', label: 'Left Retroareolar' },
+                  { code: 'L-Axilla', label: 'Left Axillary Node' },
+                ].map((q) => (
+                  <button
+                    key={q.code}
+                    type="button"
+                    onClick={() => {
+                      const note = `Clinical palpation reveals palpable discrete finding located at ${q.label}. `;
+                      setFindings((prev) => (prev ? `${prev}\n${note}` : note));
+                      toast.info(`Appended ${q.code} to findings`);
+                    }}
+                    className="text-[10px] bg-white hover:bg-teal-50 hover:text-teal-900 hover:border-teal-300 text-slate-700 border border-slate-200 px-2 py-0.5 rounded transition-all"
+                  >
+                    {q.code}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Key Clinical Signs */}
+            <div className="pt-1 flex flex-wrap gap-1.5 border-t border-slate-200">
+              {[
+                'Normal Symmetrical CBE (No Palpable Mass)',
+                'Mobile Well-Circumscribed Lump',
+                'Hard Irregular Fixed Mass',
+                'Nipple Retraction / Inversion',
+                'Spontaneous Nipple Discharge',
+                'Skin Tethering / Peau d\'orange',
+              ].map((sign) => (
+                <button
+                  key={sign}
+                  type="button"
+                  onClick={() => {
+                    const text = `CBE Observation: ${sign}. `;
+                    setFindings((prev) => (prev ? `${prev}\n${text}` : text));
+                    toast.info(`Added: ${sign}`);
+                  }}
+                  className="text-[10px] bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded transition-colors"
+                >
+                  + {sign}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
