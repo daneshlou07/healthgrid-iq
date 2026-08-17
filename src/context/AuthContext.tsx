@@ -38,6 +38,7 @@ export interface AuthContextType {
   stopImpersonating: () => void;
   
   completeMfaLogin: (totpCode: string) => Promise<void>;
+  updateCurrentUser: (updates: Partial<User>) => void;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
 }
@@ -337,6 +338,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // -----------------------------------------------------------------------
+  // Update Current User in Session and Local Storage
+  // -----------------------------------------------------------------------
+  const updateCurrentUser = (updates: Partial<User>) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, ...updates };
+    saveUserSession(updated);
+  };
+
+  // -----------------------------------------------------------------------
   // Password reset
   // -----------------------------------------------------------------------
   const sendPasswordReset = async (email: string) => {
@@ -363,6 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         impersonateUser,
         stopImpersonating,
         completeMfaLogin,
+        updateCurrentUser,
         logout,
         sendPasswordReset,
       }}

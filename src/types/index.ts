@@ -33,6 +33,8 @@ export interface User {
   /** ISO 8601 timestamp */
   createdAt: string;
   shift?: string;
+  shiftStatus?: 'ACTIVE' | 'COMPLETED' | 'STANDBY';
+  shiftCompletedAt?: string;
   leaveStatus?: LeaveStatus;
   deploymentLocationId?: string;
   mobilePacsAssignment?: string;
