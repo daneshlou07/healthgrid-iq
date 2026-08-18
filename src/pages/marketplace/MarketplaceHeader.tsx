@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
-import { useNotifications } from '../../context/NotificationContext';
 import { useToast } from '../../components/ux/Toast';
 import Modal from '../../components/ui/Modal';
 
@@ -11,14 +10,9 @@ import {
   Building2,
   Layers,
   LogOut,
-  Bell,
-  Bot,
   User,
   Lock,
   ChevronDown,
-  Camera,
-  X,
-  ShieldCheck,
   ShoppingBag,
 } from 'lucide-react';
 
@@ -32,11 +26,8 @@ export default function MarketplaceHeader({
   const navigate = useNavigate();
   const { currentUser, logout, updateCurrentUser } = useAuth();
   const { rfqDraft } = useData();
-  const { notifications, unreadCount, markAllAsRead, removeNotification, clearAll } = useNotifications();
   const toast = useToast();
 
-  const [copilotActive, setCopilotActive] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Profile Modal State
@@ -50,15 +41,11 @@ export default function MarketplaceHeader({
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' });
   const [passwordError, setPasswordError] = useState('');
 
-  const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setShowNotifications(false);
-      }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setShowProfileDropdown(false);
       }
@@ -174,107 +161,7 @@ export default function MarketplaceHeader({
 
           {/* RIGHT CONTROLS */}
           <div className="ml-auto flex items-center gap-3 sm:gap-4">
-            {/* 1. AI COPILOT TOGGLE */}
-            <button
-              type="button"
-              onClick={() => {
-                const next = !copilotActive;
-                setCopilotActive(next);
-                toast.info(next ? 'AI Procurement Copilot enabled' : 'AI Copilot turned off');
-              }}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all cursor-pointer ${
-                copilotActive
-                  ? 'bg-emerald-50 border-emerald-300 text-[#0F4C42]'
-                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
-              }`}
-              title={copilotActive ? 'Hide AI Copilot' : 'Enable AI Copilot'}
-            >
-              <Bot className={`w-3.5 h-3.5 ${copilotActive ? 'text-[#0F4C42]' : 'text-slate-400'}`} />
-              <span className="hidden sm:inline text-[11px] font-semibold">
-                {copilotActive ? 'Copilot On' : 'Copilot Off'}
-              </span>
-            </button>
-
-            {/* 2. NOTIFICATIONS BELL */}
-            <div className="relative" ref={notifRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowNotifications(!showNotifications);
-                  setShowProfileDropdown(false);
-                }}
-                className="relative p-2 text-slate-500 hover:text-[#0F4C42] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                aria-label="Notifications"
-              >
-                <Bell className="w-[18px] h-[18px]" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {showNotifications && (
-                <div className="absolute right-0 top-12 w-[380px] max-w-[calc(100vw-24px)] bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white">
-                    <div>
-                      <h3 className="text-xs font-bold text-slate-800">Notifications</h3>
-                      <p className="text-[10px] text-slate-400">
-                        {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-                      </p>
-                    </div>
-                    {unreadCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={markAllAsRead}
-                        className="text-[11px] text-[#0F4C42] font-semibold hover:underline"
-                      >
-                        Mark all read
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="max-h-[320px] overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="px-6 py-8 text-center text-xs text-slate-400">
-                        No notifications right now
-                      </div>
-                    ) : (
-                      notifications.slice(0, 5).map((n) => (
-                        <div
-                          key={n.id}
-                          className="px-4 py-3 border-b border-slate-100 hover:bg-slate-50 text-left"
-                        >
-                          <p className="text-xs font-semibold text-slate-800">{n.title}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="border-t border-slate-200 p-2 flex items-center gap-2">
-                    {notifications.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={clearAll}
-                        className="flex-1 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg"
-                      >
-                        Clear all
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowNotifications(false)}
-                      className="flex-1 py-1.5 text-xs font-semibold text-[#0F4C42] hover:bg-slate-100 rounded-lg"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 3. REVIEW RFQ DRAFT BUTTON */}
+            {/* REVIEW RFQ DRAFT BUTTON */}
             <button
               type="button"
               onClick={onOpenDraftDrawer}
@@ -292,13 +179,12 @@ export default function MarketplaceHeader({
 
             <div className="h-6 w-px bg-slate-200" />
 
-            {/* 4. USER PROFILE DROPDOWN */}
+            {/* USER PROFILE DROPDOWN */}
             <div className="relative" ref={profileRef}>
               <button
                 type="button"
                 onClick={() => {
                   setShowProfileDropdown(!showProfileDropdown);
-                  setShowNotifications(false);
                 }}
                 className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               >

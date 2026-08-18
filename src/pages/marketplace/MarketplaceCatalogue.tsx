@@ -190,11 +190,10 @@ export default function MarketplaceCatalogue() {
 
           <div className="absolute left-3 top-3">
             <span
-              className={`rounded-md border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                isMedical
+              className={`rounded-md border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${isMedical
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                   : 'border-sky-200 bg-sky-50 text-sky-700'
-              }`}
+                }`}
             >
               {isMedical ? 'Medical' : 'Non-Medical'}
             </span>
@@ -279,9 +278,8 @@ export default function MarketplaceCatalogue() {
                 <button
                   type="button"
                   onClick={() => handleQuickRequest(item)}
-                  className={`flex-1 inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-xs font-bold text-white transition-colors ${
-                    isMedical ? 'bg-[#0F4C42] hover:bg-[#0B3831]' : 'bg-[#245B70] hover:bg-[#1C485A]'
-                  }`}
+                  className={`flex-1 inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-xs font-bold text-white transition-colors ${isMedical ? 'bg-[#0F4C42] hover:bg-[#0B3831]' : 'bg-[#245B70] hover:bg-[#1C485A]'
+                    }`}
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Request RFQ
@@ -447,11 +445,10 @@ export default function MarketplaceCatalogue() {
           <button
             type="button"
             onClick={() => setSelectedCategoryFilter('ALL')}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
-              selectedCategoryFilter === 'ALL'
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${selectedCategoryFilter === 'ALL'
                 ? 'border border-[#0F4C42] bg-[#0F4C42] text-white'
                 : 'border border-[#E2E8F0] bg-white text-[#45645E] hover:bg-[#F8FAFC]'
-            }`}
+              }`}
           >
             All Equipment ({equipmentCatalog.length})
           </button>
@@ -460,11 +457,10 @@ export default function MarketplaceCatalogue() {
           <button
             type="button"
             onClick={() => setSelectedCategoryFilter('MEDICAL')}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
-              selectedCategoryFilter === 'MEDICAL'
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${selectedCategoryFilter === 'MEDICAL'
                 ? 'border border-[#0F4C42] bg-[#0F4C42] text-white'
                 : 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70'
-            }`}
+              }`}
           >
             <Stethoscope className="h-3.5 w-3.5" />
             Medical Equipment ({medicalCount})
@@ -474,11 +470,10 @@ export default function MarketplaceCatalogue() {
           <button
             type="button"
             onClick={() => setSelectedCategoryFilter('NON_MEDICAL')}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
-              selectedCategoryFilter === 'NON_MEDICAL'
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${selectedCategoryFilter === 'NON_MEDICAL'
                 ? 'border border-[#245B70] bg-[#245B70] text-white'
                 : 'border border-sky-200 bg-sky-50 text-[#245B70] hover:bg-sky-100/70'
-            }`}
+              }`}
           >
             <Building2 className="h-3.5 w-3.5" />
             Non-Medical Equipment ({nonMedicalCount})
@@ -488,11 +483,10 @@ export default function MarketplaceCatalogue() {
           <button
             type="button"
             onClick={() => setSelectedAvailability(selectedAvailability === 'AVAILABLE' ? 'ALL' : 'AVAILABLE')}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
-              selectedAvailability === 'AVAILABLE'
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${selectedAvailability === 'AVAILABLE'
                 ? 'border border-emerald-600 bg-emerald-600 text-white'
                 : 'border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50'
-            }`}
+              }`}
           >
             Available Immediately ({availableCount})
           </button>
@@ -501,11 +495,10 @@ export default function MarketplaceCatalogue() {
           <button
             type="button"
             onClick={() => setSelectedAvailability(selectedAvailability === 'REQUEST_SOURCING' ? 'ALL' : 'REQUEST_SOURCING')}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
-              selectedAvailability === 'REQUEST_SOURCING'
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${selectedAvailability === 'REQUEST_SOURCING'
                 ? 'border border-amber-600 bg-amber-600 text-white'
                 : 'border border-amber-200 bg-white text-amber-700 hover:bg-amber-50'
-            }`}
+              }`}
           >
             Sourcing Required ({sourcingCount})
           </button>
