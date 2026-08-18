@@ -41,6 +41,13 @@ export interface AuthContextType {
   updateCurrentUser: (updates: Partial<User>) => void;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
+  registerMarketplaceUser: (data: {
+    name: string;
+    email: string;
+    organization: string;
+    phone: string;
+    password: string;
+  }) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -360,6 +367,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
+  // -----------------------------------------------------------------------
+  // Self-Service Registration for Equipment Marketplace Users
+  // -----------------------------------------------------------------------
+  const registerMarketplaceUser = async (data: {
+    name: string;
+    email: string;
+    organization: string;
+    phone: string;
+    password: string;
+  }): Promise<User> => {
+    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanName = data.name.trim();
+
+    if (!cleanName || !cleanEmail || !data.password) {
+      throw new Error('Please fill in all required fields.');
+    }
+
+    const newUserId = `mkt-${Date.now()}`;
+    const newUser: User = {
+      id: newUserId,
+      name: cleanName,
+      email: cleanEmail,
+      role: 'Equipment Marketplace',
+      status: 'active',
+      phone: data.phone.trim() || undefined,
+      specialty: data.organization.trim() || 'Institutional Procurement',
+      password: data.password,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 1. Save to local storage custom users
+    try {
+      const existing = localStorage.getItem('healthgrid_custom_users');
+      const list: User[] = existing ? JSON.parse(existing) : [];
+      const updated = [newUser, ...list.filter((u) => u.email.toLowerCase() !== cleanEmail)];
+      localStorage.setItem('healthgrid_custom_users', JSON.stringify(updated));
+    } catch (err) {
+      console.error('Failed to save to local custom users pool:', err);
+    }
+
+    // 2. Save to Firestore if available
+    const db = getFirestoreDb();
+    if (db && isFirebaseConfigured()) {
+      try {
+        await setDoc(doc(db, 'users', newUserId), newUser, { merge: true });
+      } catch (err) {
+        console.warn('Failed to persist registered marketplace user to Firestore:', err);
+      }
+    }
+
+    // Auto-login newly registered user
+    saveUserSession(newUser);
+    recordLoginAudit(newUser);
+
+    return newUser;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -378,6 +442,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateCurrentUser,
         logout,
         sendPasswordReset,
+        registerMarketplaceUser,
       }}
     >
       {children}

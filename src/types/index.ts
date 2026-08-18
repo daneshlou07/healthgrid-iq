@@ -42,6 +42,7 @@ export interface User {
   profilePicture?: string;
   mmcNumber?: string;
   qualification?: string;
+  phone?: string;
 }
 
 // ---------------------------------------------------------------------------
