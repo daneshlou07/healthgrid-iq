@@ -11,6 +11,91 @@ interface Props {
   existingCases?: Case[];
 }
 
+/**
+ * Convert a schedule time such as:
+ *   08:00
+ *   8:00
+ *   08:00 AM
+ *   8:00 PM
+ * into minutes after midnight.
+ */
+export function timeToMinutes(time: string): number | null {
+  const value = time.trim().toUpperCase();
+  const match = value.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
+  if (!match) return null;
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] ?? '0');
+  const meridiem = match[3];
+
+  if (minutes < 0 || minutes > 59) return null;
+
+  if (meridiem) {
+    if (hours < 1 || hours > 12) return null;
+    if (meridiem === 'AM') hours = hours === 12 ? 0 : hours;
+    if (meridiem === 'PM') hours = hours === 12 ? 12 : hours + 12;
+  } else if (hours < 0 || hours > 23) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+/**
+ * Parse a YYYY-MM-DD + schedule time as a local Date.
+ * We intentionally avoid Date.parse on strings containing AM/PM because
+ * browser parsing is inconsistent for those formats.
+ */
+export function slotToLocalDateTime(
+  date: string,
+  startTime: string
+): Date | null {
+  const match = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const minutes = timeToMinutes(startTime);
+  if (!match || minutes === null) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  const result = new Date(year, month, day, hours, mins, 0, 0);
+
+  // Reject invalid calendar dates such as 2026-02-31.
+  if (
+    result.getFullYear() !== year ||
+    result.getMonth() !== month ||
+    result.getDate() !== day ||
+    result.getHours() !== hours ||
+    result.getMinutes() !== mins
+  ) {
+    return null;
+  }
+
+  return result;
+}
+
+/**
+ * Return a stable local datetime value for <input type="datetime-local">
+ * and for storing appointmentTime in the scheduler UI state.
+ */
+export function slotToDateTimeValue(
+  date: string,
+  startTime: string
+): string | null {
+  const parsed = slotToLocalDateTime(date, startTime);
+  if (!parsed) return null;
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  const hours = String(parsed.getHours()).padStart(2, '0');
+  const minutes = String(parsed.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export function extractModality(scanType: string): string {
   const upper = scanType.toUpperCase();
   if (upper.includes('MRI')) return 'MRI';
@@ -28,10 +113,11 @@ export function isSlotOccupied(
   transientAssignedSlots?: Set<string>,
   ignoreCaseId?: string
 ): Case | null {
-  // Check transient bulk assigned slots first
-  const slotCleanTime = slotStartTime.replace(/\s*[AP]M$/i, '').trim();
-  const slotKey = `${radiographerId}_${slotDate}_${slotCleanTime}`;
-  if (transientAssignedSlots && transientAssignedSlots.has(slotKey)) {
+  const slotMinutes = timeToMinutes(slotStartTime);
+  if (slotMinutes === null) return null;
+
+  const slotKey = `${radiographerId}_${slotDate}_${slotMinutes}`;
+  if (transientAssignedSlots?.has(slotKey)) {
     return { id: 'bulk-assigned', caseNumber: 'Bulk Queue' } as Case;
   }
 
@@ -40,19 +126,28 @@ export function isSlotOccupied(
   const matchingCase = existingCases.find((c) => {
     if (c.id === ignoreCaseId) return false;
     if (c.radiographerId !== radiographerId) return false;
-    if (!c.scheduledAt || (c.status !== 'SCHEDULED' && c.status !== 'CREATED' && c.status !== 'SCANNED')) return false;
+    if (
+      !c.scheduledAt ||
+      (c.status !== 'SCHEDULED' &&
+        c.status !== 'CREATED' &&
+        c.status !== 'SCANNED')
+    ) {
+      return false;
+    }
 
     const caseDateObj = new Date(c.scheduledAt);
-    if (isNaN(caseDateObj.getTime())) return false;
+    if (Number.isNaN(caseDateObj.getTime())) return false;
 
-    const caseDayStr = caseDateObj.toISOString().split('T')[0];
-    if (caseDayStr !== slotDate) return false;
+    const caseDay = `${caseDateObj.getFullYear()}-${String(
+      caseDateObj.getMonth() + 1
+    ).padStart(2, '0')}-${String(caseDateObj.getDate()).padStart(2, '0')}`;
 
-    const caseHours = String(caseDateObj.getHours()).padStart(2, '0');
-    const caseMins = String(caseDateObj.getMinutes()).padStart(2, '0');
-    const caseTimeStr = `${caseHours}:${caseMins}`;
+    if (caseDay !== slotDate) return false;
 
-    return caseTimeStr === slotCleanTime;
+    const caseMinutes =
+      caseDateObj.getHours() * 60 + caseDateObj.getMinutes();
+
+    return caseMinutes === slotMinutes;
   });
 
   return matchingCase || null;
@@ -66,33 +161,35 @@ export function getEarliestSlot(
   ignoreCaseId?: string
 ): RadioScheduleSlot | null {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
 
-  for (const slot of schedule) {
-    if (slot.booked) continue;
-    if (
-      radiographerId &&
-      isSlotOccupied(slot.date, slot.startTime, radiographerId, existingCases, transientAssignedSlots, ignoreCaseId)
-    ) {
-      continue;
-    }
-    const slotDate = new Date(`${slot.date}T${slot.startTime}:00`);
-    if (slotDate >= now) return slot;
-  }
+  const validSlots = schedule
+    .filter((slot) => !slot.booked)
+    .map((slot) => ({
+      slot,
+      dateTime: slotToLocalDateTime(slot.date, slot.startTime),
+    }))
+    .filter(
+      (item): item is {
+        slot: RadioScheduleSlot;
+        dateTime: Date;
+      } => item.dateTime !== null
+    )
+    .filter((item) => item.dateTime >= now)
+    .filter(
+      (item) =>
+        !radiographerId ||
+        !isSlotOccupied(
+          item.slot.date,
+          item.slot.startTime,
+          radiographerId,
+          existingCases,
+          transientAssignedSlots,
+          ignoreCaseId
+        )
+    )
+    .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
 
-  // Fallback: return first unbooked and unoccupied slot
-  for (const slot of schedule) {
-    if (slot.booked) continue;
-    if (
-      radiographerId &&
-      isSlotOccupied(slot.date, slot.startTime, radiographerId, existingCases, transientAssignedSlots, ignoreCaseId)
-    ) {
-      continue;
-    }
-    return slot;
-  }
-
-  return schedule[0] || null;
+  return validSlots[0]?.slot || null;
 }
 
 export function getAvailableSlots(
@@ -103,45 +200,41 @@ export function getAvailableSlots(
   ignoreCaseId?: string
 ): { slot: RadioScheduleSlot; isOccupied: boolean; occupiedByCase?: Case }[] {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
 
-  const result: { slot: RadioScheduleSlot; isOccupied: boolean; occupiedByCase?: Case }[] = [];
-
-  for (const slot of schedule) {
-    const slotDate = new Date(`${slot.date}T${slot.startTime}:00`);
-    if (slotDate < now) continue;
-
-    const occupiedBy =
-      radiographerId && existingCases
-        ? isSlotOccupied(slot.date, slot.startTime, radiographerId, existingCases, undefined, ignoreCaseId)
-        : null;
-
-    const isBookedOrOccupied = slot.booked || Boolean(occupiedBy);
-
-    result.push({
+  return schedule
+    .map((slot) => ({
       slot,
-      isOccupied: isBookedOrOccupied,
-      occupiedByCase: occupiedBy || undefined,
-    });
-
-    if (result.length >= count) break;
-  }
-
-  if (result.length === 0) {
-    return schedule.slice(0, count).map((slot) => {
+      dateTime: slotToLocalDateTime(slot.date, slot.startTime),
+    }))
+    .filter(
+      (item): item is {
+        slot: RadioScheduleSlot;
+        dateTime: Date;
+      } => item.dateTime !== null
+    )
+    // Critical: do not show today's slots that have already passed.
+    .filter((item) => item.dateTime >= now)
+    .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime())
+    .slice(0, count)
+    .map(({ slot }) => {
       const occupiedBy =
         radiographerId && existingCases
-          ? isSlotOccupied(slot.date, slot.startTime, radiographerId, existingCases, undefined, ignoreCaseId)
+          ? isSlotOccupied(
+            slot.date,
+            slot.startTime,
+            radiographerId,
+            existingCases,
+            undefined,
+            ignoreCaseId
+          )
           : null;
+
       return {
         slot,
         isOccupied: slot.booked || Boolean(occupiedBy),
         occupiedByCase: occupiedBy || undefined,
       };
     });
-  }
-
-  return result;
 }
 
 export function scoreRadiographer(
@@ -150,18 +243,48 @@ export function scoreRadiographer(
   existingCases?: Case[]
 ): number {
   if (profile.leaveStatus === 'On Leave') return Infinity;
+
   const supports = profile.supportedModalities.includes(requiredModality);
-  const earliest = getEarliestSlot(profile.schedule, profile.userId, existingCases);
+  const earliest = getEarliestSlot(
+    profile.schedule,
+    profile.userId,
+    existingCases
+  );
+
+  // No future slot means this radiographer should not win the recommendation.
+  if (!earliest) return Infinity;
+
+  const earliestDate = slotToLocalDateTime(
+    earliest.date,
+    earliest.startTime
+  );
+
+  if (!earliestDate) return Infinity;
+
   const now = new Date();
-  const slotDate = earliest ? new Date(earliest.date) : now;
-  const daysAway = Math.max(0, (slotDate.getTime() - now.getTime()) / 86400000);
+  const daysAway = Math.max(
+    0,
+    (earliestDate.getTime() - now.getTime()) / 86400000
+  );
 
   const liveCount = existingCases
-    ? existingCases.filter((c) => c.radiographerId === profile.userId && (c.status === 'SCHEDULED' || c.status === 'SCANNED')).length
+    ? existingCases.filter(
+      (c) =>
+        c.radiographerId === profile.userId &&
+        (c.status === 'SCHEDULED' || c.status === 'SCANNED')
+    ).length
     : profile.currentCaseload;
 
-  const workloadRatio = liveCount / profile.maxDailyCaseload;
-  return (supports ? 0 : 500) + daysAway * 100 + workloadRatio * 50;
+  const workloadRatio =
+    profile.maxDailyCaseload > 0
+      ? liveCount / profile.maxDailyCaseload
+      : 1;
+
+  return (
+    (supports ? 0 : 500) +
+    daysAway * 100 +
+    workloadRatio * 50
+  );
 }
 
 export function getRecommendationReasons(
@@ -170,19 +293,40 @@ export function getRecommendationReasons(
   existingCases?: Case[]
 ): string[] {
   const reasons: string[] = [];
-  if (profile.supportedModalities.includes(requiredModality)) reasons.push('Certified for selected imaging modality');
-  const earliest = getEarliestSlot(profile.schedule, profile.userId, existingCases);
-  if (earliest) reasons.push('Available during requested time');
-  
+
+  if (profile.supportedModalities.includes(requiredModality)) {
+    reasons.push('Certified for selected imaging modality');
+  }
+
+  const earliest = getEarliestSlot(
+    profile.schedule,
+    profile.userId,
+    existingCases
+  );
+
+  if (earliest) {
+    reasons.push('Next available slot is in the future');
+  }
+
   const liveCount = existingCases
-    ? existingCases.filter((c) => c.radiographerId === profile.userId && (c.status === 'SCHEDULED' || c.status === 'SCANNED')).length
+    ? existingCases.filter(
+      (c) =>
+        c.radiographerId === profile.userId &&
+        (c.status === 'SCHEDULED' || c.status === 'SCANNED')
+    ).length
     : profile.currentCaseload;
 
-  const workloadRatio = liveCount / profile.maxDailyCaseload;
-  if (workloadRatio <= 0.5) reasons.push('Lowest workload');
+  const workloadRatio =
+    profile.maxDailyCaseload > 0
+      ? liveCount / profile.maxDailyCaseload
+      : 1;
+
+  if (workloadRatio <= 0.5) reasons.push('Low workload');
   else if (workloadRatio <= 0.75) reasons.push('Acceptable workload');
+
   reasons.push('Closest to assigned healthcare centre');
   reasons.push('Meets scheduling constraints');
+
   return reasons;
 }
 
@@ -193,110 +337,185 @@ export function recommendBestRadiographer(
 ): string | null {
   let bestId: string | null = null;
   let bestScore = Infinity;
-  for (const p of profiles) {
-    const score = scoreRadiographer(p, requiredModality, existingCases);
-    if (score < bestScore) { bestScore = score; bestId = p.userId; }
+
+  for (const profile of profiles) {
+    const score = scoreRadiographer(
+      profile,
+      requiredModality,
+      existingCases
+    );
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestId = profile.userId;
+    }
   }
-  return bestId || profiles[0]?.userId || null;
+
+  return bestId;
 }
 
-export default function RadiograperSelector({ profiles, requiredModality, selectedId, recommendedId, onSelect, existingCases }: Props) {
-  let eligible = profiles.filter((p) => p.leaveStatus !== 'On Leave' && p.supportedModalities.includes(requiredModality));
+export default function RadiograperSelector({
+  profiles,
+  requiredModality,
+  selectedId,
+  recommendedId,
+  onSelect,
+  existingCases,
+}: Props) {
+  let eligible = profiles.filter(
+    (p) =>
+      p.leaveStatus !== 'On Leave' &&
+      p.supportedModalities.includes(requiredModality)
+  );
+
   if (eligible.length === 0) {
     eligible = profiles.filter((p) => p.leaveStatus !== 'On Leave');
   }
-  if (eligible.length === 0) {
-    eligible = profiles;
-  }
-  const unavailable = profiles.filter((p) => !eligible.some((e) => e.userId === p.userId));
+
+  const unavailable = profiles.filter(
+    (p) => !eligible.some((e) => e.userId === p.userId)
+  );
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-surface-500">
         Radiographer Assignment
       </h3>
 
       {eligible.length === 0 && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" /> No eligible radiographers at this clinic for {requiredModality}.
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-700">
+          <AlertTriangle className="h-4 w-4" />
+          No eligible radiographers at this clinic for {requiredModality}.
         </div>
       )}
 
       {eligible.map((profile) => {
         const isRecommended = profile.userId === recommendedId;
         const isSelected = profile.userId === selectedId;
+
         const liveCaseload = existingCases
-          ? existingCases.filter((c) => c.radiographerId === profile.userId && (c.status === 'SCHEDULED' || c.status === 'SCANNED')).length
+          ? existingCases.filter(
+            (c) =>
+              c.radiographerId === profile.userId &&
+              (c.status === 'SCHEDULED' || c.status === 'SCANNED')
+          ).length
           : profile.currentCaseload;
 
-        const workloadPct = Math.round((liveCaseload / profile.maxDailyCaseload) * 100);
-        const reasons = isRecommended ? getRecommendationReasons(profile, requiredModality, existingCases) : [];
+        const workloadPct = Math.min(
+          100,
+          Math.round(
+            (liveCaseload / Math.max(1, profile.maxDailyCaseload)) * 100
+          )
+        );
+
+        const reasons = isRecommended
+          ? getRecommendationReasons(
+            profile,
+            requiredModality,
+            existingCases
+          )
+          : [];
 
         return (
           <button
             key={profile.userId}
+            type="button"
             onClick={() => onSelect(profile.userId)}
-            className={`w-full text-left p-3 rounded-lg border transition-all duration-100 ${
-              isSelected
-                ? 'bg-navy-50 border-navy-300 ring-1 ring-navy-200'
-                : 'bg-surface-100 border-surface-200 hover:border-surface-400'
-            }`}
+            className={`w-full rounded-xl border p-3.5 text-left shadow-sm transition-all duration-150 ${isSelected
+                ? 'border-[#9FC8BE] bg-[#F1F8F6] ring-1 ring-[#CFE3DD]'
+                : 'border-surface-200 bg-white hover:border-[#9FC8BE] hover:shadow-md'
+              }`}
           >
-            <div className="flex items-start justify-between mb-2">
+            <div className="mb-2 flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-surface-200 rounded-full flex items-center justify-center">
-                  <User className="w-3.5 h-3.5 text-surface-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E4F2EE]">
+                  <User className="h-3.5 w-3.5 text-surface-600" />
                 </div>
+
                 <div>
-                  <p className="text-sm font-medium text-surface-800">{profile.userName}</p>
-                  <p className="text-[10px] text-surface-500">{profile.shift}</p>
+                  <p className="text-sm font-medium text-surface-800">
+                    {profile.userName}
+                  </p>
+                  <p className="text-[10px] text-surface-500">
+                    {profile.shift}
+                  </p>
                 </div>
               </div>
+
               <div className="flex items-center gap-1.5">
                 {isRecommended && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                    <Sparkles className="w-2.5 h-2.5" /> Best Match
+                  <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    Best Match
                   </span>
                 )}
-                {isSelected && <CheckCircle className="w-4 h-4 text-navy-600" />}
+
+                {isSelected && (
+                  <CheckCircle className="h-4 w-4 text-[#0F4C42]" />
+                )}
               </div>
             </div>
 
-            {/* Operational info */}
             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
               <div>
                 <span className="text-surface-500">Modalities:</span>
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {profile.supportedModalities.map((m) => (
-                    <span key={m} className={`px-1 py-0.5 rounded text-[9px] font-medium ${m === requiredModality ? 'bg-navy-100 text-navy-700 border border-navy-200' : 'bg-surface-200 text-surface-600'}`}>
-                      {m}
+                <div className="mt-0.5 flex flex-wrap gap-1">
+                  {profile.supportedModalities.map((modality) => (
+                    <span
+                      key={modality}
+                      className={`rounded px-1 py-0.5 text-[9px] font-medium ${modality === requiredModality
+                          ? 'border border-[#BFD8D1] bg-[#E4F2EE] text-[#0F4C42]'
+                          : 'bg-surface-200 text-surface-600'
+                        }`}
+                    >
+                      {modality}
                     </span>
                   ))}
                 </div>
               </div>
+
               <div>
                 <span className="text-surface-500">Workload:</span>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <div className="flex-1 h-1.5 bg-surface-200 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${workloadPct > 80 ? 'bg-red-500' : workloadPct > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${workloadPct}%` }} />
+                <div className="mt-1 flex items-center gap-1.5">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-200">
+                    <div
+                      className={`h-full rounded-full ${workloadPct > 80
+                          ? 'bg-red-500'
+                          : workloadPct > 50
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
+                        }`}
+                      style={{ width: `${workloadPct}%` }}
+                    />
                   </div>
-                  <span className="text-surface-600">{liveCaseload}/{profile.maxDailyCaseload}</span>
+                  <span className="text-surface-600">
+                    {liveCaseload}/{profile.maxDailyCaseload}
+                  </span>
                 </div>
               </div>
+
               <div className="col-span-2">
                 <span className="text-surface-500">Status:</span>
-                <span className="ml-1.5 text-emerald-600 font-medium">Available</span>
+                <span className="ml-1.5 font-medium text-emerald-600">
+                  Available
+                </span>
               </div>
             </div>
 
-            {/* Recommendation reasons */}
             {isRecommended && reasons.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-surface-200">
-                <p className="text-[10px] text-surface-500 mb-1">Why this radiographer:</p>
+              <div className="mt-2 border-t border-surface-200 pt-2">
+                <p className="mb-1 text-[10px] text-surface-500">
+                  Why this radiographer:
+                </p>
+
                 <div className="space-y-0.5">
-                  {reasons.map((r) => (
-                    <p key={r} className="text-[10px] text-emerald-700 flex items-center gap-1">
-                      <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" /> {r}
+                  {reasons.map((reason) => (
+                    <p
+                      key={reason}
+                      className="flex items-center gap-1 text-[10px] text-emerald-700"
+                    >
+                      <CheckCircle className="h-2.5 w-2.5 shrink-0" />
+                      {reason}
                     </p>
                   ))}
                 </div>
@@ -307,12 +526,25 @@ export default function RadiograperSelector({ profiles, requiredModality, select
       })}
 
       {unavailable.length > 0 && (
-        <div className="mt-3">
-          <p className="text-[10px] text-surface-400 mb-1">Unavailable ({unavailable.length})</p>
-          {unavailable.map((p) => (
-            <div key={p.userId} className="flex items-center justify-between p-2 bg-surface-100 rounded border border-surface-200 mb-1 opacity-50">
-              <span className="text-[11px] text-surface-500">{p.userName}</span>
-              <span className="text-[9px] text-red-500">{p.leaveStatus === 'On Leave' ? 'On Leave' : `No ${requiredModality}`}</span>
+        <div className="mt-4 border-t border-surface-200 pt-3">
+          <p className="mb-1 text-[10px] text-surface-400">
+            Unavailable ({unavailable.length})
+          </p>
+
+          {unavailable.map((profile) => (
+            <div
+              key={profile.userId}
+              className="mb-1 flex items-center justify-between rounded border border-surface-200 bg-surface-100 p-2 opacity-50"
+            >
+              <span className="text-[11px] text-surface-500">
+                {profile.userName}
+              </span>
+
+              <span className="text-[9px] text-red-500">
+                {profile.leaveStatus === 'On Leave'
+                  ? 'On Leave'
+                  : `No ${requiredModality}`}
+              </span>
             </div>
           ))}
         </div>

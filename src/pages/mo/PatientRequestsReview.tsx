@@ -2,92 +2,235 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
-import { updatePatientRequest, updatePatient } from '../../services/dataService';
+import {
+  updatePatientRequest,
+  updatePatient,
+} from '../../services/dataService';
 import type { PatientRequest } from '../../types';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Modal from '../../components/ui/Modal';
-import { CheckCircle, XCircle, Trash2, Search, Eye } from 'lucide-react';
+import {
+  CheckCircle,
+  XCircle,
+  Trash2,
+  Search,
+  Eye,
+} from 'lucide-react';
 
 export default function PatientRequestsReview() {
   const { currentUser } = useAuth();
-  const { patientRequests, setPatientRequests, editPatient, addAuditLog } = useData();
+  const {
+    patientRequests,
+    setPatientRequests,
+    editPatient,
+    addAuditLog,
+  } = useData();
+
   const toast = useToast();
-  const [selectedReq, setSelectedReq] = useState<PatientRequest | null>(null);
+
+  const [selectedReq, setSelectedReq] =
+    useState<PatientRequest | null>(null);
+
   const [remarks, setRemarks] = useState('');
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStatus, setFilterStatus] =
+    useState<string>('all');
 
   const filtered = patientRequests.filter((r) => {
-    const matchSearch = r.patientName.toLowerCase().includes(search.toLowerCase()) || r.mrn.toLowerCase().includes(search.toLowerCase()) || r.requestedBy.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === 'all' || r.status === filterStatus;
+    const searchTerm = search.toLowerCase().trim();
+
+    const matchSearch =
+      r.patientName.toLowerCase().includes(searchTerm) ||
+      r.mrn.toLowerCase().includes(searchTerm) ||
+      r.requestedBy.toLowerCase().includes(searchTerm);
+
+    const matchStatus =
+      filterStatus === 'all' ||
+      r.status === filterStatus;
+
     return matchSearch && matchStatus;
   });
 
-  const handleDecision = async (decision: 'Approved' | 'Rejected') => {
+  const handleDecision = async (
+    decision: 'Approved' | 'Rejected'
+  ) => {
     if (!currentUser || !selectedReq) return;
-    const updated = { status: decision, approverName: currentUser.name, approvedOrRejectedAt: new Date().toISOString(), remarks };
-    setPatientRequests((prev) => prev.map((r) => r.id === selectedReq.id ? { ...r, ...updated } : r));
-    updatePatientRequest(selectedReq.id, updated).catch(() => {});
 
-    if (decision === 'Approved' && selectedReq.requestType === 'Update') {
-      editPatient(selectedReq.patientId, selectedReq.requestedChanges as Record<string, any>);
-      updatePatient(selectedReq.patientId, selectedReq.requestedChanges as Record<string, any>).catch(() => {});
+    const updated = {
+      status: decision,
+      approverName: currentUser.name,
+      approvedOrRejectedAt: new Date().toISOString(),
+      remarks,
+    };
+
+    setPatientRequests((prev) =>
+      prev.map((r) =>
+        r.id === selectedReq.id
+          ? { ...r, ...updated }
+          : r
+      )
+    );
+
+    updatePatientRequest(
+      selectedReq.id,
+      updated
+    ).catch(() => { });
+
+    if (
+      decision === 'Approved' &&
+      selectedReq.requestType === 'Update'
+    ) {
+      editPatient(
+        selectedReq.patientId,
+        selectedReq.requestedChanges as Record<string, any>
+      );
+
+      updatePatient(
+        selectedReq.patientId,
+        selectedReq.requestedChanges as Record<string, any>
+      ).catch(() => { });
     }
 
     addAuditLog({
-      userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
-      action: `PATIENT_REQUEST_${decision.toUpperCase()}`, target: `patient_requests/${selectedReq.id}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      action: `PATIENT_REQUEST_${decision.toUpperCase()}`,
+      target: `patient_requests/${selectedReq.id}`,
       details: `${decision} ${selectedReq.requestType} request for ${selectedReq.patientName} (${selectedReq.mrn})`,
       timestamp: new Date().toISOString(),
     });
 
-    toast.success(`Request ${decision.toLowerCase()} for ${selectedReq.patientName}`);
-    setSelectedReq(null); setRemarks('');
+    toast.success(
+      `Request ${decision.toLowerCase()} for ${selectedReq.patientName}`
+    );
+
+    setSelectedReq(null);
+    setRemarks('');
   };
 
-  const deleteRequest = async (req: PatientRequest) => {
+  const deleteRequest = async (
+    req: PatientRequest
+  ) => {
     if (!currentUser) return;
-    if (!confirm(`Delete this ${req.requestType} request for ${req.patientName}?`)) return;
-    setPatientRequests((prev) => prev.filter((r) => r.id !== req.id));
+
+    if (
+      !confirm(
+        `Delete this ${req.requestType} request for ${req.patientName}?`
+      )
+    ) {
+      return;
+    }
+
+    setPatientRequests((prev) =>
+      prev.filter((r) => r.id !== req.id)
+    );
+
     addAuditLog({
-      userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
-      action: 'PATIENT_REQUEST_DELETED', target: `patient_requests/${req.id}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      action: 'PATIENT_REQUEST_DELETED',
+      target: `patient_requests/${req.id}`,
       details: `Deleted ${req.requestType} request for ${req.patientName}`,
       timestamp: new Date().toISOString(),
     });
+
     toast.success('Request deleted');
   };
 
   const getRequestTypeBadge = (type: string) => {
     switch (type) {
       case 'Update':
-        return <span className="badge-info text-[10px]">Update Profile</span>;
+        return (
+          <span className="badge-info">
+            Update Profile
+          </span>
+        );
+
       case 'Archive':
-        return <span className="badge-warning text-[10px]">Archive Record</span>;
+        return (
+          <span className="badge-warning">
+            Archive Record
+          </span>
+        );
+
       case 'Transfer':
-        return <span className="badge-primary text-[10px]">Transfer Request</span>;
+        return (
+          <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+            Transfer Request
+          </span>
+        );
+
       case 'DICOM_COPY':
-        return <span className="badge-neutral text-[10px]">DICOM Copy</span>;
+        return (
+          <span className="badge-neutral">
+            DICOM Copy
+          </span>
+        );
+
       case 'REPORT_COPY':
-        return <span className="badge-secondary text-[10px]">Report Copy</span>;
+        return (
+          <span className="badge-neutral">
+            Report Copy
+          </span>
+        );
+
       default:
-        return <span className="badge-neutral text-[10px]">{type}</span>;
+        return (
+          <span className="badge-neutral">
+            {type}
+          </span>
+        );
     }
   };
 
   return (
     <div className="space-y-6">
+
+      {/* =====================================================
+          PAGE HEADER
+          ===================================================== */}
+
       <div>
-        <h1 className="page-title">Patient Record &amp; Transfer Requests</h1>
-        <p className="page-subtitle">Administrative approval queue for patient transfer, record archiving, and demographic update requests.</p>
+        <h1 className="page-title">
+          Patient Record &amp; Transfer Requests
+        </h1>
+
+        <p className="page-subtitle">
+          Administrative approval queue for patient transfer,
+          record archiving, and demographic update requests.
+        </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-          <input type="text" placeholder="Search by patient, MRN, requester..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-field pl-10" />
+
+      {/* =====================================================
+          TABLE TOOLBAR
+          ===================================================== */}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:w-72">
+          <Search
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500"
+            aria-hidden="true"
+          />
+
+          <input
+            type="text"
+            placeholder="Search by patient, MRN, requester..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search patient requests"
+            className="input-field pl-10"
+          />
         </div>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="select-field w-auto">
+
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          aria-label="Filter request status"
+          className="select-field w-full sm:w-40"
+        >
           <option value="all">All Statuses</option>
           <option value="Pending">Pending</option>
           <option value="Approved">Approved</option>
@@ -95,81 +238,367 @@ export default function PatientRequestsReview() {
         </select>
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-surface-200">
-              <th className="table-header">Patient</th>
-              <th className="table-header">MRN</th>
-              <th className="table-header">Request Type</th>
-              <th className="table-header">Requested By</th>
-              <th className="table-header">Date Submitted</th>
-              <th className="table-header">Status</th>
-              <th className="table-header text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-surface-200">
-            {filtered.map((req) => (
-              <tr key={req.id} className="hover:bg-surface-100 transition-colors">
-                <td className="table-cell font-medium text-surface-800">{req.patientName}</td>
-                <td className="table-cell font-mono text-xs text-navy-600">{req.mrn}</td>
-                <td className="table-cell">{getRequestTypeBadge(req.requestType)}</td>
-                <td className="table-cell text-xs text-surface-600">
-                  <span className="font-medium text-surface-800">{req.requestedBy}</span>
-                  {req.requestedByRole && <span className="text-surface-400 block text-[10px]">{req.requestedByRole}</span>}
-                </td>
-                <td className="table-cell text-xs text-surface-500">{new Date(req.dateSubmitted).toLocaleString()}</td>
-                <td className="table-cell"><StatusBadge status={req.status} /></td>
-                <td className="table-cell text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {req.status === 'Pending' && (
-                      <>
-                        <button onClick={() => { setSelectedReq(req); setRemarks(''); }} className="p-1.5 text-surface-400 hover:text-navy-600 hover:bg-navy-50 rounded transition-colors" title="Review Request Details"><Eye className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => { setSelectedReq(req); setRemarks(''); handleDecision('Approved'); }} className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors" title="Quick Approve"><CheckCircle className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => { setSelectedReq(req); setRemarks(''); handleDecision('Rejected'); }} className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors" title="Quick Reject"><XCircle className="w-3.5 h-3.5" /></button>
-                      </>
-                    )}
-                    <button onClick={() => deleteRequest(req)} className="p-1.5 text-surface-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete Request"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && <div className="text-center py-10 text-surface-400 text-sm">No requests found.</div>}
-      </div>
 
-      {/* Review Modal */}
-      <Modal isOpen={!!selectedReq && !['Approved', 'Rejected'].includes(selectedReq?.status || '')} onClose={() => setSelectedReq(null)} title="Review Patient Request">
-        {selectedReq && selectedReq.status === 'Pending' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-surface-500 text-xs">Patient</span><p className="text-surface-800 font-medium">{selectedReq.patientName}</p></div>
-              <div><span className="text-surface-500 text-xs">MRN</span><p className="text-surface-800 font-mono">{selectedReq.mrn}</p></div>
-              <div><span className="text-surface-500 text-xs">Request Type</span><p className="text-surface-800">{selectedReq.requestType}</p></div>
-              <div><span className="text-surface-500 text-xs">Requested By</span><p className="text-surface-800">{selectedReq.requestedBy} ({selectedReq.requestedByRole})</p></div>
-            </div>
-            <div className="p-3 bg-surface-100 rounded-lg border border-surface-200">
-              <p className="text-xs text-surface-500 mb-1">Reason</p>
-              <p className="text-sm text-surface-700">{selectedReq.reason}</p>
-            </div>
-            {Object.keys(selectedReq.requestedChanges).length > 0 && (
-              <div className="p-3 bg-surface-100 rounded-lg border border-surface-200">
-                <p className="text-xs text-surface-500 mb-1">Proposed Changes</p>
-                <pre className="text-xs text-navy-600 font-mono whitespace-pre-wrap">{JSON.stringify(selectedReq.requestedChanges, null, 2)}</pre>
-              </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Review Remarks</label>
-              <textarea rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="input-field resize-none text-sm" placeholder="Optional remarks for the requester..." />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => handleDecision('Rejected')} className="btn-danger text-sm flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Reject</button>
-              <button onClick={() => handleDecision('Approved')} className="btn-success text-sm flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Approve</button>
-            </div>
+      {/* =====================================================
+          REQUEST TABLE
+          ===================================================== */}
+
+      <div className="card overflow-hidden p-0">
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px]">
+
+            <thead>
+              <tr>
+                <th className="table-header">
+                  Patient
+                </th>
+
+                <th className="table-header">
+                  MRN
+                </th>
+
+                <th className="table-header">
+                  Request Type
+                </th>
+
+                <th className="table-header">
+                  Requested By
+                </th>
+
+                <th className="table-header">
+                  Date Submitted
+                </th>
+
+                <th className="table-header">
+                  Status
+                </th>
+
+                <th className="table-header text-right">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-surface-200">
+
+              {filtered.map((req) => (
+                <tr
+                  key={req.id}
+                  className="transition-colors hover:bg-surface-100/70"
+                >
+
+                  {/* Patient */}
+                  <td className="table-cell">
+                    <span className="font-medium text-surface-900">
+                      {req.patientName}
+                    </span>
+                  </td>
+
+
+                  {/* MRN */}
+                  <td className="table-cell">
+                    <span className="font-mono text-[13px] font-normal text-surface-500">
+                      {req.mrn}
+                    </span>
+                  </td>
+
+
+                  {/* Request Type */}
+                  <td className="table-cell">
+                    {getRequestTypeBadge(
+                      req.requestType
+                    )}
+                  </td>
+
+
+                  {/* Requested By */}
+                  <td className="table-cell">
+                    <div>
+                      <span className="block font-medium text-surface-800">
+                        {req.requestedBy}
+                      </span>
+
+                      {req.requestedByRole && (
+                        <span className="mt-0.5 block text-[12px] leading-4 text-surface-500">
+                          {req.requestedByRole}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+
+                  {/* Date */}
+                  <td className="table-cell">
+                    <span className="text-[13px] text-surface-600">
+                      {new Date(
+                        req.dateSubmitted
+                      ).toLocaleString()}
+                    </span>
+                  </td>
+
+
+                  {/* Status */}
+                  <td className="table-cell">
+                    <StatusBadge
+                      status={req.status}
+                    />
+                  </td>
+
+
+                  {/* Actions */}
+                  <td className="table-cell text-right">
+
+                    <div className="flex items-center justify-end gap-1">
+
+                      {/* Review */}
+                      {req.status === 'Pending' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedReq(req);
+                            setRemarks('');
+                          }}
+                          title="Review Request Details"
+                          aria-label="Review request details"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-500 transition-colors hover:bg-surface-100 hover:text-navy-700"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      )}
+
+
+                      {/* Approve */}
+                      {req.status === 'Pending' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedReq(req);
+                            setRemarks('');
+                            handleDecision('Approved');
+                          }}
+                          title="Approve Request"
+                          aria-label="Approve request"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </button>
+                      )}
+
+
+                      {/* Reject */}
+                      {req.status === 'Pending' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedReq(req);
+                            setRemarks('');
+                            handleDecision('Rejected');
+                          }}
+                          title="Reject Request"
+                          aria-label="Reject request"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      )}
+
+
+                      {/* Delete */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteRequest(req)
+                        }
+                        title="Delete Request"
+                        aria-label="Delete request"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+
+                    </div>
+
+                  </td>
+
+                </tr>
+              ))}
+
+            </tbody>
+
+          </table>
+        </div>
+
+
+        {/* Empty State */}
+        {filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+
+            <p className="text-[14px] font-medium text-surface-800">
+              No requests found
+            </p>
+
+            <p className="mt-1 text-[12px] text-surface-500">
+              Try adjusting your search or status filter.
+            </p>
+
           </div>
         )}
+
+      </div>
+
+
+      {/* =====================================================
+          REVIEW MODAL
+          ===================================================== */}
+
+      <Modal
+        isOpen={
+          !!selectedReq &&
+          !['Approved', 'Rejected'].includes(
+            selectedReq?.status || ''
+          )
+        }
+        onClose={() =>
+          setSelectedReq(null)
+        }
+        title="Review Patient Request"
+      >
+
+        {selectedReq &&
+          selectedReq.status === 'Pending' && (
+            <div className="space-y-4">
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+
+                <div>
+                  <span className="text-xs text-surface-500">
+                    Patient
+                  </span>
+
+                  <p className="font-medium text-surface-800">
+                    {selectedReq.patientName}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-xs text-surface-500">
+                    MRN
+                  </span>
+
+                  <p className="font-mono text-surface-800">
+                    {selectedReq.mrn}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-xs text-surface-500">
+                    Request Type
+                  </span>
+
+                  <p className="text-surface-800">
+                    {selectedReq.requestType}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-xs text-surface-500">
+                    Requested By
+                  </span>
+
+                  <p className="text-surface-800">
+                    {selectedReq.requestedBy}{' '}
+                    ({selectedReq.requestedByRole})
+                  </p>
+                </div>
+
+              </div>
+
+
+              <div className="rounded-lg border border-surface-200 bg-surface-100 p-3">
+
+                <p className="mb-1 text-xs text-surface-500">
+                  Reason
+                </p>
+
+                <p className="text-sm text-surface-700">
+                  {selectedReq.reason}
+                </p>
+
+              </div>
+
+
+              {Object.keys(
+                selectedReq.requestedChanges
+              ).length > 0 && (
+                  <div className="rounded-lg border border-surface-200 bg-surface-100 p-3">
+
+                    <p className="mb-1 text-xs text-surface-500">
+                      Proposed Changes
+                    </p>
+
+                    <pre className="whitespace-pre-wrap font-mono text-xs text-navy-600">
+                      {JSON.stringify(
+                        selectedReq.requestedChanges,
+                        null,
+                        2
+                      )}
+                    </pre>
+
+                  </div>
+                )}
+
+
+              <div>
+
+                <label className="mb-1 block text-sm font-medium text-surface-700">
+                  Review Remarks
+                </label>
+
+                <textarea
+                  rows={2}
+                  value={remarks}
+                  onChange={(e) =>
+                    setRemarks(e.target.value)
+                  }
+                  className="input-field resize-none text-sm"
+                  placeholder="Optional remarks for the requester..."
+                />
+
+              </div>
+
+
+              <div className="flex justify-end gap-2 pt-2">
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleDecision('Rejected')
+                  }
+                  className="btn-danger"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Reject
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleDecision('Approved')
+                  }
+                  className="btn-success"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Approve
+                </button>
+
+              </div>
+
+            </div>
+          )}
+
       </Modal>
+
     </div>
   );
 }

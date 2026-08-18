@@ -21,13 +21,19 @@ import {
   mockUsers, mockClinics, mockPatients, mockCases, mockReports,
   mockPatientRequests, mockMobilePacsVans,
 } from '../services/mockData';
-import type { User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, MobilePacsVan, Comment } from '../types';
+import { mockEquipmentCatalog, mockInitialQuotations } from '../services/mockMarketplaceData';
+import { useAuth } from './AuthContext';
+import type {
+  User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, MobilePacsVan, Comment,
+  EquipmentItem, QuotationRequest, QuotationItem, MarketplaceCartItem, QuotationNegotiationMessage,
+  RfqDraftItem, EquipmentAvailability,
+} from '../types';
 
 // --- LocalStorage Persistence Layer ---
 const STORAGE_KEY = 'healthgrid_data';
 // Bump this version whenever seed data changes (e.g. new demo images or system roles).
 // Any cached data from a previous version will be discarded and reloaded from mock.
-const STORAGE_VERSION = '9'; // v9: Super Admin role & Theta Edge Berhad account
+const STORAGE_VERSION = '11'; // v11: Equipment Marketplace Phase 1 Catalogue & user-scoped RFQ draft
 const USE_DEMO_STORAGE = isDemoMode();
 
 interface PersistedData {
@@ -70,6 +76,50 @@ function saveComments(comments: CaseComment[]) {
   try { localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments)); } catch {}
 }
 
+// --- Equipment Marketplace LocalStorage ---
+const MARKETPLACE_CATALOG_KEY = 'healthgrid_equipment_catalog';
+const QUOTATIONS_KEY = 'healthgrid_quotations';
+const CART_KEY = 'healthgrid_marketplace_cart';
+
+function loadMarketplaceCatalog(): EquipmentItem[] {
+  try {
+    const raw = localStorage.getItem(MARKETPLACE_CATALOG_KEY);
+    return raw ? JSON.parse(raw) : mockEquipmentCatalog;
+  } catch {
+    return mockEquipmentCatalog;
+  }
+}
+
+function saveMarketplaceCatalog(catalog: EquipmentItem[]) {
+  try { localStorage.setItem(MARKETPLACE_CATALOG_KEY, JSON.stringify(catalog)); } catch {}
+}
+
+function loadQuotations(): QuotationRequest[] {
+  try {
+    const raw = localStorage.getItem(QUOTATIONS_KEY);
+    return raw ? JSON.parse(raw) : mockInitialQuotations;
+  } catch {
+    return mockInitialQuotations;
+  }
+}
+
+function saveQuotations(quotes: QuotationRequest[]) {
+  try { localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(quotes)); } catch {}
+}
+
+function loadCart(): MarketplaceCartItem[] {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCart(cart: MarketplaceCartItem[]) {
+  try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch {}
+}
+
 // --- Recently Viewed ---
 export interface RecentItem { id: string; type: 'case' | 'patient' | 'report'; title: string; subtitle?: string; path: string; viewedAt: string; }
 const RECENT_KEY = 'healthgrid_recent';
@@ -102,6 +152,56 @@ interface DataContextValue {
   comments: CaseComment[];
   recentItems: RecentItem[];
   trash: TrashItem[];
+
+  // Marketplace State & Methods
+  equipmentCatalog: EquipmentItem[];
+  quotationRequests: QuotationRequest[];
+  marketplaceCart: MarketplaceCartItem[];
+  rfqDraft: RfqDraftItem[];
+  addToRfqDraft: (item: Omit<RfqDraftItem, 'id'>) => void;
+  updateRfqDraftItem: (id: string, updates: Partial<RfqDraftItem>) => void;
+  removeFromRfqDraft: (id: string) => void;
+  clearRfqDraft: () => void;
+  updateEquipmentAvailability: (equipmentId: string, availability: EquipmentAvailability) => void;
+  addToCart: (item: Omit<MarketplaceCartItem, 'id'>) => void;
+  updateCartItem: (id: string, updates: Partial<MarketplaceCartItem>) => void;
+  removeFromCart: (id: string) => void;
+  clearCart: () => void;
+  submitQuotationRequest: (
+    rfqData: Omit<QuotationRequest, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'negotiationHistory'>
+  ) => Promise<QuotationRequest>;
+  issueAdminQuotation: (
+    quotationId: string,
+    pricingData: {
+      validUntil?: string;
+      items: QuotationItem[];
+      subtotalAmount: number;
+      discountAmount: number;
+      sstTaxAmount: number;
+      totalAmount: number;
+      paymentTerms?: string;
+      warrantyTerms?: string;
+      deliveryLeadTimeWeeks?: number;
+      adminRemarks?: string;
+      reviewedByAdminId: string;
+      reviewedByAdminName: string;
+      initialMessage?: string;
+    }
+  ) => Promise<void>;
+  submitQuotationNegotiation: (
+    quotationId: string,
+    message: string,
+    requestedDiscountPercent?: number,
+    senderUser?: { id: string; name: string; role: string }
+  ) => Promise<void>;
+  respondToQuotation: (
+    quotationId: string,
+    decision: 'ACCEPTED' | 'DECLINED',
+    remarks?: string
+  ) => Promise<void>;
+  addCustomEquipmentRequest: (
+    customItem: Omit<MarketplaceCartItem, 'id' | 'isCustom'>
+  ) => void;
 
   addCase: (c: Omit<Case, 'id'>) => Promise<Case>;
   editCase: (id: string, updates: Partial<Case>) => Promise<void>;
@@ -152,6 +252,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [comments, setComments] = useState<CaseComment[]>([]);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [trash, setTrash] = useState<TrashItem[]>([]);
+
+  // Marketplace State
+  const { currentUser } = useAuth();
+  const [equipmentCatalog, setEquipmentCatalog] = useState<EquipmentItem[]>(() => loadMarketplaceCatalog());
+  const [quotationRequests, setQuotationRequests] = useState<QuotationRequest[]>(() => loadQuotations());
+  const [marketplaceCart, setMarketplaceCart] = useState<MarketplaceCartItem[]>(() => loadCart());
+
+  // Scoped RFQ Draft storage per authenticated Healthcare Center Admin / User
+  const getRfqDraftStorageKey = useCallback((user: User | null) => {
+    if (!user) return 'healthgrid_rfq_draft_guest';
+    const scopeId = user.deploymentLocationId || user.id;
+    return `healthgrid_rfq_draft_${scopeId}`;
+  }, []);
+
+  const loadScopedRfqDraft = useCallback((user: User | null): RfqDraftItem[] => {
+    try {
+      const raw = localStorage.getItem(getRfqDraftStorageKey(user));
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }, [getRfqDraftStorageKey]);
+
+  const saveScopedRfqDraft = useCallback((draft: RfqDraftItem[], user: User | null) => {
+    try {
+      localStorage.setItem(getRfqDraftStorageKey(user), JSON.stringify(draft));
+    } catch {}
+  }, [getRfqDraftStorageKey]);
+
+  const [rfqDraft, setRfqDraft] = useState<RfqDraftItem[]>(() => loadScopedRfqDraft(currentUser));
+
+  useEffect(() => {
+    setRfqDraft(loadScopedRfqDraft(currentUser));
+  }, [currentUser?.id, currentUser?.deploymentLocationId, loadScopedRfqDraft]);
+
   const initialized = useRef(false);
 
   // Helper to merge live items with current state by ID
@@ -693,10 +828,241 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addClinicLocally = (clinic: Clinic) =>
     setClinics((prev) => [...prev.filter((c) => c.id !== clinic.id), clinic]);
 
+  // ---------------------------------------------------------------------------
+  // Equipment Marketplace Handlers (Phase 1 RFQ Draft & Availability)
+  // ---------------------------------------------------------------------------
+  const addToRfqDraft = (item: Omit<RfqDraftItem, 'id'>) => {
+    setRfqDraft((prev) => {
+      const existingIndex = prev.findIndex(
+        (d) => d.equipmentId === item.equipmentId && d.procurementMode === item.procurementMode
+      );
+      let next: RfqDraftItem[];
+      if (existingIndex >= 0) {
+        next = [...prev];
+        next[existingIndex] = {
+          ...next[existingIndex],
+          quantity: next[existingIndex].quantity + (item.quantity || 1),
+          rentalDurationMonths: item.rentalDurationMonths || next[existingIndex].rentalDurationMonths,
+        };
+      } else {
+        const newItem: RfqDraftItem = {
+          id: `draft-item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          ...item,
+        };
+        next = [...prev, newItem];
+      }
+      saveScopedRfqDraft(next, currentUser);
+      return next;
+    });
+  };
+
+  const updateRfqDraftItem = (id: string, updates: Partial<RfqDraftItem>) => {
+    setRfqDraft((prev) => {
+      const next = prev.map((item) => (item.id === id ? { ...item, ...updates } : item));
+      saveScopedRfqDraft(next, currentUser);
+      return next;
+    });
+  };
+
+  const removeFromRfqDraft = (id: string) => {
+    setRfqDraft((prev) => {
+      const next = prev.filter((item) => item.id !== id);
+      saveScopedRfqDraft(next, currentUser);
+      return next;
+    });
+  };
+
+  const clearRfqDraft = () => {
+    setRfqDraft([]);
+    saveScopedRfqDraft([], currentUser);
+  };
+
+  const updateEquipmentAvailability = (equipmentId: string, availability: EquipmentAvailability) => {
+    setEquipmentCatalog((prev) => {
+      const next = prev.map((eq) => (eq.id === equipmentId ? { ...eq, availability } : eq));
+      saveMarketplaceCatalog(next);
+      return next;
+    });
+  };
+
+  const addToCart = (item: Omit<MarketplaceCartItem, 'id'>) => {
+    addToRfqDraft({
+      equipmentId: item.equipmentId || '',
+      itemName: item.itemName,
+      modelNumber: item.modelNumber || '',
+      category: item.category,
+      subcategory: item.subcategory || '',
+      manufacturer: item.manufacturer || '',
+      quantity: item.quantity,
+      procurementMode: item.procurementMode || 'PURCHASE',
+      rentalDurationMonths: item.rentalDurationMonths,
+    });
+  };
+
+  const updateCartItem = (id: string, updates: Partial<MarketplaceCartItem>) => {
+    updateRfqDraftItem(id, updates);
+  };
+
+  const removeFromCart = (id: string) => {
+    removeFromRfqDraft(id);
+  };
+
+  const clearCart = () => {
+    clearRfqDraft();
+  };
+
+  const addCustomEquipmentRequest = (customItem: Omit<MarketplaceCartItem, 'id' | 'isCustom'>) => {
+    addToCart({
+      ...customItem,
+      isCustom: true,
+    });
+  };
+
+  const submitQuotationRequest = async (
+    rfqData: Omit<QuotationRequest, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'negotiationHistory'>
+  ): Promise<QuotationRequest> => {
+    const rfqCount = quotationRequests.length + 1;
+    const newRfqId = `RFQ-2026-${String(rfqCount).padStart(4, '0')}`;
+    const now = new Date().toISOString();
+
+    const newQuotation: QuotationRequest = {
+      ...rfqData,
+      id: newRfqId,
+      status: 'SUBMITTED',
+      createdAt: now,
+      updatedAt: now,
+      negotiationHistory: [],
+    };
+
+    setQuotationRequests((prev) => {
+      const next = [newQuotation, ...prev];
+      saveQuotations(next);
+      return next;
+    });
+
+    clearCart();
+    return newQuotation;
+  };
+
+  const issueAdminQuotation = async (
+    quotationId: string,
+    pricingData: {
+      validUntil?: string;
+      items: QuotationItem[];
+      subtotalAmount: number;
+      discountAmount: number;
+      sstTaxAmount: number;
+      totalAmount: number;
+      paymentTerms?: string;
+      warrantyTerms?: string;
+      deliveryLeadTimeWeeks?: number;
+      adminRemarks?: string;
+      reviewedByAdminId: string;
+      reviewedByAdminName: string;
+      initialMessage?: string;
+    }
+  ): Promise<void> => {
+    const now = new Date().toISOString();
+    setQuotationRequests((prev) => {
+      const next = prev.map((q) => {
+        if (q.id !== quotationId) return q;
+        const quoNumber = q.quotationNumber || `QUO-2026-${String(Math.floor(1000 + Math.random() * 9000))}`;
+        const updatedHistory = [...q.negotiationHistory];
+        if (pricingData.initialMessage) {
+          updatedHistory.push({
+            id: `neg-${Date.now()}`,
+            senderId: pricingData.reviewedByAdminId,
+            senderName: pricingData.reviewedByAdminName,
+            senderRole: 'Super Admin',
+            timestamp: now,
+            message: pricingData.initialMessage,
+            adminRevisedDiscountPercent:
+              pricingData.discountAmount > 0
+                ? Math.round((pricingData.discountAmount / pricingData.subtotalAmount) * 100)
+                : 0,
+          });
+        }
+        return {
+          ...q,
+          quotationNumber: quoNumber,
+          ...pricingData,
+          status: 'QUOTATION_ISSUED' as const,
+          updatedAt: now,
+          negotiationHistory: updatedHistory,
+        };
+      });
+      saveQuotations(next);
+      return next;
+    });
+  };
+
+  const submitQuotationNegotiation = async (
+    quotationId: string,
+    message: string,
+    requestedDiscountPercent?: number,
+    senderUser?: { id: string; name: string; role: string }
+  ): Promise<void> => {
+    const now = new Date().toISOString();
+    setQuotationRequests((prev) => {
+      const next = prev.map((q) => {
+        if (q.id !== quotationId) return q;
+        const isSuperAdmin =
+          senderUser?.role === 'Super Admin' || senderUser?.role === 'Administrator';
+        const newMessage: QuotationNegotiationMessage = {
+          id: `neg-${Date.now()}`,
+          senderId: senderUser?.id || 'u_sender',
+          senderName: senderUser?.name || 'User',
+          senderRole: senderUser?.role || 'User',
+          timestamp: now,
+          message,
+          ...(isSuperAdmin
+            ? { adminRevisedDiscountPercent: requestedDiscountPercent }
+            : { requestedDiscountPercent }),
+        };
+
+        return {
+          ...q,
+          status: isSuperAdmin ? ('QUOTATION_ISSUED' as const) : ('NEGOTIATION_IN_PROGRESS' as const),
+          updatedAt: now,
+          negotiationHistory: [...q.negotiationHistory, newMessage],
+        };
+      });
+      saveQuotations(next);
+      return next;
+    });
+  };
+
+  const respondToQuotation = async (
+    quotationId: string,
+    decision: 'ACCEPTED' | 'DECLINED',
+    remarks?: string
+  ): Promise<void> => {
+    const now = new Date().toISOString();
+    setQuotationRequests((prev) => {
+      const next = prev.map((q) => {
+        if (q.id !== quotationId) return q;
+        return {
+          ...q,
+          status: decision,
+          userDecisionRemarks: remarks,
+          decidedAt: now,
+          updatedAt: now,
+        };
+      });
+      saveQuotations(next);
+      return next;
+    });
+  };
+
   return (
     <DataContext.Provider value={{
       users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment, loading,
       comments, recentItems, trash,
+      equipmentCatalog, quotationRequests, marketplaceCart,
+      rfqDraft, addToRfqDraft, updateRfqDraftItem, removeFromRfqDraft, clearRfqDraft, updateEquipmentAvailability,
+      addToCart, updateCartItem, removeFromCart, clearCart,
+      submitQuotationRequest, issueAdminQuotation, submitQuotationNegotiation,
+      respondToQuotation, addCustomEquipmentRequest,
       addCase, editCase, addPatient, editPatient, addReport, editReport,
       addPatientRequest, editPatientRequest, addAuditLog,
       addComment, getCommentsForCase, addRecentItem,

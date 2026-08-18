@@ -23,7 +23,7 @@ function safeLazy<T extends React.ComponentType<any>>(importFn: () => Promise<{ 
       if (!hasReloaded) {
         sessionStorage.setItem('chunk_reload_retry', 'true');
         window.location.reload();
-        return new Promise<{ default: T }>(() => {});
+        return new Promise<{ default: T }>(() => { });
       }
       sessionStorage.removeItem('chunk_reload_retry');
       throw error;
@@ -52,6 +52,9 @@ const PatientRegistry = safeLazy(() => import('./pages/admin/PatientRegistry'));
 const RecycleBin = safeLazy(() => import('./pages/admin/RecycleBin'));
 const NotFound = safeLazy(() => import('./pages/shared/NotFound'));
 const PatientReportView = safeLazy(() => import('./pages/shared/PatientReportView'));
+const MedicalEquipmentPage = safeLazy(() => import('./pages/marketplace/MedicalEquipmentPage'));
+const NonMedicalEquipmentPage = safeLazy(() => import('./pages/marketplace/NonMedicalEquipmentPage'));
+const MarketplaceCatalogue = safeLazy(() => import('./pages/marketplace/MarketplaceCatalogue'));
 
 // Medical Officer & Shared Operational Pages
 const MoOnboarding = safeLazy(() => import('./pages/mo/Onboarding'));
@@ -151,7 +154,11 @@ function AppRoutes() {
         <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['Administrator']}><AuditLogs /></ProtectedRoute>} />
         <Route path="/tech-stack" element={<ProtectedRoute allowedRoles={['Administrator']}><TechStack /></ProtectedRoute>} />
         <Route path="/recycle-bin" element={<ProtectedRoute allowedRoles={['Administrator']}><RecycleBin /></ProtectedRoute>} />
-        <Route path="/trash" element={<ProtectedRoute allowedRoles={['Administrator']}><RecycleBin /></ProtectedRoute>} />
+        <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><MarketplaceCatalogue /></ProtectedRoute>} />
+        <Route path="/marketplace/medical" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><MedicalEquipmentPage /></ProtectedRoute>} />
+        <Route path="/marketplace/non-medical" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><NonMedicalEquipmentPage /></ProtectedRoute>} />
+        <Route path="/medical-equipment" element={<Navigate to="/marketplace/medical" replace />} />
+        <Route path="/non-medical-equipment" element={<Navigate to="/marketplace/non-medical" replace />} />
       </Route>
 
       {/* Public patient report access — no login required */}

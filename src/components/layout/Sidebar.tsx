@@ -35,6 +35,7 @@ import {
   FileImage,
   ClipboardPenLine,
   ShieldCheck,
+  Stethoscope,
 } from 'lucide-react';
 
 interface NavItem {
@@ -266,8 +267,26 @@ function getNavGroups(
         },
       ];
 
+    case 'Equipment Marketplace':
+      return [
+        {
+          title: t('EQUIPMENT MARKETPLACE', 'PASARAN PERALATAN'),
+          items: [
+            {
+              label: t('Medical Equipment', 'Peralatan Perubatan'),
+              path: '/marketplace/medical',
+              icon: <Stethoscope className="w-[18px] h-[18px]" />,
+            },
+            {
+              label: t('Non-Medical Equipment', 'Peralatan Bukan Perubatan'),
+              path: '/marketplace/non-medical',
+              icon: <Building2 className="w-[18px] h-[18px]" />,
+            },
+          ],
+        },
+      ];
+
     case 'Administrator':
-    case 'Super Admin':
       return [
         {
           title: t(
@@ -285,20 +304,16 @@ function getNavGroups(
                 <House className="w-[18px] h-[18px]" />
               ),
             },
-            ...(role === 'Super Admin' || role === 'Administrator'
-              ? [
-                {
-                  label: t(
-                    'Clinic Management',
-                    'Pengurusan Klinik'
-                  ),
-                  path: '/clinics',
-                  icon: (
-                    <Building2 className="w-[18px] h-[18px]" />
-                  ),
-                },
-              ]
-              : []),
+            {
+              label: t(
+                'Clinic Management',
+                'Pengurusan Klinik'
+              ),
+              path: '/clinics',
+              icon: (
+                <Building2 className="w-[18px] h-[18px]" />
+              ),
+            },
             {
               label: t(
                 'Resource Scheduling',
@@ -349,6 +364,165 @@ function getNavGroups(
                 <Truck className="w-[18px] h-[18px]" />
               ),
               badge: pendingRequests,
+            },
+          ],
+        },
+        {
+          title: t(
+            'SYSTEM',
+            'SISTEM'
+          ),
+          items: [
+            {
+              label: t(
+                'System Reports',
+                'Laporan Sistem'
+              ),
+              path: '/reports',
+              icon: (
+                <FileText className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'User Management',
+                'Pengurusan Pengguna'
+              ),
+              path: '/users',
+              icon: (
+                <UserCheck className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Trash / Recycle Bin',
+                'Tong Sampah / Tong Kitar Semula'
+              ),
+              path: '/recycle-bin',
+              icon: (
+                <Trash2 className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Audit Logs',
+                'Log Audit'
+              ),
+              path: '/audit-logs',
+              icon: (
+                <ScrollText className="w-[18px] h-[18px]" />
+              ),
+            },
+          ],
+        },
+      ];
+
+    case 'Super Admin':
+      return [
+        {
+          title: t(
+            'MANAGEMENT',
+            'PENGURUSAN'
+          ),
+          items: [
+            {
+              label: t(
+                'Dashboard',
+                'Papan Pemuka'
+              ),
+              path: '/dashboard',
+              icon: (
+                <House className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Clinic Management',
+                'Pengurusan Klinik'
+              ),
+              path: '/clinics',
+              icon: (
+                <Building2 className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Resource Scheduling',
+                'Penjadualan Sumber'
+              ),
+              path: '/scheduling',
+              icon: (
+                <Calendar className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'AI Scheduler',
+                'Penjadual AI'
+              ),
+              path: '/ai-scheduler',
+              icon: (
+                <Brain className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Patient Management',
+                'Pengurusan Pesakit'
+              ),
+              path: '/patients',
+              icon: (
+                <Users className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'All Cases Overview',
+                'Gambaran Keseluruhan Kes'
+              ),
+              path: '/cases',
+              icon: (
+                <FolderOpen className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Transfer Requests',
+                'Permohonan Pemindahan'
+              ),
+              path: '/requests',
+              icon: (
+                <Truck className="w-[18px] h-[18px]" />
+              ),
+              badge: pendingRequests,
+            },
+          ],
+        },
+        {
+          title: t(
+            'EQUIPMENT MARKETPLACE',
+            'PASARAN PERALATAN'
+          ),
+          items: [
+            {
+              label: t(
+                'Medical Equipment',
+                'Peralatan Perubatan'
+              ),
+              path: '/marketplace/medical',
+              icon: (
+                <Stethoscope className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Non-Medical Equipment',
+                'Peralatan Bukan Perubatan'
+              ),
+              path: '/marketplace/non-medical',
+              icon: (
+                <Building2 className="w-[18px] h-[18px]" />
+              ),
             },
           ],
         },
