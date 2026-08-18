@@ -1,7 +1,9 @@
 name: Deploy HealthGridIQ
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - healthgridiq-stg-01
 
 jobs:
   deploy:
