@@ -215,6 +215,33 @@ export const mockUsers: User[] = [
     leaveStatus: 'Active',
     deploymentLocationId: 'clinic-001',
   },
+  // ---------------------------------------------------------------------------
+  // Equipment Marketplace Accounts
+  // ---------------------------------------------------------------------------
+  {
+    id: 'marketplace-001',
+    name: 'Farid Zakaria',
+    email: 'marketplace@healthgrid.my',
+    password: 'Password123!',
+    role: 'Equipment Marketplace',
+    status: 'active',
+    createdAt: '2025-05-01T08:00:00Z',
+    shift: 'Day',
+    leaveStatus: 'Active',
+    deploymentLocationId: 'clinic-001',
+  },
+  {
+    id: 'marketplace-002',
+    name: 'Norhayati Ahmad',
+    email: 'procurement@healthgrid.my',
+    password: 'Password123!',
+    role: 'Equipment Marketplace',
+    status: 'active',
+    createdAt: '2025-05-15T08:00:00Z',
+    shift: 'Day',
+    leaveStatus: 'Active',
+    deploymentLocationId: 'clinic-002',
+  },
 ];
 
 export const mockClinics: Clinic[] = [

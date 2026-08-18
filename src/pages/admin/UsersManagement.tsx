@@ -28,6 +28,7 @@ const ROLES: UserRole[] = [
   'Radiologist',
   'Administrator',
   'Super Admin',
+  'Equipment Marketplace',
 ];
 
 type AccountStatusFilter = 'all' | 'active' | 'inactive' | 'deleted';

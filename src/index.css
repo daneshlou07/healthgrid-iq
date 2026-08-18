@@ -52,110 +52,154 @@
 
 @layer components {
 
-  /* === BUTTONS === */
+  /* =========================================================
+     BUTTONS
+     ========================================================= */
+
   .btn-primary {
-    @apply bg-[#0F4C42] hover:bg-[#0B3931] text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/30 text-sm;
+    @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#0F4C42] px-4 text-[14px] font-medium text-white shadow-sm transition-colors duration-150 hover:bg-[#0B3931] focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/20;
   }
 
   .btn-secondary {
-    @apply bg-white hover:bg-surface-100 text-navy-600 font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 border border-surface-300 text-sm;
+    @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-surface-300 bg-white px-4 text-[14px] font-medium text-navy-600 transition-colors duration-150 hover:bg-surface-100 focus:outline-none focus:ring-2 focus:ring-navy-200;
   }
 
   .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
+    @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-red-600 px-4 text-[14px] font-medium text-white transition-colors duration-150 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-200;
   }
 
   .btn-success {
-    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
+    @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-emerald-600 px-4 text-[14px] font-medium text-white transition-colors duration-150 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200;
   }
 
   .btn-ghost {
-    @apply text-navy-600 hover:bg-surface-200 font-medium px-4 py-2 rounded-lg transition-colors duration-150 text-sm;
+    @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-[14px] font-medium text-navy-600 transition-colors duration-150 hover:bg-surface-200 focus:outline-none focus:ring-2 focus:ring-navy-200;
   }
 
-  .btn-success {
-    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors duration-150 text-sm;
-  }
 
-  .btn-ghost {
-    @apply text-navy-600 hover:bg-surface-200 font-medium px-4 py-2 rounded-lg transition-colors duration-150 text-sm;
-  }
+  /* =========================================================
+     CARDS
+     ========================================================= */
 
-  /* === CARDS === */
   .card {
-    @apply bg-white border border-surface-300 rounded-xl p-6 shadow-card;
+    @apply rounded-xl border border-surface-300 bg-white p-6 shadow-card;
   }
 
   .card-hover {
-    @apply card hover:shadow-card-hover hover:border-surface-400 transition-all duration-150;
+    @apply card transition-all duration-150 hover:border-surface-400 hover:shadow-card-hover;
   }
 
-  /* === INPUTS === */
+
+  /* =========================================================
+     INPUTS
+     ========================================================= */
+
   .input-field {
-    @apply w-full bg-white border border-surface-300 rounded-lg px-4 py-2.5 text-surface-900 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-400 transition-all duration-150 text-sm;
+    @apply h-10 w-full rounded-lg border border-surface-300 bg-white px-3.5 text-[14px] font-normal text-surface-900 placeholder:text-surface-500 transition-all duration-150 focus:border-[#0F4C42] focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/15;
   }
 
   .select-field {
-    @apply w-full bg-white border border-surface-300 rounded-lg px-4 py-2.5 text-surface-900 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-400 transition-all duration-150 text-sm;
+    @apply h-10 w-full rounded-lg border border-surface-300 bg-white px-3.5 text-[14px] font-normal text-surface-900 transition-all duration-150 focus:border-[#0F4C42] focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/15;
   }
 
-  /* === BADGES === */
+
+  /* =========================================================
+     BADGES
+     ========================================================= */
+
   .badge {
-    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
+    @apply inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium;
   }
 
   .badge-success {
-    @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200;
+    @apply badge border border-emerald-200 bg-emerald-50 text-emerald-700;
   }
 
   .badge-warning {
-    @apply badge bg-amber-50 text-amber-700 border border-amber-200;
+    @apply badge border border-amber-200 bg-amber-50 text-amber-700;
   }
 
   .badge-info {
-    @apply badge bg-blue-50 text-blue-700 border border-blue-200;
+    @apply badge border border-blue-200 bg-blue-50 text-blue-700;
   }
 
   .badge-error {
-    @apply badge bg-red-50 text-red-700 border border-red-200;
+    @apply badge border border-red-200 bg-red-50 text-red-700;
   }
 
   .badge-neutral {
-    @apply badge bg-surface-100 text-surface-600 border border-surface-300;
+    @apply badge border border-surface-300 bg-surface-100 text-surface-600;
   }
 
   .badge-purple {
-    @apply badge bg-purple-50 text-purple-600 border border-purple-200;
+    @apply badge border border-purple-200 bg-purple-50 text-purple-600;
   }
 
-  /* === TABLE === */
+
+  /* =========================================================
+     TABLE
+     ========================================================= */
+
+  /* Standard table header */
   .table-header {
-    @apply px-4 py-3 text-left text-[11px] font-bold text-surface-600 uppercase tracking-wider bg-surface-100/90;
+    @apply bg-surface-100 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-surface-700;
   }
 
+  /* Standard table cell
+     Used for simpler tables such as Patients */
   .table-cell {
-    @apply px-4 py-3 text-xs font-medium text-surface-900;
+    @apply px-4 py-3.5 text-[14px] font-normal leading-5 text-surface-800;
   }
 
-  /* === PAGE LAYOUT === */
+  /* Dense table cell
+     Used for operational tables with many columns,
+     such as Cases Queue */
+  .table-cell-dense {
+    @apply px-4 py-3 text-[13px] font-normal leading-5 text-surface-800;
+  }
+
+  /* Standard checkbox used inside tables */
+  .table-checkbox {
+    @apply h-4 w-4 cursor-pointer rounded border-surface-300 text-[#0F4C42] focus:ring-2 focus:ring-[#0F4C42]/15;
+  }
+
+  /* Standard table row action */
+  .table-action {
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-surface-300 bg-white px-3 text-[12px] font-medium text-navy-600 transition-colors hover:border-surface-400 hover:bg-surface-100 hover:text-navy-700;
+  }
+
+  /* Pagination buttons */
+  .pagination-button {
+    @apply flex h-8 w-8 items-center justify-center rounded-lg border border-surface-300 bg-white text-surface-600 transition-colors hover:bg-surface-100 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+
+  /* =========================================================
+     PAGE LAYOUT
+     ========================================================= */
+
   .page-title {
-    @apply text-2xl font-bold tracking-tight text-navy-900;
+    @apply text-[28px] font-semibold leading-[1.25] tracking-tight text-navy-900;
   }
 
   .page-subtitle {
-    @apply text-xs text-surface-500 mt-1;
+    @apply mt-1 text-[14px] font-normal leading-5 text-surface-600;
   }
 
   .section-title {
-    @apply text-sm font-bold tracking-tight text-navy-800;
+    @apply text-[20px] font-semibold leading-[1.3] text-navy-900;
   }
 
   .subsection-title {
-    @apply text-xs font-bold uppercase tracking-wider text-surface-500;
+    @apply text-[12px] font-medium leading-4 text-surface-600;
   }
 }
 
-/* === RESPONSIVE === */
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
 @layer utilities {
 
   /* Touch-friendly targets on mobile */
@@ -174,31 +218,47 @@
       @apply min-h-[44px] text-base;
     }
 
+    /* Standard table */
     .table-cell {
-      @apply py-3 px-3 text-xs;
+      @apply px-3 py-3 text-xs;
+    }
+
+    /* Dense table */
+    .table-cell-dense {
+      @apply px-3 py-3 text-xs;
     }
 
     .table-header {
-      @apply py-2.5 px-3 text-[10px];
+      @apply px-3 py-2.5 text-[10px];
     }
   }
 }
 
-/* === MASCOT ANIMATIONS === */
+
+/* =========================================================
+   MASCOT ANIMATIONS
+   ========================================================= */
+
 @keyframes mascotFloat {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-8px);
   }
 }
 
 @keyframes mascotShadow {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.25;
   }
+
   50% {
     transform: scale(0.82);
     opacity: 0.15;
@@ -206,10 +266,13 @@
 }
 
 @keyframes mascotPulseRing {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.3;
   }
+
   50% {
     transform: scale(1.15);
     opacity: 0.6;
@@ -228,97 +291,174 @@
   animation: mascotPulseRing 3.5s ease-in-out infinite;
 }
 
-/* === MASCOT STATE ANIMATIONS === */
+
+/* =========================================================
+   MASCOT STATE ANIMATIONS
+   ========================================================= */
 
 /* Processing — subtle pulse on the body */
+
 @keyframes mascotProcessing {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-  50% { box-shadow: 0 0 12px 4px rgba(16, 185, 129, 0.15); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 12px 4px rgba(16, 185, 129, 0.15);
+  }
 }
+
 .animate-mascot-processing {
   animation: mascotProcessing 1.5s ease-in-out infinite;
 }
 
+
 /* Speaking — eye height oscillation */
+
 @keyframes mascotSpeakingEye {
-  0%, 100% { height: 10px; }
-  30% { height: 6px; }
-  60% { height: 12px; }
+
+  0%,
+  100% {
+    height: 10px;
+  }
+
+  30% {
+    height: 6px;
+  }
+
+  60% {
+    height: 12px;
+  }
 }
+
 .animate-mascot-speaking-eye {
   animation: mascotSpeakingEye 0.8s ease-in-out infinite;
 }
 
+
 /* Urgent — red body shadow pulse */
+
 @keyframes mascotUrgent {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-  50% { box-shadow: 0 0 16px 6px rgba(239, 68, 68, 0.2); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 16px 6px rgba(239, 68, 68, 0.2);
+  }
 }
+
 .animate-mascot-urgent {
   animation: mascotUrgent 1.2s ease-in-out infinite;
 }
 
+
 /* Success — brief green glow */
+
 @keyframes mascotSuccess {
-  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-  30% { box-shadow: 0 0 20px 8px rgba(16, 185, 129, 0.25); }
-  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+
+  30% {
+    box-shadow: 0 0 20px 8px rgba(16, 185, 129, 0.25);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
+
 .animate-mascot-success {
   animation: mascotSuccess 1.5s ease-out forwards;
 }
 
-/* === COPILOT PANEL ANIMATIONS === */
+
+/* =========================================================
+   COPILOT PANEL ANIMATIONS
+   ========================================================= */
 
 @keyframes copilotSlideIn {
   0% {
     opacity: 0;
     transform: translateY(12px) scale(0.96);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
+
 .animate-copilot-slide-in {
   animation: copilotSlideIn 0.2s ease-out;
 }
 
+
 /* Typing indicator dots */
+
 @keyframes copilotDot {
-  0%, 80%, 100% {
+
+  0%,
+  80%,
+  100% {
     opacity: 0.3;
     transform: scale(0.8);
   }
+
   40% {
     opacity: 1;
     transform: scale(1);
   }
 }
-.animate-copilot-dot-1 { animation: copilotDot 1.2s ease-in-out infinite; }
-.animate-copilot-dot-2 { animation: copilotDot 1.2s ease-in-out 0.2s infinite; }
-.animate-copilot-dot-3 { animation: copilotDot 1.2s ease-in-out 0.4s infinite; }
 
-/* === PROACTIVE INSIGHT ANIMATIONS === */
+.animate-copilot-dot-1 {
+  animation: copilotDot 1.2s ease-in-out infinite;
+}
+
+.animate-copilot-dot-2 {
+  animation: copilotDot 1.2s ease-in-out 0.2s infinite;
+}
+
+.animate-copilot-dot-3 {
+  animation: copilotDot 1.2s ease-in-out 0.4s infinite;
+}
+
+
+/* =========================================================
+   PROACTIVE INSIGHT ANIMATIONS
+   ========================================================= */
 
 @keyframes insightSlideIn {
   0% {
     opacity: 0;
     transform: translateX(16px) scale(0.96);
   }
+
   100% {
     opacity: 1;
     transform: translateX(0) scale(1);
   }
 }
+
 .animate-insight-slide-in {
   animation: insightSlideIn 0.25s ease-out;
 }
 
 @keyframes insightProgress {
-  0% { width: 100%; }
-  100% { width: 0%; }
+  0% {
+    width: 100%;
+  }
+
+  100% {
+    width: 0%;
+  }
 }
+
 .animate-insight-progress {
   animation: insightProgress 15s linear forwards;
-}
+}

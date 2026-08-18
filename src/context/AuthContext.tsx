@@ -191,7 +191,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             userId === cleanId ||
             userName === cleanId ||
             ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com') ||
-            ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin')
+            ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin') ||
+            ((cleanId === 'marketplace' || cleanId === 'procurement' || cleanId === 'farid') && u.role === 'Equipment Marketplace')
           );
         }) || null;
       } catch (err) {
@@ -224,7 +225,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           userId === cleanId ||
           userName === cleanId ||
           ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com') ||
-          ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin')
+          ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin') ||
+          ((cleanId === 'marketplace' || cleanId === 'procurement' || cleanId === 'farid') && u.role === 'Equipment Marketplace')
         );
       }) || null;
     }

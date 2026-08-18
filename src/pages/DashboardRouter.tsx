@@ -1,4 +1,5 @@
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import RadiogrDashboard from './radiographer/RadiogrDashboard';
 import RadiologistDashboard from './radiologist/RadiologistDashboard';
@@ -17,6 +18,8 @@ export default function DashboardRouter() {
         return <RadiologistDashboard />;
       case 'Medical Officer':
         return <MoDashboard />;
+      case 'Equipment Marketplace':
+        return <Navigate to="/marketplace" replace />;
       case 'Administrator':
       case 'Super Admin':
         return <AdminDashboard />;

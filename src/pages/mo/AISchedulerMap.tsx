@@ -12,6 +12,8 @@ import {
   getEarliestSlot,
   getAvailableSlots,
   recommendBestRadiographer,
+  slotToDateTimeValue,
+  timeToMinutes,
 } from '../../components/scheduling/RadiograperSelector';
 import RadiograperSelector from '../../components/scheduling/RadiograperSelector';
 import type { Case, Clinic, Patient, RadioScheduleProfile, RouteInfo } from '../../types';
@@ -138,7 +140,7 @@ export default function AISchedulerMap() {
     if (cases.length === 0 && step === 'select-case') {
       drawBulkRoutes();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cases.length, step]);
 
   // Redraw preview routes whenever bulkPreview changes (user checks/unchecks assignments)
@@ -146,7 +148,7 @@ export default function AISchedulerMap() {
     if (showBulkReview && bulkPreview.length > 0) {
       drawBulkPreviewRoutes(bulkPreview);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bulkPreview, showBulkReview]);
 
   const updateMap = useCallback(
@@ -162,8 +164,8 @@ export default function AISchedulerMap() {
         const isRecommended = clinic.id === recommendedClinicId;
         const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
           radius: isSelected ? 12 : 9,
-          fillColor: isSelected ? '#10b981' : isRecommended ? '#34d399' : '#1B2B5B',
-          color: isSelected ? '#065f46' : '#1B2B5B',
+          fillColor: isSelected ? '#0F4C42' : isRecommended ? '#8FBEB2' : '#94A3B8',
+          color: isSelected ? '#0B3931' : '#64748B',
           weight: isSelected ? 3 : 2,
           opacity: 1, fillOpacity: 0.85,
         });
@@ -175,7 +177,7 @@ export default function AISchedulerMap() {
         const patientMarker = L.marker([patient.latitude, patient.longitude], {
           icon: L.divIcon({
             className: '',
-            html: `<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
+            html: `<div style="background:#0F4C42;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(15,76,66,0.28)"></div>`,
             iconSize: [14, 14], iconAnchor: [7, 7],
           }),
         });
@@ -184,7 +186,7 @@ export default function AISchedulerMap() {
       }
 
       if (route && route.polylineCoords.length > 0) {
-        routeLayer.current = L.polyline(route.polylineCoords, { color: '#1B2B5B', weight: 3, opacity: 0.7, dashArray: '6 4' }).addTo(map);
+        routeLayer.current = L.polyline(route.polylineCoords, { color: '#0F4C42', weight: 4, opacity: 0.82 }).addTo(map);
         const bounds = L.latLngBounds(route.polylineCoords.map(([lat, lng]) => [lat, lng]));
         map.fitBounds(bounds, { padding: [50, 50] });
       } else if (patient && patient.latitude && patient.longitude) {
@@ -274,7 +276,12 @@ export default function AISchedulerMap() {
       const bestProfile = profiles.find((p) => p.userId === bestId);
       if (bestProfile) {
         const slot = getEarliestSlot(bestProfile.schedule, bestId, cases, undefined, selectedCase.id);
-        if (slot) setAppointmentTime(`${slot.date}T${slot.startTime}`);
+        if (slot) {
+          const dateTimeValue = slotToDateTimeValue(slot.date, slot.startTime);
+          setAppointmentTime(dateTimeValue || '');
+        } else {
+          setAppointmentTime('');
+        }
       }
     }
     setStep('assign-radiographer');
@@ -285,12 +292,25 @@ export default function AISchedulerMap() {
     const profile = scheduleProfiles.find((p) => p.userId === userId);
     if (profile) {
       const slot = getEarliestSlot(profile.schedule, userId, cases, undefined, selectedCase?.id);
-      if (slot) setAppointmentTime(`${slot.date}T${slot.startTime}`);
+      if (slot) {
+        const dateTimeValue = slotToDateTimeValue(slot.date, slot.startTime);
+        setAppointmentTime(dateTimeValue || '');
+      } else {
+        setAppointmentTime('');
+      }
     }
   };
 
   const handleConfirm = async () => {
     if (!currentUser || !selectedCase || !selectedClinicId || !selectedRadiographerId || !appointmentTime) return;
+
+    // Final safety check: never allow a stale/past appointment to be committed.
+    const appointmentDate = new Date(appointmentTime);
+    if (Number.isNaN(appointmentDate.getTime()) || appointmentDate <= new Date()) {
+      setAppointmentTime('');
+      return;
+    }
+
     setConfirming(true);
     const clinic = clinics.find((c) => c.id === selectedClinicId);
     const profile = scheduleProfiles.find((p) => p.userId === selectedRadiographerId);
@@ -315,10 +335,10 @@ export default function AISchedulerMap() {
   // ─── BULK SCHEDULE (Phase 1: build preview) ──────────────────────────────────
   const handleBulkSchedule = async () => {
     if (!currentUser) return;
-    
+
     // Clear route cache for fresh bulk schedule
     routeCache.clear();
-    
+
     setBulkLoading(true);
     setBulkResult(null);
     setBulkPreview([]);
@@ -393,8 +413,12 @@ export default function AISchedulerMap() {
       const slot = bestProfile ? getEarliestSlot(bestProfile.schedule, bestId, cases, transientAssignedSlots) : null;
       if (!slot) continue;
 
-      const slotCleanTime = slot.startTime.replace(/\s*[AP]M$/i, '').trim();
-      transientAssignedSlots.add(`${bestId}_${slot.date}_${slotCleanTime}`);
+      const slotMinutes = timeToMinutes(slot.startTime);
+      if (slotMinutes === null) continue;
+      transientAssignedSlots.add(`${bestId}_${slot.date}_${slotMinutes}`);
+
+      const scheduledAt = slotToDateTimeValue(slot.date, slot.startTime);
+      if (!scheduledAt) continue;
 
       assignments.push({
         caseId: caseItem.id,
@@ -405,7 +429,7 @@ export default function AISchedulerMap() {
         clinicName: clinic.name,
         radiographerId: bestId,
         radiographerName: bestProfile?.userName || '',
-        scheduledAt: `${slot.date}T${slot.startTime}`,
+        scheduledAt,
         distanceKm: nearest?.distanceKm || 0,
       });
     }
@@ -430,7 +454,7 @@ export default function AISchedulerMap() {
 
     // Only clear if this is the first draw (cache is empty)
     const isFirstDraw = routeCache.size === 0;
-    
+
     if (isFirstDraw) {
       markers.clearLayers();
       if (routeLayer.current) { map.removeLayer(routeLayer.current); routeLayer.current = null; }
@@ -442,7 +466,7 @@ export default function AISchedulerMap() {
       // Place clinic markers
       allClinics.filter((c) => c.status === 'active').forEach((clinic) => {
         const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
-          radius: 9, fillColor: '#1B2B5B', color: '#1B2B5B', weight: 2, opacity: 1, fillOpacity: 0.85,
+          radius: 8, fillColor: '#64748B', color: '#FFFFFF', weight: 2, opacity: 1, fillOpacity: 0.8,
         });
         marker.bindPopup(`<strong>${clinic.name}</strong>`);
         markers.addLayer(marker);
@@ -450,7 +474,7 @@ export default function AISchedulerMap() {
     }
 
     const routesGroup = routesLayer.current!;
-    const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6'];
+    const colors = ['#0F4C42', '#2563EB', '#64748B', '#7C3AED', '#0F766E', '#475569'];
 
     // Track which case IDs should be visible
     const visibleCaseIds = new Set(assignments.filter((a) => !a.excluded).map((a) => a.caseId));
@@ -475,7 +499,7 @@ export default function AISchedulerMap() {
         const patientMarker = L.marker([patLat, patLon], {
           icon: L.divIcon({
             className: '',
-            html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>`,
+            html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(15,23,42,0.28)"></div>`,
             iconSize: [12, 12], iconAnchor: [6, 6],
           }),
         });
@@ -504,12 +528,12 @@ export default function AISchedulerMap() {
         if (!patLat || !patLon) return;
 
         const color = colors[i % colors.length];
-        
+
         // Fetch route asynchronously
         getRoute(patLat, patLon, clinic.latitude, clinic.longitude)
           .then((route) => {
             if (route.polylineCoords.length > 0) {
-              const polyline = L.polyline(route.polylineCoords, { color, weight: 4, opacity: 0.85 });
+              const polyline = L.polyline(route.polylineCoords, { color, weight: 4, opacity: 0.82 });
               routeCache.set(cacheKey, polyline);
               // Only add if still visible (user might have unchecked while loading)
               if (visibleCaseIds.has(a.caseId)) {
@@ -517,7 +541,7 @@ export default function AISchedulerMap() {
               }
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     });
 
@@ -560,7 +584,7 @@ export default function AISchedulerMap() {
         action: 'CASE_SCHEDULED', target: `cases/${assignment.caseId}`,
         details: `Bulk: ${assignment.caseNumber} at ${assignment.clinicName} with ${assignment.radiographerName}`,
         timestamp: new Date().toISOString(),
-      }).catch(() => {});
+      }).catch(() => { });
       addNotification({
         userId: assignment.radiographerId,
         title: 'New Case Assigned',
@@ -581,10 +605,10 @@ export default function AISchedulerMap() {
     setBulkResult({ total: toSchedule.length, success: successCount, failed: failedCount });
     setShowBulkReview(false);
     setBulkPreview([]);
-    
+
     // Clear route cache after bulk confirm
     routeCache.clear();
-    
+
     drawBulkRoutes();
   };
 
@@ -598,24 +622,24 @@ export default function AISchedulerMap() {
     const map = mapInstance.current;
     const markers = markersLayer.current;
     if (!map || !markers) return;
-    
+
     // Clear existing markers and routes
     markers.clearLayers();
-    if (routeLayer.current) { 
-      map.removeLayer(routeLayer.current); 
-      routeLayer.current = null; 
+    if (routeLayer.current) {
+      map.removeLayer(routeLayer.current);
+      routeLayer.current = null;
     }
     if (routesLayer.current) {
       map.removeLayer(routesLayer.current);
       routesLayer.current = null;
     }
 
-    const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6'];
+    const colors = ['#0F4C42', '#2563EB', '#64748B', '#7C3AED', '#0F766E', '#475569'];
 
     // Place clinic markers immediately (sync, no delay)
     allClinics.filter((c) => c.status === 'active').forEach((clinic) => {
       const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
-        radius: 9, fillColor: '#1B2B5B', color: '#1B2B5B', weight: 2, opacity: 1, fillOpacity: 0.85,
+        radius: 8, fillColor: '#64748B', color: '#FFFFFF', weight: 2, opacity: 1, fillOpacity: 0.8,
       });
       marker.bindPopup(`<strong>${clinic.name}</strong>`);
       markers.addLayer(marker);
@@ -649,7 +673,7 @@ export default function AISchedulerMap() {
       const patientMarker = L.marker([patLat, patLon], {
         icon: L.divIcon({
           className: '',
-          html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>`,
+          html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(15,23,42,0.28)"></div>`,
           iconSize: [12, 12], iconAnchor: [6, 6],
         }),
       });
@@ -660,10 +684,10 @@ export default function AISchedulerMap() {
       try {
         const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
         if (route.polylineCoords.length > 0) {
-          const polyline = L.polyline(route.polylineCoords, { 
-            color, 
-            weight: 4, 
-            opacity: 0.85 
+          const polyline = L.polyline(route.polylineCoords, {
+            color,
+            weight: 4,
+            opacity: 0.85
           });
           routesGroup.addLayer(polyline);
           return polyline;
@@ -687,15 +711,15 @@ export default function AISchedulerMap() {
   const selectedClinic = clinics.find((c) => c.id === selectedClinicId);
 
   return (
-    <div className="h-full flex flex-col -m-6">
+    <div className="h-full flex flex-col -m-6 bg-[#F5F8F7]">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-surface-300">
-        <h1 className="text-base font-bold text-navy-800">AI Scheduling Dispatch</h1>
+      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-[#DCE6E3]">
+        <h1 className="text-base font-bold text-[#112A28]">AI Scheduling Dispatch</h1>
         <div className="flex items-center gap-1 text-xs">
           {(['select-case', 'map-routing', 'assign-radiographer', 'confirm'] as Step[]).map((s, i) => (
             <React.Fragment key={s}>
               {i > 0 && <ChevronRight className="w-3 h-3 text-surface-400" />}
-              <span className={`px-2 py-1 rounded-md ${step === s ? 'bg-navy-600 text-white font-medium' : 'text-surface-500'}`}>
+              <span className={`px-2.5 py-1 rounded-full transition-all ${step === s ? 'bg-[#0F4C42] text-white font-semibold shadow-sm' : 'text-surface-500'}`}>
                 {i + 1}. {s === 'select-case' ? 'Case' : s === 'map-routing' ? 'Route' : s === 'assign-radiographer' ? 'Assign' : 'Done'}
               </span>
             </React.Fragment>
@@ -705,25 +729,25 @@ export default function AISchedulerMap() {
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Map */}
-        <div className="hidden lg:block flex-1 relative">
+        <div className="hidden lg:block flex-1 relative bg-[#EAF1EF]">
           <div ref={mapRef} className="h-full w-full" />
           {routeInfo && step !== 'select-case' && !routeLoading && (
-            <div className="absolute top-4 left-4 bg-white border border-surface-300 rounded-xl p-4 shadow-elevated z-[1000] max-w-[240px]">
+            <div className="absolute bottom-5 left-5 bg-white/95 backdrop-blur-sm border border-white rounded-xl p-4 shadow-lg z-[1000] w-[250px]">
               <div className="flex items-center gap-2 mb-2">
-                <Navigation className="w-4 h-4 text-navy-600" />
-                <span className="text-xs font-semibold text-surface-500 uppercase">Route</span>
+                <Navigation className="w-4 h-4 text-[#0F4C42]" />
+                <span className="text-[10px] font-bold tracking-wider text-surface-500 uppercase">Route overview</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><p className="text-[10px] text-surface-500">Distance</p><p className="text-lg font-bold text-navy-800">{routeInfo.distanceKm} <span className="text-xs font-normal">km</span></p></div>
-                <div><p className="text-[10px] text-surface-500">Time</p><p className="text-lg font-bold text-navy-800">{routeInfo.durationMinutes} <span className="text-xs font-normal">min</span></p></div>
+                <div><p className="text-[10px] text-surface-500">Distance</p><p className="text-lg font-bold text-[#112A28]">{routeInfo.distanceKm} <span className="text-xs font-normal">km</span></p></div>
+                <div><p className="text-[10px] text-surface-500">Time</p><p className="text-lg font-bold text-[#112A28]">{routeInfo.durationMinutes} <span className="text-xs font-normal">min</span></p></div>
               </div>
               {selectedClinic && <p className="text-xs text-surface-600 mt-2 pt-2 border-t border-surface-200">{selectedClinic.name}</p>}
             </div>
           )}
           {routeLoading && (
-            <div className="absolute top-4 left-4 bg-white border border-surface-300 rounded-xl px-4 py-3 shadow-elevated z-[1000]">
+            <div className="absolute top-5 left-5 bg-white/95 backdrop-blur-sm border border-white rounded-xl px-4 py-3 shadow-lg z-[1000]">
               <div className="flex items-center gap-2 text-surface-600 text-sm">
-                <div className="w-4 h-4 border-2 border-navy-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[#0F4C42] border-t-transparent rounded-full animate-spin" />
                 Calculating route...
               </div>
             </div>
@@ -731,20 +755,20 @@ export default function AISchedulerMap() {
         </div>
 
         {/* Side Panel */}
-        <div className="w-full lg:w-[370px] bg-white border-l border-surface-300 overflow-y-auto">
-          <div className="p-4 lg:p-5 space-y-4">
+        <div className="w-full lg:w-[420px] bg-white border-l border-[#DCE6E3] overflow-y-auto">
+          <div className="p-5 lg:p-6 space-y-5">
             {step === 'select-case' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-navy-600" />
-                    <h2 className="text-sm font-semibold text-navy-800">Select Case</h2>
+                    <Zap className="w-4 h-4 text-[#0F4C42]" />
+                    <h2 className="text-sm font-semibold text-[#112A28]">Select Case</h2>
                   </div>
                   {cases.length > 1 && (
                     <button
                       onClick={handleBulkSchedule}
                       disabled={bulkLoading}
-                      className="text-xs text-navy-600 hover:text-navy-800 font-medium bg-navy-50 hover:bg-navy-100 px-2.5 py-1.5 rounded-lg border border-navy-200 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      className="text-xs text-[#0F4C42] hover:text-[#112A28] font-medium bg-[#F1F8F6] hover:bg-[#E4F2EE] px-2.5 py-1.5 rounded-lg border border-[#BFD8D1] transition-colors disabled:opacity-50 flex items-center gap-1.5"
                     >
                       {bulkLoading
                         ? <><Loader2 className="w-3 h-3 animate-spin" /> Processing...</>
@@ -756,17 +780,17 @@ export default function AISchedulerMap() {
 
                 {/* ── Bulk progress bar ── */}
                 {bulkProgress && (
-                  <div className="p-3 bg-navy-50 border border-navy-200 rounded-lg space-y-2">
+                  <div className="p-3 bg-[#F1F8F6] border border-[#BFD8D1] rounded-lg space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-navy-700 font-medium flex items-center gap-1.5">
-                        <Loader2 className="w-3 h-3 animate-spin text-navy-500" />
+                      <span className="text-[#16433B] font-medium flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin text-[#397267]" />
                         {bulkProgress.phase}
                       </span>
-                      <span className="text-navy-500 tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
+                      <span className="text-[#397267] tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
                     </div>
-                    <div className="h-1.5 bg-navy-200 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-[#D4E8E2] rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-navy-600 rounded-full transition-all duration-200"
+                        className="h-full bg-[#0F4C42] rounded-full transition-all duration-200"
                         style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%` }}
                       />
                     </div>
@@ -784,18 +808,18 @@ export default function AISchedulerMap() {
                 {/* Bulk Review Panel */}
                 {showBulkReview && bulkPreview.length > 0 && (
                   <div className="space-y-2">
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs font-medium text-blue-800">
+                    <div className="p-3 bg-[#F4F8FB] border border-[#D7E4EE] rounded-xl">
+                      <p className="text-xs font-medium text-[#31566D]">
                         Review Assignments ({bulkPreview.filter((a) => !a.excluded).length} of {bulkPreview.length})
                       </p>
-                      <p className="text-[10px] text-blue-600 mt-0.5">Uncheck cases you don't want to schedule, then confirm.</p>
+                      <p className="text-[10px] text-[#5B7C90] mt-0.5">Uncheck cases you don't want to schedule, then confirm.</p>
                     </div>
                     <div className="max-h-[300px] overflow-y-auto space-y-1.5">
                       {bulkPreview.map((a) => (
-                        <div key={a.caseId} className={`p-2.5 rounded-lg border text-xs transition-all ${a.excluded ? 'bg-surface-50 border-surface-200 opacity-50' : 'bg-white border-surface-300'}`}>
+                        <div key={a.caseId} className={`p-2.5 rounded-lg border text-xs transition-all ${a.excluded ? 'bg-surface-50 border-surface-200 opacity-50' : 'bg-white border-surface-200 shadow-sm'}`}>
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <p className="font-mono font-semibold text-navy-600">{a.caseNumber}</p>
+                              <p className="font-mono font-semibold text-[#0F4C42]">{a.caseNumber}</p>
                               <p className="text-surface-700 font-medium truncate">{a.patientName}</p>
                               <p className="text-surface-500">{a.scanType}</p>
                               <p className="text-surface-500">→ {a.clinicName}</p>
@@ -809,7 +833,7 @@ export default function AISchedulerMap() {
                               onClick={() => setBulkPreview((prev) =>
                                 prev.map((p) => p.caseId === a.caseId ? { ...p, excluded: !p.excluded } : p)
                               )}
-                              className={`w-6 h-6 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${a.excluded ? 'border-surface-300 bg-white' : 'border-navy-500 bg-navy-600 text-white'}`}
+                              className={`w-6 h-6 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${a.excluded ? 'border-surface-300 bg-white' : 'border-[#0F4C42] bg-[#0F4C42] text-white'}`}
                             >
                               {!a.excluded && <CheckCircle className="w-3.5 h-3.5" />}
                             </button>
@@ -820,17 +844,17 @@ export default function AISchedulerMap() {
 
                     {/* Confirm-phase progress bar */}
                     {bulkProgress && bulkLoading && (
-                      <div className="p-3 bg-navy-50 border border-navy-200 rounded-lg space-y-2">
+                      <div className="p-3 bg-[#F1F8F6] border border-[#BFD8D1] rounded-lg space-y-2">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-navy-700 font-medium flex items-center gap-1.5">
-                            <Loader2 className="w-3 h-3 animate-spin text-navy-500" />
+                          <span className="text-[#16433B] font-medium flex items-center gap-1.5">
+                            <Loader2 className="w-3 h-3 animate-spin text-[#397267]" />
                             {bulkProgress.phase}
                           </span>
-                          <span className="text-navy-500 tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
+                          <span className="text-[#397267] tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
                         </div>
-                        <div className="h-1.5 bg-navy-200 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-[#D4E8E2] rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-navy-600 rounded-full transition-all duration-200"
+                            className="h-full bg-[#0F4C42] rounded-full transition-all duration-200"
                             style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%` }}
                           />
                         </div>
@@ -839,9 +863,9 @@ export default function AISchedulerMap() {
 
                     <div className="flex gap-2 pt-2">
                       <button
-                        onClick={() => { 
-                          setShowBulkReview(false); 
-                          setBulkPreview([]); 
+                        onClick={() => {
+                          setShowBulkReview(false);
+                          setBulkPreview([]);
                           routeCache.clear();
                         }}
                         disabled={bulkLoading}
@@ -868,7 +892,7 @@ export default function AISchedulerMap() {
                     <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto opacity-60" />
                     <p className="text-sm text-surface-600 font-medium">All cases scheduled</p>
                     <p className="text-xs text-surface-400">{allCases.filter((c) => c.status === 'SCHEDULED').length} cases currently scheduled. Routes displayed on map.</p>
-                    <button onClick={drawBulkRoutes} className="text-xs text-navy-600 hover:text-navy-800 font-medium bg-navy-50 hover:bg-navy-100 px-3 py-2 rounded-lg border border-navy-200 transition-colors">
+                    <button onClick={drawBulkRoutes} className="text-xs text-[#0F4C42] hover:text-[#112A28] font-medium bg-[#F1F8F6] hover:bg-[#E4F2EE] px-3 py-2 rounded-lg border border-[#BFD8D1] transition-colors">
                       Refresh Map Routes
                     </button>
                   </div>
@@ -878,10 +902,10 @@ export default function AISchedulerMap() {
                       key={c.id}
                       onClick={() => handleCaseSelect(c)}
                       disabled={bulkLoading}
-                      className="w-full text-left p-3 rounded-lg bg-surface-100 border border-surface-200 hover:border-navy-300 transition-all disabled:opacity-40 disabled:pointer-events-none"
+                      className="w-full text-left p-3.5 rounded-xl bg-white border border-surface-200 shadow-sm hover:border-[#9FC8BE] hover:shadow-md transition-all disabled:opacity-40 disabled:pointer-events-none"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-mono text-navy-600 font-medium">{c.caseNumber}</span>
+                        <span className="text-xs font-mono text-[#0F4C42] font-medium">{c.caseNumber}</span>
                         <StatusBadge status={c.status} />
                       </div>
                       <p className="text-sm font-medium text-surface-800">{c.patientName}</p>
@@ -894,11 +918,11 @@ export default function AISchedulerMap() {
 
             {step === 'map-routing' && selectedCase && selectedPatient && (
               <div className="space-y-4">
-                <div className="p-3 bg-surface-100 rounded-lg border border-surface-200">
+                <div className="p-3.5 bg-white rounded-xl border border-surface-200 shadow-sm">
                   <p className="text-xs text-surface-500 mb-1">Patient</p>
-                  <p className="text-sm font-medium text-navy-800">{selectedPatient.name}</p>
+                  <p className="text-sm font-medium text-[#112A28]">{selectedPatient.name}</p>
                   <p className="text-xs text-surface-500 flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> {selectedPatient.address}</p>
-                  <p className="text-xs text-surface-500 mt-1">Scan: <span className="text-navy-600 font-medium">{selectedCase.scanType}</span></p>
+                  <p className="text-xs text-surface-500 mt-1">Scan: <span className="text-[#0F4C42] font-medium">{selectedCase.scanType}</span></p>
                 </div>
 
                 <div>
@@ -906,11 +930,11 @@ export default function AISchedulerMap() {
                     <label className="block text-xs font-semibold text-surface-500 uppercase">Healthcare Centre</label>
                     {selectedCase?.clinicId || selectedPatient?.preferredClinicId ? (
                       <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                        Patient Override
+                        Patient Preferred
                       </span>
                     ) : (
                       <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        AI Workflow Optimal
+                        AI Recommended
                       </span>
                     )}
                   </div>
@@ -932,20 +956,20 @@ export default function AISchedulerMap() {
                   </select>
                   {selectedClinicId === (selectedCase?.clinicId || selectedPatient?.preferredClinicId) && (
                     <p className="text-xs text-amber-800 mt-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-amber-600" /> Preserving patient's manual clinic preference
+                      <CheckCircle className="w-3 h-3 text-amber-600" /> Using patient's preferred healthcare centre
                     </p>
                   )}
                   {selectedClinicId === recommendedClinicId && selectedClinicId !== (selectedCase?.clinicId || selectedPatient?.preferredClinicId) && (
                     <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-emerald-600" /> AI Scheduler nearest facility prioritized
+                      <CheckCircle className="w-3 h-3 text-emerald-600" /> Nearest suitable facility recommended by AI Scheduler
                     </p>
                   )}
                 </div>
 
                 {routeInfo && (
-                  <div className="p-3 bg-surface-100 rounded-lg border border-surface-200 grid grid-cols-2 gap-3">
-                    <div><p className="text-[10px] text-surface-500">Distance</p><p className="text-base font-bold text-navy-800">{routeInfo.distanceKm} km</p></div>
-                    <div><p className="text-[10px] text-surface-500">Travel Time</p><p className="text-base font-bold text-navy-800">{routeInfo.durationMinutes} min</p></div>
+                  <div className="p-3.5 bg-[#F5F8F7] rounded-xl border border-surface-200 grid grid-cols-2 gap-3">
+                    <div><p className="text-[10px] text-surface-500">Distance</p><p className="text-base font-bold text-[#112A28]">{routeInfo.distanceKm} km</p></div>
+                    <div><p className="text-[10px] text-surface-500">Travel Time</p><p className="text-base font-bold text-[#112A28]">{routeInfo.durationMinutes} min</p></div>
                   </div>
                 )}
 
@@ -958,8 +982,8 @@ export default function AISchedulerMap() {
 
             {step === 'assign-radiographer' && selectedCase && (
               <div className="space-y-4">
-                <div className="p-3 bg-surface-100 rounded-lg border border-surface-200 flex items-center justify-between">
-                  <div><p className="text-xs text-surface-500">Case</p><p className="text-sm font-medium text-navy-700">{selectedCase.caseNumber}</p></div>
+                <div className="p-3.5 bg-white rounded-xl border border-surface-200 shadow-sm flex items-center justify-between">
+                  <div><p className="text-xs text-surface-500">Case</p><p className="text-sm font-medium text-[#16433B]">{selectedCase.caseNumber}</p></div>
                   <div className="text-right"><p className="text-xs text-surface-500">Clinic</p><p className="text-sm text-emerald-600 font-medium">{selectedClinic?.name}</p></div>
                 </div>
 
@@ -974,16 +998,16 @@ export default function AISchedulerMap() {
 
                 {selectedRadiographerId && appointmentTime && (
                   <div className="space-y-3">
-                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <div className="p-4 bg-[#F1F8F6] border border-[#BFD8D1] rounded-xl">
                       <div className="flex items-center gap-2 mb-2">
                         <Calendar className="w-4 h-4 text-emerald-600" />
                         <span className="text-xs font-semibold text-emerald-700 uppercase">Recommended Appointment</span>
                       </div>
                       <div className="grid grid-cols-2 gap-3 mb-2">
-                        <div><p className="text-[10px] text-emerald-600">Date</p><p className="text-sm font-bold text-navy-800">{new Date(appointmentTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p></div>
-                        <div><p className="text-[10px] text-emerald-600">Time</p><p className="text-sm font-bold text-navy-800">{new Date(appointmentTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p></div>
-                        <div><p className="text-[10px] text-emerald-600">Est. Duration</p><p className="text-sm font-medium text-navy-800">30 min</p></div>
-                        <div><p className="text-[10px] text-emerald-600">Est. Travel</p><p className="text-sm font-medium text-navy-800">{routeInfo?.durationMinutes || '—'} min</p></div>
+                        <div><p className="text-[10px] text-emerald-600">Date</p><p className="text-sm font-bold text-[#112A28]">{new Date(appointmentTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p></div>
+                        <div><p className="text-[10px] text-emerald-600">Time</p><p className="text-sm font-bold text-[#112A28]">{new Date(appointmentTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p></div>
+                        <div><p className="text-[10px] text-emerald-600">Est. Duration</p><p className="text-sm font-medium text-[#112A28]">30 min</p></div>
+                        <div><p className="text-[10px] text-emerald-600">Est. Travel</p><p className="text-sm font-medium text-[#112A28]">{routeInfo?.durationMinutes || '—'} min</p></div>
                       </div>
                     </div>
                     <AppointmentOverride
@@ -1012,10 +1036,10 @@ export default function AISchedulerMap() {
                   <CheckCircle className="w-7 h-7 text-emerald-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-navy-800">Appointment Confirmed</h2>
+                  <h2 className="text-lg font-bold text-[#112A28]">Appointment Confirmed</h2>
                   <p className="text-sm text-surface-500 mt-1">{selectedCase?.caseNumber} scheduled.</p>
                 </div>
-                <div className="p-3 bg-surface-100 rounded-lg border border-surface-200 text-left text-sm space-y-1.5">
+                <div className="p-4 bg-white rounded-xl border border-surface-200 shadow-sm text-left text-sm space-y-2">
                   <div className="flex justify-between"><span className="text-surface-500">Patient</span><span className="text-surface-800">{selectedCase?.patientName}</span></div>
                   <div className="flex justify-between"><span className="text-surface-500">Scan</span><span className="text-surface-800">{selectedCase?.scanType}</span></div>
                   <div className="flex justify-between"><span className="text-surface-500">Clinic</span><span className="text-emerald-600">{selectedClinic?.name}</span></div>
@@ -1060,7 +1084,10 @@ function AppointmentOverride({
     existingCases,
     selectedCaseId
   ).filter(
-    (item) => `${item.slot.date}T${item.slot.startTime}` !== currentTime
+    (item) => {
+      const slotTime = slotToDateTimeValue(item.slot.date, item.slot.startTime);
+      return slotTime !== currentTime;
+    }
   );
 
   return (
@@ -1068,7 +1095,7 @@ function AppointmentOverride({
       <button
         type="button"
         onClick={() => setShowSlots(!showSlots)}
-        className="text-xs text-navy-600 hover:text-navy-700 font-medium underline underline-offset-2"
+        className="text-xs text-[#0F4C42] hover:text-[#16433B] font-medium underline underline-offset-2"
       >
         {showSlots ? 'Hide alternative slots' : 'Change Appointment'}
       </button>
@@ -1079,7 +1106,7 @@ function AppointmentOverride({
           </p>
           <div className="grid grid-cols-2 gap-1.5">
             {slotItems.map(({ slot, isOccupied, occupiedByCase }) => {
-              const timeStr = `${slot.date}T${slot.startTime}`;
+              const timeStr = slotToDateTimeValue(slot.date, slot.startTime) || `${slot.date}T${slot.startTime}`;
               return (
                 <button
                   key={timeStr}
@@ -1088,11 +1115,10 @@ function AppointmentOverride({
                     onChangeTime(timeStr);
                     setShowSlots(false);
                   }}
-                  className={`p-2 text-xs font-medium rounded-lg border transition-colors text-left flex flex-col justify-between ${
-                    isOccupied
+                  className={`p-2 text-xs font-medium rounded-lg border transition-colors text-left flex flex-col justify-between ${isOccupied
                       ? 'border-amber-200 bg-amber-50/60 text-amber-900 hover:bg-amber-100'
-                      : 'border-surface-300 bg-white text-surface-700 hover:border-navy-300 hover:bg-navy-50'
-                  }`}
+                      : 'border-surface-300 bg-white text-surface-700 hover:border-[#9FC8BE] hover:bg-[#F1F8F6]'
+                    }`}
                 >
                   <div className="flex items-center justify-between gap-1 w-full">
                     <span className="font-bold">{slot.startTime}</span>
