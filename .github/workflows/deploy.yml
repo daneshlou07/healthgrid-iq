@@ -13,9 +13,7 @@ jobs:
 
       - name: Show deployment information
         run: |
-          echo "Deployment branch:"
-          git branch --show-current
-          echo "Server:"
-          hostname
-          echo "User:"
-          whoami
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Commit: $GITHUB_SHA"
+          echo "Server: $(hostname)"
+          echo "User: $(whoami)"
