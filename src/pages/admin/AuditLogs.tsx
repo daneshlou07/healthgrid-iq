@@ -19,10 +19,10 @@ export default function AuditLogs() {
   const filtered = logs.filter((log) => {
     // Hide Master Admin audit logs & traces if viewing as regular Admin or Super Admin
     const isMasterAdminLog = log.userId === 'admin-002' ||
-                             log.userName === 'Master Admin' ||
-                             log.userName === 'Super Admin' ||
-                             log.userName === 'Danesh Lou' ||
-                             log.details?.toLowerCase().includes('daneshlou05@gmail.com');
+      log.userName === 'Master Admin' ||
+      log.userName === 'Super Admin' ||
+      log.userName === 'Danesh Lou' ||
+      log.details?.toLowerCase().includes('daneshlou05@gmail.com');
     if (!isMasterAdmin && isMasterAdminLog) return false;
 
     const matchSearch = log.details.toLowerCase().includes(search.toLowerCase()) || log.userName.toLowerCase().includes(search.toLowerCase());
@@ -49,16 +49,9 @@ export default function AuditLogs() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="page-title">System Audit Logs</h1>
-            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono text-[10px] font-bold rounded-md flex items-center gap-1">
-              <Shield className="w-3 h-3 text-emerald-600" />
-              FIRESTORE SECURED &bull; IMMUTABLE
-            </span>
           </div>
           <p className="page-subtitle flex items-center gap-1"><Shield className="w-3.5 h-3.5" /> Immutable, append-only audit trail for medical compliance.</p>
         </div>
-        <button onClick={handleExport} className="btn-secondary text-sm flex items-center gap-1.5">
-          <Download className="w-4 h-4" /> Export to Spreadsheet (CSV)
-        </button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">

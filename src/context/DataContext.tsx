@@ -225,6 +225,7 @@ interface DataContextValue {
   editReport: (id: string, updates: Partial<Report>) => Promise<void>;
   addPatientRequest: (r: Omit<PatientRequest, 'id'>) => Promise<PatientRequest>;
   editPatientRequest: (id: string, updates: Partial<PatientRequest>) => Promise<void>;
+  deletePatientRequest: (id: string) => Promise<void>;
   addAuditLog: (log: Omit<AuditLog, 'id'>) => Promise<void>;
   addComment: (comment: Omit<CaseComment, 'id' | 'timestamp'>) => Promise<void>;
   getCommentsForCase: (caseId: string) => CaseComment[];
@@ -750,6 +751,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         await updateDoc(doc(db, 'patient_requests', id), data as any);
       } catch (e) {
         console.warn('[editPatientRequest] Firestore write warning:', e);
+      }
+    }
+  };
+
+  const deletePatientRequest = async (id: string) => {
+    setPatientRequests((prev) => prev.filter((r) => r.id !== id));
+    const db = getFirestoreDb();
+    if (db) {
+      try {
+        await deleteDoc(doc(db, 'patient_requests', id));
+      } catch (e) {
+        console.warn('[deletePatientRequest] Firestore delete warning:', e);
       }
     }
   };
@@ -1501,7 +1514,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       submitQuotationRequest, issueAdminQuotation, submitQuotationNegotiation,
       respondToQuotation, addCustomEquipmentRequest,
       addCase, editCase, addPatient, editPatient, addReport, editReport,
-      addPatientRequest, editPatientRequest, addAuditLog,
+      addPatientRequest, editPatientRequest, deletePatientRequest, addAuditLog,
       addExternalReferral, editExternalReferral, reportMachineUnavailable,
       bemsAssignFacility, hospitalAdminAssignRadiographer, externalUploadScans, submitFinalMoReport,
       roleNavigationConfig, updateRoleNavigation, resetRoleNavigation,

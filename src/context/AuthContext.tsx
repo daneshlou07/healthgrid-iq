@@ -191,11 +191,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // BEMS aliases
         ((cleanId === 'bems' || cleanId === 'bemz' || cleanId === 'khairul') && (u.role === 'BEMZ' || u.id === 'bemz-001')) ||
         // Private Hospital Admin aliases
-        ((cleanId === 'kpj' || cleanId === 'kpjadmin' || cleanId === 'privateadmin' || cleanId === 'sarah') && (u.role === 'Private Hospital Admin' || u.id === 'priv-admin-001')) ||
+        ((cleanId === 'private' || cleanId === 'priv' || cleanId === 'privateadmin' || cleanId === 'privadmin' || cleanId === 'kpj' || cleanId === 'sarah') && (u.role === 'Private Hospital Admin' || u.id === 'priv-admin-001')) ||
         // Public Hospital Radiographer aliases
-        ((cleanId === 'pubrad' || cleanId === 'publicrad' || cleanId === 'noraini') && (u.role === 'Public Hospital Radiographer' || u.id === 'pub-rad-001')) ||
+        ((cleanId === 'public' || cleanId === 'pub' || cleanId === 'publicrad' || cleanId === 'pubrad' || cleanId === 'noraini') && (u.role === 'Public Hospital Radiographer' || u.id === 'pub-rad-001')) ||
         // Private Hospital Radiographer aliases
-        ((cleanId === 'privrad' || cleanId === 'privaterad' || cleanId === 'david') && (u.role === 'Private Hospital Radiographer' || u.id === 'priv-rad-001')) ||
+        ((cleanId === 'privaterad' || cleanId === 'privrad' || cleanId === 'david') && (u.role === 'Private Hospital Radiographer' || u.id === 'priv-rad-001')) ||
         // Medical Officer aliases
         ((cleanId === 'mo' || cleanId === 'doctor' || cleanId === 'michelle') && (u.role === 'Medical Officer' || u.id === 'mo-001')) ||
         // Radiographer aliases

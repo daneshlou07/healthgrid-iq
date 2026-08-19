@@ -3,7 +3,7 @@ import type { UserRole } from '../types';
 export interface NavModuleDefinition {
   id: string;
   label: string;
-  category: 'Clinical Core' | 'Imaging & Technical' | 'Administration & Governance' | 'Operations & Fleet';
+  category: 'Clinical Core' | 'Imaging & Technical' | 'Administration & Governance' | 'Operations & Fleet' | 'Equipment Marketplace';
   description: string;
   defaultPath: string;
   iconName: string;
@@ -56,7 +56,7 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
     label: 'Diagnostic Hub & Reports',
     category: 'Clinical Core',
     description: '3-in-1 triage queue, PACS diagnostic desk, AI Copilot, and signed reports archive.',
-    defaultPath: '/reporting',
+    defaultPath: '/review-queue',
     iconName: 'FileText',
   },
   {
@@ -79,19 +79,19 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
   // Imaging & Technical
   {
     id: 'scan_queue',
-    label: 'Scan Queue & Upload',
+    label: 'My Cases',
     category: 'Imaging & Technical',
-    description: 'Radiographer worksheet with DICOM dropzone, exam checklist, and radiation dose entry.',
+    description: 'Unified radiographer workspace with appointment worklist, hourly timetable, and scan queue.',
     defaultPath: '/scan-queue',
-    iconName: 'Upload',
+    iconName: 'Calendar',
   },
   {
-    id: 'schedule',
-    label: 'Daily Worklist & Schedule',
+    id: 'upload_scans',
+    label: 'Upload Scans',
     category: 'Imaging & Technical',
-    description: 'Daily appointment roster, hourly timetable grid, and clinical time slots.',
-    defaultPath: '/schedule',
-    iconName: 'Calendar',
+    description: 'Clinical image acquisition, exposure factors, and PACS upload workspace.',
+    defaultPath: '/upload',
+    iconName: 'Upload',
   },
   {
     id: 'credentials',
@@ -102,7 +102,7 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
     iconName: 'ShieldCheck',
   },
 
-  // Operations & Referrals
+  // Operations & Fleet
   {
     id: 'bems',
     label: 'BEMS Referral Portal',
@@ -118,6 +118,14 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
     description: 'Intake workspace for private hospital administrators to assign their imaging staff.',
     defaultPath: '/private-admin',
     iconName: 'Building2',
+  },
+  {
+    id: 'external_radiographer',
+    label: 'External Radiographer Hub',
+    category: 'Operations & Fleet',
+    description: 'Clinical routing hub for external and public/private outsourced radiographers.',
+    defaultPath: '/external-radiographer',
+    iconName: 'ClipboardList',
   },
   {
     id: 'ai_scheduler',
@@ -154,6 +162,22 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
     iconName: 'Shield',
   },
   {
+    id: 'reports',
+    label: 'System Reports',
+    category: 'Administration & Governance',
+    description: 'Comprehensive administrative reporting, SLA statistics, and clinical summaries.',
+    defaultPath: '/reports',
+    iconName: 'FileText',
+  },
+  {
+    id: 'recycle_bin',
+    label: 'Trash / Recycle Bin',
+    category: 'Administration & Governance',
+    description: 'Archive and recovery system for deleted cases, patients, and staff records.',
+    defaultPath: '/recycle-bin',
+    iconName: 'Trash2',
+  },
+  {
     id: 'audit_logs',
     label: 'Clinical Audit Logs',
     category: 'Administration & Governance',
@@ -177,6 +201,48 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
     defaultPath: '/tech-stack',
     iconName: 'Layers',
   },
+
+  // Equipment Marketplace
+  {
+    id: 'marketplace_medical',
+    label: 'Medical Equipment',
+    category: 'Equipment Marketplace',
+    description: 'Direct procurement portal for hospital MRI, CT, and X-ray devices.',
+    defaultPath: '/marketplace/medical',
+    iconName: 'Stethoscope',
+  },
+  {
+    id: 'marketplace_non_medical',
+    label: 'Non-Medical Equipment',
+    category: 'Equipment Marketplace',
+    description: 'Hospital infrastructure, chillers, power backup, and clinic furniture marketplace.',
+    defaultPath: '/marketplace/non-medical',
+    iconName: 'Building2',
+  },
+  {
+    id: 'marketplace_orders',
+    label: 'Orders & Quotations',
+    category: 'Equipment Marketplace',
+    description: 'Track RFQ requests, quotation submissions, and equipment procurement status.',
+    defaultPath: '/marketplace/orders',
+    iconName: 'ClipboardList',
+  },
+  {
+    id: 'marketplace_manage',
+    label: 'Equipment Management',
+    category: 'Equipment Marketplace',
+    description: 'Catalog management, inventory levels, and listing specifications.',
+    defaultPath: '/marketplace/manage-items',
+    iconName: 'Package',
+  },
+  {
+    id: 'marketplace_all',
+    label: 'Browse All Equipment',
+    category: 'Equipment Marketplace',
+    description: 'Unified commercial marketplace catalog across all hospital categories.',
+    defaultPath: '/marketplace',
+    iconName: 'ShoppingBag',
+  },
 ];
 
 export type RoleNavigationConfig = Record<UserRole, string[]>;
@@ -188,75 +254,87 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
     'register_patient',
     'new_case',
     'cases',
-    'reporting',
     'patient_requests',
     'track_status',
+    'reporting',
     'credentials',
   ],
   'Radiographer': [
     'dashboard',
     'scan_queue',
-    'schedule',
-    'cases',
-    'track_status',
+    'upload_scans',
     'credentials',
   ],
   'Public Hospital Radiographer': [
     'dashboard',
     'scan_queue',
-    'schedule',
-    'cases',
-    'track_status',
+    'upload_scans',
     'credentials',
   ],
   'Private Hospital Radiographer': [
     'dashboard',
     'scan_queue',
-    'schedule',
-    'cases',
-    'track_status',
+    'upload_scans',
     'credentials',
   ],
   'Radiologist': [
     'dashboard',
     'reporting',
-    'cases',
-    'track_status',
     'credentials',
   ],
   'BEMZ': [
     'dashboard',
-    'bems',
-    'cases',
-    'track_status',
+  ],
+  'BEMS': [
+    'dashboard',
   ],
   'Private Hospital Admin': [
     'dashboard',
     'private_admin',
-    'cases',
     'track_status',
   ],
   'Administrator': [
     'dashboard',
+    'clinics',
+    'ai_scheduler',
     'patients',
-    'register_patient',
-    'new_case',
     'cases',
-    'reporting',
+    'patient_requests',
     'bems',
     'private_admin',
-    'ai_scheduler',
-    'fleet',
-    'clinics',
+    'external_radiographer',
+    'reports',
     'users',
+    'recycle_bin',
     'audit_logs',
-    'analytics',
-    'tech_stack',
-    'track_status',
   ],
-  'Super Admin': ALL_NAV_MODULES.map((m) => m.id),
+  'Super Admin': [
+    'dashboard',
+    'clinics',
+    'ai_scheduler',
+    'patients',
+    'cases',
+    'patient_requests',
+    'bems',
+    'private_admin',
+    'external_radiographer',
+    'marketplace_medical',
+    'marketplace_non_medical',
+    'marketplace_orders',
+    'marketplace_manage',
+    'marketplace_all',
+    'reports',
+    'users',
+    'recycle_bin',
+    'audit_logs',
+  ],
   'Equipment Marketplace': [
     'dashboard',
+    'marketplace_medical',
+    'marketplace_non_medical',
+    'marketplace_orders',
+    'marketplace_manage',
+    'marketplace_all',
     'tech_stack',
   ],
 };
@@ -264,14 +342,43 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
 const STORAGE_KEY = 'healthgrid_role_navigation_config';
 
 export function loadRoleNavConfig(): RoleNavigationConfig {
+  const validModuleIds = new Set(ALL_NAV_MODULES.map((m) => m.id));
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_ROLE_NAV_CONFIG };
     const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_ROLE_NAV_CONFIG,
-      ...parsed,
-    };
+    const merged: RoleNavigationConfig = { ...DEFAULT_ROLE_NAV_CONFIG };
+    for (const [role, keys] of Object.entries(parsed)) {
+      if (Array.isArray(keys)) {
+        const filtered = keys.filter((k: string) => validModuleIds.has(k));
+        if (
+          (role === 'Radiographer' || role === 'Public Hospital Radiographer' || role === 'Private Hospital Radiographer') &&
+          !filtered.includes('upload_scans')
+        ) {
+          const sqIdx = filtered.indexOf('scan_queue');
+          if (sqIdx !== -1) {
+            filtered.splice(sqIdx + 1, 0, 'upload_scans');
+          } else {
+            filtered.splice(1, 0, 'upload_scans');
+          }
+        }
+        if (role === 'Radiologist') {
+          // Ensure reporting is immediately after dashboard
+          const rIdx = filtered.indexOf('reporting');
+          const dIdx = filtered.indexOf('dashboard');
+          if (rIdx !== -1 && dIdx !== -1 && rIdx !== dIdx + 1) {
+            filtered.splice(rIdx, 1);
+            filtered.splice(dIdx + 1, 0, 'reporting');
+          }
+        }
+        if (role === 'BEMZ' || role === 'BEMS') {
+          merged[role as UserRole] = ['dashboard'];
+          continue;
+        }
+        merged[role as UserRole] = filtered;
+      }
+    }
+    return merged;
   } catch {
     return { ...DEFAULT_ROLE_NAV_CONFIG };
   }

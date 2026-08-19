@@ -260,12 +260,12 @@ export const mockUsers: User[] = [
   },
   {
     id: 'priv-admin-001',
-    name: 'Sarah Lim (KPJ Admin)',
-    email: 'kpj.admin@healthgrid.my',
+    name: 'Private Hospital Admin',
+    email: 'private.admin@healthgrid.my',
     password: 'Password123!',
     role: 'Private Hospital Admin',
     status: 'active',
-    specialty: 'KPJ Damansara Specialist Hospital Administration',
+    specialty: 'Private Hospital Administration',
     createdAt: '2025-06-01T08:00:00Z',
     shift: 'Day',
     leaveStatus: 'Active',
@@ -273,12 +273,12 @@ export const mockUsers: User[] = [
   },
   {
     id: 'pub-rad-001',
-    name: 'Noraini Mansor (Public Rad)',
-    email: 'noraini.rad@healthgrid.my',
+    name: 'Public Hospital Radiographer',
+    email: 'public.rad@healthgrid.my',
     password: 'Password123!',
     role: 'Public Hospital Radiographer',
     status: 'active',
-    specialty: 'Hospital Sungai Buloh Imaging Department',
+    specialty: 'Public Hospital Diagnostic Imaging',
     supportedModalities: ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
     createdAt: '2025-06-01T08:00:00Z',
     shift: 'Day',
@@ -287,12 +287,12 @@ export const mockUsers: User[] = [
   },
   {
     id: 'priv-rad-001',
-    name: 'David Tan (KPJ Radiographer)',
-    email: 'david.rad@kpj.my',
+    name: 'Private Hospital Radiographer',
+    email: 'private.rad@healthgrid.my',
     password: 'Password123!',
     role: 'Private Hospital Radiographer',
     status: 'active',
-    specialty: 'KPJ Diagnostic Imaging Suite',
+    specialty: 'Private Hospital Diagnostic Imaging',
     supportedModalities: ['X-Ray', 'CT', 'MRI', 'Mammogram'],
     createdAt: '2025-06-01T08:00:00Z',
     shift: 'Day',
@@ -1116,23 +1116,7 @@ export const mockReports: Report[] = [
   },
 ];
 
-export const mockPatientRequests: PatientRequest[] = [
-  {
-    id: 'req-001',
-    patientId: 'patient-001',
-    patientName: 'Mohd Hafiz bin Ibrahim',
-    mrn: 'MRN-2025-0001',
-    requestType: 'Update',
-    requestedBy: 'Nurul Aisyah',
-    requestedById: 'dept-001',
-    requestedByRole: 'Radiology Department',
-    dateSubmitted: '2026-07-14T10:00:00Z',
-    requestedChanges: { phone: '+60 12-999-8888', address: '25 Jalan Putra, 62000 Putrajaya' },
-    reason: 'Patient reported change of address and new phone number during consultation.',
-    status: 'Pending',
-    remarks: '',
-  },
-];
+export const mockPatientRequests: PatientRequest[] = [];
 
 export const mockAuditLogs: AuditLog[] = [
   {

@@ -40,6 +40,8 @@ import {
   ListFilter,
   Check,
   Building2,
+  Plus,
+  Eye,
 } from 'lucide-react';
 
 interface FlattenedViewItem {
@@ -63,6 +65,19 @@ const HOURLY_SLOTS = [
   '04:00 PM',
   '05:00 PM',
 ];
+
+function getCaseAppointmentDate(c: { officeTarikhAppointment?: string; scheduledAt?: string; createdAt?: string }): string {
+  const raw = c.officeTarikhAppointment || c.scheduledAt || c.createdAt || '';
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(raw)) {
+    const [m, d, y] = raw.split('/');
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  const parsed = new Date(raw);
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+  return raw.split('T')[0];
+}
 
 export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'queue' | 'upload' }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -107,33 +122,81 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [completedViewIds, setCompletedViewIds] = useState<Record<string, boolean>>({});
 
-  // Radiographer's assigned cases (Local Clinic, Public Hospital, or Private Hospital)
+  // Radiographer's assigned cases (Strictly separated: Local Clinic, Public Hospital, or Private Hospital)
   const myCases = useMemo(() => {
     if (!currentUser) return [];
+
+    // 1. Public Hospital Radiographer: sees cases explicitly routed to Public Hospital
+    if (currentUser.role === 'Public Hospital Radiographer') {
+      return cases.filter(
+        (c) =>
+          c.externalRadiographerId === currentUser.id ||
+          c.radiographerId === currentUser.id ||
+          (c.externalReferral && c.externalReferral.assignedRadiographerId === currentUser.id) ||
+          ((c.externalFacilityType === 'Public Hospital' || c.externalReferral?.facilityType === 'PUBLIC_HOSPITAL') &&
+            ['EXTERNAL_RADIOGRAPHER_ASSIGNED', 'SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status))
+      );
+    }
+
+    // 2. Private Hospital Radiographer: sees cases routed to Private Hospital assigned to them
+    if (currentUser.role === 'Private Hospital Radiographer') {
+      return cases.filter(
+        (c) =>
+          c.externalRadiographerId === currentUser.id ||
+          c.radiographerId === currentUser.id ||
+          (c.externalReferral && c.externalReferral.assignedRadiographerId === currentUser.id) ||
+          ((c.externalFacilityType === 'Private Hospital' || c.externalReferral?.facilityType === 'PRIVATE_HOSPITAL') &&
+            c.externalRadiographerId === currentUser.id &&
+            ['EXTERNAL_RADIOGRAPHER_ASSIGNED', 'SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status))
+      );
+    }
+
+    // 3. Local Primary Clinic Radiographer: sees their local center cases
     return cases.filter(
       (c) =>
-        c.radiographerId === currentUser.id ||
-        c.registeredById === currentUser.id ||
-        c.externalRadiographerId === currentUser.id ||
-        (c.externalReferral && c.externalReferral.assignedRadiographerId === currentUser.id) ||
-        ((currentUser.role === 'Public Hospital Radiographer' || currentUser.role === 'Private Hospital Radiographer') &&
-          c.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED')
+        (c.radiographerId === currentUser.id ||
+          c.registeredById === currentUser.id ||
+          (c.clinicId === currentUser.clinicId && !c.externalFacilityType)) &&
+        c.externalFacilityType !== 'Private Hospital' &&
+        c.externalFacilityType !== 'Public Hospital'
     );
   }, [cases, currentUser]);
 
-  const scheduledCases = myCases.filter(
-    (c) => c.status === 'SCHEDULED' || c.status === 'READY_FOR_SCAN' || c.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED'
-  );
-  const completedCases = myCases.filter(
-    (c) => c.status === 'SCANNED' || c.status === 'IMAGES_AVAILABLE' || c.status === 'COMPLETED' || c.status === 'FINALIZED'
-  );
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  // Filtered queue items
+  // Today's cases: Appointment date = today AND not completed
+  const todayCasesList = useMemo(() => {
+    return myCases.filter((c) => {
+      const isCompleted = ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status);
+      const apptDate = getCaseAppointmentDate(c);
+      return apptDate === todayStr && !isCompleted;
+    });
+  }, [myCases, todayStr]);
+
+  // Upcoming cases: Appointment date > today AND not completed
+  const upcomingCasesList = useMemo(() => {
+    return myCases.filter((c) => {
+      const isCompleted = ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status);
+      const apptDate = getCaseAppointmentDate(c);
+      return Boolean(apptDate) && apptDate > todayStr && !isCompleted;
+    });
+  }, [myCases, todayStr]);
+
+  // Completed cases: SCANNED / IMAGES_AVAILABLE / COMPLETED / FINALIZED
+  const completedCasesList = useMemo(() => {
+    return myCases.filter((c) =>
+      ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status)
+    );
+  }, [myCases]);
+
+  const scheduledCases = todayCasesList;
+  const completedCases = completedCasesList;
+
+  // Filtered and Sorted queue items
   const filteredQueueCases = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
     const q = searchQuery.toLowerCase().trim();
 
-    return myCases.filter((c) => {
+    const filtered = myCases.filter((c) => {
       const matchSearch =
         !q ||
         c.caseNumber.toLowerCase().includes(q) ||
@@ -143,23 +206,61 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
 
       if (!matchSearch) return false;
 
-      const caseDate = (c.officeTarikhAppointment || c.scheduledAt || c.createdAt || '').split('T')[0];
+      const isCompleted = ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status);
+      const apptDate = getCaseAppointmentDate(c);
 
+      // 1. Today: Appointment date = today AND not completed
       if (queueFilter === 'today') {
-        return caseDate === todayStr || c.status === 'SCHEDULED' || c.status === 'READY_FOR_SCAN';
+        return apptDate === todayStr && !isCompleted;
       }
+      // 2. Upcoming: Appointment date > today AND not completed
       if (queueFilter === 'upcoming') {
-        return caseDate > todayStr;
+        return Boolean(apptDate) && apptDate > todayStr && !isCompleted;
       }
-      if (queueFilter === 'unscheduled') {
-        return !c.scheduledAt && !c.officeTarikhAppointment;
-      }
+      // 3. Completed: SCANNED / IMAGES_AVAILABLE / COMPLETED / FINALIZED
       if (queueFilter === 'scanned') {
-        return ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status);
+        return isCompleted;
       }
+      // 4. All: Every case assigned to this radiographer
       return true;
     });
-  }, [myCases, searchQuery, queueFilter]);
+
+    const severityOrder: Record<string, number> = {
+      Critical: 4,
+      Severe: 3,
+      Moderate: 2,
+      Mild: 1,
+    };
+
+    return filtered.sort((a, b) => {
+      // For 'All' tab: put pending before completed
+      if (queueFilter === 'all') {
+        const aDone = ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(a.status);
+        const bDone = ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(b.status);
+        if (aDone !== bDone) return aDone ? 1 : -1;
+      }
+
+      // For 'Upcoming': sort by earliest appointment date first
+      if (queueFilter === 'upcoming') {
+        const aDate = getCaseAppointmentDate(a);
+        const bDate = getCaseAppointmentDate(b);
+        if (aDate !== bDate) return aDate.localeCompare(bDate);
+      }
+
+      // Severity order (Critical > Severe > Moderate > Mild)
+      const aSev = severityOrder[a.severity || 'Mild'] || 0;
+      const bSev = severityOrder[b.severity || 'Mild'] || 0;
+      if (aSev !== bSev) return bSev - aSev;
+
+      // Appointment time
+      const aTime = a.officeMasaAppointment || '';
+      const bTime = b.officeMasaAppointment || '';
+      if (aTime && bTime) return aTime.localeCompare(bTime);
+
+      // Latest case first fallback
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+  }, [myCases, searchQuery, queueFilter, todayStr]);
 
   // Selected case object for uploading
   const selectedCase = useMemo(() => {
@@ -187,9 +288,12 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
     return items;
   }, [selectedCase]);
 
-  // Auto-populate radiation dose benchmarks
+  // Auto-populate radiation dose benchmarks & reset checklist when case changes
   useEffect(() => {
-    if (!selectedCase) return;
+    if (!selectedCase) {
+      setCompletedViewIds({});
+      return;
+    }
     const initialChecked: Record<string, boolean> = {};
     flattenedViews.forEach((v) => {
       initialChecked[v.id] = false;
@@ -203,7 +307,7 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
       );
       if (benchmark) setDosRadiasi(String(benchmark.dosMsv));
     }
-  }, [selectedCase, flattenedViews]);
+  }, [selectedCase?.id]);
 
   const toggleViewCompleted = (id: string) => {
     setCompletedViewIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -327,320 +431,344 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
     }
   };
 
+  // Synchronize active tab with initialTab and URL search params
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    } else if (tabFromUrl === 'upload' || Boolean(caseIdFromUrl)) {
+      setActiveTab('upload');
+    } else {
+      setActiveTab('queue');
+    }
+  }, [initialTab, tabFromUrl, caseIdFromUrl]);
+
   const startScanningCase = (caseItem: (typeof cases)[0]) => {
     setSelectedCaseId(caseItem.id);
-    setActiveTab('upload');
-    setSearchParams({ caseId: caseItem.id, tab: 'upload' });
+    navigate(`/upload?caseId=${caseItem.id}`);
   };
 
   return (
     <div className="space-y-6">
-      {/* ── UNIFIED HEADER & TOP METRICS ───────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 text-[10px] font-bold bg-[#0F4C42] text-white rounded">
-              RADIOGRAPHY WORKSPACE &amp; SCANNING HUB
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Duty Session: {currentUser?.name}</span>
+      {/* ── HEADER ───────────────────────────────── */}
+      <div className="space-y-3">
+        {activeTab === 'queue' ? (
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="page-title">{t('My Cases', 'Senarai Kes Saya')}</h1>
+              <p className="page-subtitle">
+                {t(
+                  'Cases assigned to you for imaging and scan acquisition.',
+                  'Kes yang ditugaskan kepada anda untuk pengimejan dan pemerolehan imbasan.'
+                )}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>
+                <strong className="text-slate-900">{myCases.length}</strong> assigned
+              </span>
+              <span className="h-3.5 w-px bg-slate-200" />
+              <span>
+                <strong className="text-amber-700">{scheduledCases.length}</strong> pending
+              </span>
+              <span className="h-3.5 w-px bg-slate-200" />
+              <span>
+                <strong className="text-emerald-700">{completedCases.length}</strong> completed
+              </span>
+            </div>
           </div>
-          <h1 className="page-title">Scan Management &amp; Acquisition Hub</h1>
-          <p className="page-subtitle">
-            Manage daily appointments, assigned scan queues, and clinical image acquisitions in one unified workspace.
-          </p>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('queue');
-              setSearchParams({});
-            }}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg transition-all ${
-              activeTab === 'queue' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Worklist &amp; Schedule ({scheduledCases.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('upload')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg transition-all ${
-              activeTab === 'upload' ? 'bg-[#0F4C42] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Scan Acquisition &amp; Upload</span>
-          </button>
-        </div>
+        ) : null}
       </div>
 
-      {/* ── TOP STATS BAR ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="card p-3 bg-white border border-slate-200">
-          <span className="text-[11px] text-slate-500 font-medium block">Total Assigned Cases</span>
-          <span className="text-xl font-bold text-slate-900 mt-0.5 block">{myCases.length}</span>
-        </div>
-        <div className="card p-3 bg-white border border-slate-200">
-          <span className="text-[11px] text-amber-700 font-medium block">Pending Scans</span>
-          <span className="text-xl font-bold text-amber-900 mt-0.5 block">{scheduledCases.length}</span>
-        </div>
-        <div className="card p-3 bg-white border border-slate-200">
-          <span className="text-[11px] text-emerald-700 font-medium block">Imaging Completed</span>
-          <span className="text-xl font-bold text-emerald-900 mt-0.5 block">{completedCases.length}</span>
-        </div>
-        <div className="card p-3 bg-white border border-slate-200">
-          <span className="text-[11px] text-blue-700 font-medium block">Assigned Location</span>
-          <span className="text-xs font-bold text-slate-800 mt-1 truncate block">
-            {clinics.find((c) => c.id === currentUser?.deploymentLocationId)?.name || 'Klinik Kesihatan Mobile'}
-          </span>
-        </div>
-      </div>
-
-      {/* ── TAB 1: WORKLIST & SCHEDULE (APPOINTMENTS & QUEUE) ──────────── */}
+      {/* ── TAB 1: CASES & SCHEDULE ───────────────────────────────────────── */}
       {activeTab === 'queue' && (
         <div className="space-y-4">
-          {/* Controls Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          {/* ── CASE CONTROLS ─────────────────────────────────────────────── */}
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:w-[340px]">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search case #, patient, scan..."
+                  placeholder="Search cases, patients, examinations..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="text-xs pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0F4C42] w-56"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0F4C42] focus:bg-white focus:ring-2 focus:ring-[#0F4C42]/10"
                 />
               </div>
 
-              {/* Filter Pills */}
-              <div className="flex items-center gap-1 text-xs">
+              <div className="flex items-center gap-1 self-start rounded-lg border border-slate-200 bg-slate-50 p-0.5 sm:self-auto">
                 <button
                   type="button"
-                  onClick={() => setQueueFilter('today')}
-                  className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                    queueFilter === 'today' ? 'bg-[#0F4C42] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
+                  onClick={() => setViewMode('list')}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-all ${viewMode === 'list'
+                    ? 'bg-white text-[#0F4C42] shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                    }`}
                 >
-                  Today ({scheduledCases.length})
+                  <ListFilter className="h-3.5 w-3.5" />
+                  Cases
                 </button>
                 <button
                   type="button"
-                  onClick={() => setQueueFilter('upcoming')}
-                  className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                    queueFilter === 'upcoming' ? 'bg-[#0F4C42] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
+                  onClick={() => setViewMode('timetable')}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-all ${viewMode === 'timetable'
+                    ? 'bg-white text-[#0F4C42] shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                    }`}
                 >
-                  Upcoming
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQueueFilter('scanned')}
-                  className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                    queueFilter === 'scanned' ? 'bg-[#0F4C42] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  Completed ({completedCases.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQueueFilter('all')}
-                  className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                    queueFilter === 'all' ? 'bg-[#0F4C42] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  All ({myCases.length})
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Schedule
                 </button>
               </div>
             </div>
 
-            {/* View Mode Switcher */}
-            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded flex items-center gap-1 ${
-                  viewMode === 'list' ? 'bg-white text-[#0F4C42] shadow-xs' : 'text-slate-500'
-                }`}
-                title="List View"
-              >
-                <ListFilter className="w-3.5 h-3.5" />
-                <span>Worklist</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('timetable')}
-                className={`p-1.5 rounded flex items-center gap-1 ${
-                  viewMode === 'timetable' ? 'bg-white text-[#0F4C42] shadow-xs' : 'text-slate-500'
-                }`}
-                title="Hourly Timetable Grid"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Timetable Grid</span>
-              </button>
+            {/* Filter navigation — deliberately flat instead of pill-heavy */}
+            <div className="border-t border-slate-100 px-4">
+              <div className="flex items-center gap-5 overflow-x-auto">
+                {[
+                  { key: 'today' as const, label: 'Today', count: todayCasesList.length },
+                  { key: 'upcoming' as const, label: 'Upcoming', count: upcomingCasesList.length },
+                  { key: 'scanned' as const, label: 'Completed', count: completedCasesList.length },
+                  { key: 'all' as const, label: 'All', count: myCases.length },
+                ].map((filter) => (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => setQueueFilter(filter.key)}
+                    className={`relative flex h-10 shrink-0 items-center gap-1.5 border-b-2 text-xs font-semibold transition-colors ${queueFilter === filter.key
+                      ? 'border-[#0F4C42] text-[#0F4C42]'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                  >
+                    {filter.label}
+                    {filter.count !== undefined && (
+                      <span
+                        className={`min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-bold ${queueFilter === filter.key
+                          ? 'bg-emerald-50 text-[#0F4C42]'
+                          : 'bg-slate-100 text-slate-500'
+                          }`}
+                      >
+                        {filter.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* List View */}
+          {/* ── CASES VIEW ───────────────────────────────────────────────── */}
           {viewMode === 'list' ? (
-            <div className="space-y-3">
-              {filteredQueueCases.map((c) => {
-                const clinic = clinics.find((cl) => cl.id === c.clinicId || cl.name === c.clinicName);
-                const isCompleted = ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status);
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              {/* Desktop column header */}
+              <div className="hidden border-b border-slate-200 bg-slate-50/70 px-5 py-2.5 md:grid md:grid-cols-[minmax(250px,1.35fr)_minmax(250px,1.2fr)_minmax(210px,1fr)_185px] md:items-center md:gap-6">
+                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                  Case &amp; Patient
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                  Examination
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                  Location &amp; Appointment
+                </span>
+                <span className="text-right text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                  Status
+                </span>
+              </div>
 
-                return (
-                  <div
-                    key={c.id}
-                    className={`card p-4 border transition-all ${
-                      isCompleted ? 'bg-slate-50/70 border-slate-200' : 'bg-white border-slate-300 shadow-xs'
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Link to={`/case/${c.id}`} className="font-mono font-bold text-xs text-[#0F4C42] hover:underline">
-                            {c.caseNumber}
+              <div className="divide-y divide-slate-100">
+                {filteredQueueCases.map((c) => {
+                  const clinic = clinics.find((cl) => cl.id === c.clinicId || cl.name === c.clinicName);
+                  const isCompleted = ['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status);
+                  const isReady = ['READY_FOR_SCAN', 'EXTERNAL_RADIOGRAPHER_ASSIGNED'].includes(c.status);
+
+                  return (
+                    <div
+                      key={c.id}
+                      className={`group relative px-5 py-4 transition-colors ${isReady ? 'bg-emerald-50/25 hover:bg-emerald-50/50' : 'hover:bg-slate-50/60'
+                        }`}
+                    >
+                      {/* Subtle priority/status accent */}
+                      <div
+                        className={`absolute inset-y-0 left-0 w-0.5 ${c.severity === 'Critical'
+                          ? 'bg-red-400'
+                          : c.severity === 'Moderate'
+                            ? 'bg-amber-300'
+                            : isCompleted
+                              ? 'bg-emerald-400'
+                              : 'bg-transparent'
+                          }`}
+                      />
+
+                      <div className="grid gap-4 md:grid-cols-[minmax(250px,1.35fr)_minmax(250px,1.2fr)_minmax(210px,1fr)_185px] md:items-center md:gap-6">
+                        {/* Case / patient */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/case/${c.id}`}
+                              className="font-mono text-[11px] font-bold text-[#0F4C42] hover:underline"
+                            >
+                              {c.caseNumber}
+                            </Link>
+                            <SeverityBadge severity={c.severity} />
+                          </div>
+                          <Link
+                            to={`/case/${c.id}`}
+                            className="mt-1 block truncate text-[13px] font-bold text-slate-900 hover:text-[#0F4C42]"
+                          >
+                            {c.patientName}
                           </Link>
-                          <SeverityBadge severity={c.severity} />
-                          <StatusBadge status={c.status} />
+                          <div className="mt-0.5 truncate font-mono text-[10px] text-slate-400">
+                            {c.patientId}
+                          </div>
                         </div>
 
-                        <p className="text-xs font-bold text-slate-900 mt-1">
-                          Patient: {c.patientName} <span className="text-[10px] text-slate-500 font-mono">({c.patientId})</span>
-                        </p>
-
-                        <p className="text-[11px] text-slate-600">
-                          Exam: <strong className="text-slate-800">{c.modality || 'X-Ray'} — {c.scanType}</strong>
-                          {c.bodyRegion ? ` · ${c.bodyRegion}` : ''}
-                        </p>
-
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 pt-0.5">
-                          <span>Clinic: {c.clinicName || 'Mobile Center'}</span>
-                          <span>Registered by: {getCaseRegistrar(c)}</span>
-                          {(c.officeTarikhAppointment || c.scheduledAt) && (
-                            <span className="text-[#0F4C42] font-semibold flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              Scheduled: {c.officeTarikhAppointment || new Date(c.scheduledAt!).toLocaleDateString()} {c.officeMasaAppointment || ''}
-                            </span>
+                        {/* Examination */}
+                        <div className="min-w-0">
+                          <div className="truncate text-[12px] font-semibold text-slate-800">
+                            {c.modality || 'X-Ray'} · {c.scanType}
+                          </div>
+                          {c.bodyRegion && (
+                            <div className="mt-1 truncate text-[11px] text-slate-500">
+                              {c.bodyRegion}
+                            </div>
                           )}
                         </div>
 
-                        {/* Task Origin & Dispatcher Provenance */}
-                        {c.externalReferral ? (
-                          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-purple-50 border border-purple-200 rounded text-[10px] text-purple-900 font-semibold w-fit mt-1">
-                            <Building2 className="w-3 h-3 text-purple-700" />
-                            <span>
-                              Referred via BEMS / External Facility &middot; Assigned by {c.externalReferral.bemzOfficerName || c.externalReferral.assignedHospitalAdminName || 'BEMS'} &middot; Origin MO: {c.initialMoName || 'Initial MO'}
+                        {/* Location / appointment */}
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate text-[12px] font-medium text-slate-700">
+                              {c.clinicName || 'Mobile Center'}
+                            </span>
+                            {clinic && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openWazeNavigation(
+                                    clinic.latitude || 0,
+                                    clinic.longitude || 0,
+                                    clinic.address || c.clinicName
+                                  )
+                                }
+                                className="shrink-0 rounded p-0.5 text-slate-300 transition-colors hover:bg-emerald-50 hover:text-[#0F4C42]"
+                                title="Navigate to clinic with Waze"
+                              >
+                                <Navigation className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500">
+                            <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+                            <span className="truncate">
+                              {c.officeTarikhAppointment || (c.scheduledAt ? new Date(c.scheduledAt).toLocaleDateString() : 'No appointment')}
+                              {c.officeMasaAppointment ? ` · ${c.officeMasaAppointment}` : ''}
                             </span>
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] text-slate-700 font-medium w-fit mt-1">
-                            <span>Origin: {c.clinicName || 'Local Center'} &middot; Primary MO: {c.initialMoName || c.registeredByName || 'Initial MO'}</span>
+
+                          <div className="mt-1 truncate text-[10px] text-slate-400">
+                            MO: {c.initialMoName || c.registeredByName || 'Initial MO'}
                           </div>
-                        )}
-                      </div>
+                        </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
-                        {clinic && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openWazeNavigation(
-                                clinic.latitude || 0,
-                                clinic.longitude || 0,
-                                clinic.address || c.clinicName
-                              )
-                            }
-                            className="btn-secondary text-xs flex items-center gap-1 text-[#0F4C42] hover:bg-emerald-50"
-                            title="Navigate to clinic with Waze"
-                          >
-                            <Navigation className="w-3.5 h-3.5" />
-                            <span>Waze</span>
-                          </button>
-                        )}
+                        {/* Status + one clear action */}
+                        <div className="flex items-center justify-between gap-3 md:justify-end">
+                          <StatusBadge status={c.status} />
 
-                        <Link to={`/case/${c.id}`} className="btn-secondary text-xs">
-                          View Details
-                        </Link>
-
-                        {!isCompleted ? (
                           <button
                             type="button"
                             onClick={() => startScanningCase(c)}
-                            className="btn-primary text-xs flex items-center gap-1 px-3 py-1.5"
+                            className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[11px] font-bold transition-colors ${isCompleted
+                              ? 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                              : 'bg-[#0F4C42] text-white hover:bg-[#0c3c34]'
+                              }`}
                           >
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Scan &amp; Upload</span>
+                            {isCompleted ? (
+                              <>
+                                <Upload className="h-3 w-3" />
+                                Re-upload
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-3 w-3" />
+                                Scan &amp; Upload
+                              </>
+                            )}
                           </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => startScanningCase(c)}
-                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Re-upload</span>
-                          </button>
-                        )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
 
               {filteredQueueCases.length === 0 && (
-                <div className="card p-12 text-center text-slate-400 space-y-2">
-                  <Calendar className="w-8 h-8 mx-auto text-slate-300" />
-                  <p className="text-xs font-semibold text-slate-600">No cases found in this view filter.</p>
+                <div className="px-6 py-14 text-center">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+                    <Calendar className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-slate-700">No cases found</p>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Try another filter or search term.
+                  </p>
                 </div>
               )}
             </div>
           ) : (
-            /* Timetable Grid View */
-            <div className="card p-4 space-y-3 bg-white">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Today's Hourly Scanning Slots
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            /* ── SCHEDULE VIEW ───────────────────────────────────────────── */
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Today's Schedule</h3>
+                  <p className="mt-0.5 text-[11px] text-slate-400">
+                    Appointments and assigned imaging cases
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-slate-500">
+                  {filteredQueueCases.length} {filteredQueueCases.length === 1 ? 'case' : 'cases'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
                 {HOURLY_SLOTS.map((slot) => {
                   const slotCases = filteredQueueCases.filter(
                     (c) => c.officeMasaAppointment?.toLowerCase().includes(slot.toLowerCase().slice(0, 5))
                   );
 
                   return (
-                    <div key={slot} className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50/50">
-                      <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                        <span className="font-mono text-xs font-bold text-slate-800 flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-[#0F4C42]" />
+                    <div key={slot} className="min-h-[150px] bg-white p-3">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                          <Clock className="h-3 w-3 text-[#0F4C42]" />
                           {slot}
                         </span>
-                        <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-bold">
+                        <span className="text-[10px] font-bold text-slate-400">
                           {slotCases.length}
                         </span>
                       </div>
 
-                      <div className="space-y-1.5">
+                      <div className="mt-2 space-y-2">
                         {slotCases.map((c) => (
-                          <div key={c.id} className="bg-white border border-slate-200 rounded p-2 text-xs space-y-1">
-                            <div className="font-bold text-slate-900 truncate">{c.patientName}</div>
-                            <div className="text-[10px] text-slate-500 truncate">{c.scanType}</div>
+                          <div key={c.id} className="rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
+                            <Link to={`/case/${c.id}`} className="block truncate text-[11px] font-bold text-slate-900 hover:text-[#0F4C42]">
+                              {c.patientName}
+                            </Link>
+                            <div className="mt-1 truncate text-[10px] text-slate-500">{c.scanType}</div>
                             <button
                               type="button"
                               onClick={() => startScanningCase(c)}
-                              className="w-full text-center py-1 bg-[#0F4C42] hover:bg-[#0c3c34] text-white text-[10px] font-bold rounded"
+                              className="mt-2 w-full rounded-md bg-[#0F4C42] py-1.5 text-[10px] font-bold text-white hover:bg-[#0c3c34]"
                             >
-                              Scan Now
+                              {['SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status)
+                                ? 'View Scan'
+                                : 'Scan Now'}
                             </button>
                           </div>
                         ))}
                         {slotCases.length === 0 && (
-                          <p className="text-[10px] text-slate-400 py-3 text-center italic">Slot open</p>
+                          <p className="py-7 text-center text-[10px] text-slate-300">No appointment</p>
                         )}
                       </div>
                     </div>
@@ -762,43 +890,20 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
           </div>
 
           {selectedCase && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* UPLOAD DROPZONE PANEL (Left Column) */}
-              <div className="lg:col-span-7 card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <Upload className="w-4 h-4 text-[#0F4C42]" />
-                    <span>1. Upload Medical Scans / DICOM</span>
-                  </h2>
-                  <span className="text-[11px] text-slate-500">Attach high-resolution captures</span>
-                </div>
+            <div className="space-y-4">
+              {/* ── 1. UPLOAD MEDICAL SCANS / DICOM (FULL-WIDTH SECTION) ────────── */}
+              <div className="card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                  <div>
+                    <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-[#0F4C42]" />
+                      <span>1. Upload Medical Scans / DICOM</span>
+                    </h2>
 
-                {/* Dropzone */}
-                <div className="border-2 border-dashed border-slate-300 hover:border-[#0F4C42] rounded-xl p-6 text-center bg-slate-50/60 transition-colors">
-                  <input
-                    type="file"
-                    id="unifiedScanUpload"
-                    multiple
-                    accept="image/*,.dcm"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <label htmlFor="unifiedScanUpload" className="cursor-pointer space-y-2 flex flex-col items-center">
-                    <Upload className="w-8 h-8 text-slate-400" />
-                    <span className="text-xs font-semibold text-[#0F4C42]">
-                      Click to browse or drag and drop scans here
-                    </span>
-                    <span className="text-[11px] text-slate-400">Supported formats: DICOM, JPEG, PNG</span>
-                  </label>
-                </div>
+                  </div>
 
-                {/* Previews */}
-                {previews.length > 0 && (
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Acquired Image Gallery ({previews.length})
-                      </span>
+                  <div className="flex items-center gap-2">
+                    {previews.length > 0 && (
                       <button
                         type="button"
                         onClick={handleAiDraft}
@@ -808,156 +913,273 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
                         <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                         <span>{analyzingImage ? 'Analyzing...' : 'Run Vision AI Check'}</span>
                       </button>
-                    </div>
+                    )}
 
-                    <div className="grid grid-cols-4 gap-2">
+                  </div>
+                </div>
+
+                <input
+                  type="file"
+                  id="unifiedScanUpload"
+                  multiple
+                  accept="image/*,.dcm"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {/* Requested Views Checklist (if views exist) */}
+                {flattenedViews.length > 0 && (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                        Requested Views Checklist:
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {Object.values(completedViewIds).filter(Boolean).length} of {flattenedViews.length} views acquired
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {flattenedViews.map((v) => {
+                        const isChecked = Boolean(completedViewIds[v.id]);
+                        return (
+                          <button
+                            type="button"
+                            key={v.id}
+                            onClick={() => toggleViewCompleted(v.id)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${
+                              isChecked
+                                ? 'bg-emerald-50 border-emerald-500 text-[#0F4C42] shadow-xs'
+                                : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                                isChecked
+                                  ? 'bg-[#0F4C42] border-[#0F4C42] text-white'
+                                  : 'border-slate-400 bg-white'
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                            <span>
+                              {v.bodyPart} — {v.viewName} {v.side && `[${v.side}]`}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty State Dropzone */}
+                {previews.length === 0 ? (
+                  <label
+                    htmlFor="unifiedScanUpload"
+                    className="border-2 border-dashed border-slate-300 hover:border-[#0F4C42] rounded-xl p-10 text-center bg-slate-50/60 transition-colors cursor-pointer space-y-3 flex flex-col items-center justify-center block"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#0F4C42]">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-[#0F4C42] block">
+                        Click to browse or drag and drop scans here
+                      </span>
+                      <span className="text-[11px] text-slate-400 mt-0.5 block">
+                        Supported formats: DICOM (.dcm), JPEG, PNG (High-resolution diagnostic captures)
+                      </span>
+                    </div>
+                  </label>
+                ) : (
+                  /* Full-Featured Image Preview Viewer */
+                  <div className="space-y-4 pt-1">
+                    {/* Thumbnail Selector Strip */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2">
                       {previews.map((src, i) => (
                         <div
                           key={i}
                           onClick={() => setActivePreviewIndex(i)}
-                          className={`relative group rounded-lg overflow-hidden border cursor-pointer ${
-                            activePreviewIndex === i ? 'ring-2 ring-[#0F4C42] border-[#0F4C42]' : 'border-slate-200'
-                          }`}
+                          className={`relative group rounded-lg overflow-hidden border-2 cursor-pointer shrink-0 w-24 h-20 transition-all ${activePreviewIndex === i
+                            ? 'ring-2 ring-[#0F4C42] border-[#0F4C42] scale-[1.02]'
+                            : 'border-slate-200 hover:border-slate-400'
+                            }`}
                         >
-                          <img src={src} alt={`Scan ${i + 1}`} className="w-full h-20 object-contain bg-black" />
+                          <img src={src} alt={`Scan ${i + 1}`} className="w-full h-full object-cover bg-black" />
+                          <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5 text-[9px] text-white font-mono text-center truncate">
+                            Scan #{i + 1}
+                          </div>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               removeFile(i);
                             }}
-                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Remove scan"
                           >
                             <X className="w-3 h-3" />
                           </button>
                         </div>
                       ))}
+
+                      {/* Add More Thumbnail Button */}
+                      <label
+                        htmlFor="unifiedScanUpload"
+                        className="w-24 h-20 border-2 border-dashed border-slate-300 hover:border-[#0F4C42] rounded-lg flex flex-col items-center justify-center text-slate-400 hover:text-[#0F4C42] cursor-pointer shrink-0 bg-slate-50 transition-colors"
+                        title="Add more scan files"
+                      >
+                        <Plus className="w-5 h-5" />
+                        <span className="text-[10px] font-semibold mt-1">Add More</span>
+                      </label>
                     </div>
+
+                    {/* Main Full-Size Image Viewer */}
+                    {previews[activePreviewIndex] && (
+                      <div className="relative rounded-xl overflow-hidden border border-slate-300 bg-slate-950 flex flex-col items-center justify-center min-h-[420px] max-h-[560px]">
+                        <img
+                          src={previews[activePreviewIndex]}
+                          alt={`Full preview ${activePreviewIndex + 1}`}
+                          className="max-h-[520px] w-auto max-w-full object-contain cursor-zoom-in"
+                          onClick={() => setLightboxSrc(previews[activePreviewIndex])}
+                        />
+
+                        {/* Top Viewer Overlay Bar */}
+                        <div className="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none">
+                          <span className="bg-black/75 backdrop-blur-xs text-white text-xs font-mono px-3 py-1.5 rounded-lg border border-white/10 pointer-events-auto">
+                            Viewing Capture {activePreviewIndex + 1} of {previews.length}
+                          </span>
+
+                          <div className="flex items-center gap-2 pointer-events-auto">
+                            <button
+                              type="button"
+                              onClick={() => setLightboxSrc(previews[activePreviewIndex])}
+                              className="px-3 py-1.5 bg-black/75 hover:bg-black text-white text-xs font-semibold rounded-lg border border-white/10 flex items-center gap-1.5 transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Full Screen</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(activePreviewIndex)}
+                              className="px-3 py-1.5 bg-red-600/90 hover:bg-red-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* ACQUIRED VIEWS & TECHNICAL FACTORS (Right Column) */}
-              <div className="lg:col-span-5 space-y-4">
-                {/* Views Checklist */}
-                {flattenedViews.length > 0 && (
-                  <div className="card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-3">
-                    <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2">
-                      <CheckSquare className="w-4 h-4 text-[#0F4C42]" />
-                      <span>Requested Views Checklist</span>
-                    </h2>
-                    <div className="space-y-2">
-                      {flattenedViews.map((v) => (
-                        <label
-                          key={v.id}
-                          className="flex items-start gap-2.5 p-2 rounded-lg border border-slate-200 bg-slate-50/50 cursor-pointer text-xs"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={Boolean(completedViewIds[v.id])}
-                            onChange={() => toggleViewCompleted(v.id)}
-                            className="mt-0.5 rounded text-[#0F4C42] focus:ring-[#0F4C42]"
-                          />
-                          <div>
-                            <span className="font-bold text-slate-900">
-                              {v.bodyPart} — {v.viewName}
-                            </span>
-                            {v.side && <span className="text-slate-500 ml-1">[{v.side}]</span>}
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Technical Factors */}
-                <div className="card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-3">
-                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2">
-                    <SlidersHorizontal className="w-4 h-4 text-[#0F4C42]" />
-                    <span>MOH Technical Factors</span>
+              {/* ── 2. PRELIMINARY OBSERVATIONS & FINDINGS (FULL-WIDTH) ─────────── */}
+              <div className="card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#0F4C42]" />
+                    <span>2. Preliminary Observations &amp; Findings</span>
                   </h2>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">kVp</label>
-                      <input
-                        type="text"
-                        value={doseKvp}
-                        onChange={(e) => setDoseKvp(e.target.value)}
-                        placeholder="e.g. 75"
-                        className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">mAs</label>
-                      <input
-                        type="text"
-                        value={doseMas}
-                        onChange={(e) => setDoseMas(e.target.value)}
-                        placeholder="e.g. 12"
-                        className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">Radiation Dose (mSv)</label>
-                      <input
-                        type="text"
-                        value={dosRadiasi}
-                        onChange={(e) => setDosRadiasi(e.target.value)}
-                        placeholder="e.g. 0.02"
-                        className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">Film Count</label>
-                      <input
-                        type="text"
-                        value={bilanganFilem}
-                        onChange={(e) => setBilanganFilem(e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
-                      />
-                    </div>
-                  </div>
+                <div className="space-y-1.5">
+                  <textarea
+                    value={radiographerFindings}
+                    onChange={(e) => setRadiographerFindings(e.target.value)}
+                    placeholder="Write your technical remarks, clinical impressions, and any observations about the scan..."
+                    rows={7}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-3.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/20 focus:border-[#0F4C42] resize-none min-h-[250px]"
+                  />
+
                 </div>
               </div>
 
-              {/* Preliminary Findings & Review Pathway */}
-              <div className="lg:col-span-12 card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-4">
-                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2">
-                  <FileText className="w-4 h-4 text-[#0F4C42]" />
-                  <span>Preliminary Observations &amp; Review Forwarding</span>
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Preliminary Observations / Findings
-                    </label>
-                    <textarea
-                      value={radiographerFindings}
-                      onChange={(e) => setRadiographerFindings(e.target.value)}
-                      placeholder="Note any anatomic findings, exposure quality, or patient positioning notes..."
-                      rows={3}
-                      className="w-full bg-white border border-slate-300 rounded-lg p-2.5"
-                    />
+              {/* ── 3 & 4. TECHNICAL FACTORS & FORWARD REVIEW (TWO INDIVIDUAL CARDS SIDE-BY-SIDE) ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                {/* CARD 1: MOH Technical Factors */}
+                <div className="lg:col-span-6 card bg-white p-5 border border-slate-200 rounded-xl shadow-sm flex flex-col justify-between space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <SlidersHorizontal className="w-4 h-4 text-[#0F4C42]" />
+                      <span>3. MOH Technical Factors</span>
+                    </h2>
+                    <span className="text-[11px] text-slate-500">MOH PER.SS-RA301</span>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-3 flex-1 flex flex-col justify-center">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                      Exposure &amp; Radiation Factors
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">kVp</label>
+                        <input
+                          type="text"
+                          value={doseKvp}
+                          onChange={(e) => setDoseKvp(e.target.value)}
+                          placeholder="e.g. 75"
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">mAs</label>
+                        <input
+                          type="text"
+                          value={doseMas}
+                          onChange={(e) => setDoseMas(e.target.value)}
+                          placeholder="e.g. 12"
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">Dose (mSv)</label>
+                        <input
+                          type="text"
+                          value={dosRadiasi}
+                          onChange={(e) => setDosRadiasi(e.target.value)}
+                          placeholder="e.g. 0.02"
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">Film Count</label>
+                        <input
+                          type="text"
+                          value={bilanganFilem}
+                          onChange={(e) => setBilanganFilem(e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 2: Forward Review & Dispatch */}
+                <div className="lg:col-span-6 card bg-white p-5 border border-slate-200 rounded-xl shadow-sm flex flex-col justify-between space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-[#0F4C42]" />
+                      <span>4. Forward Review &amp; Dispatch</span>
+                    </h2>
+                    <span className="text-[11px] text-slate-500">Routing &amp; Submission</span>
+                  </div>
+
+                  <div className="space-y-4 flex-1 flex flex-col justify-between">
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">
+                      <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                         Forward Review Pathway <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={routedToRole}
                         onChange={(e) => setRoutedToRole(e.target.value as 'Medical Officer' | 'Radiologist')}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium"
                       >
                         <option value="Medical Officer">Initial Medical Officer (Primary Case Review)</option>
                         <option value="Radiologist">Specialist Radiologist (Formal Diagnostic Reporting)</option>
                       </select>
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                       <button
                         type="button"
                         onClick={() => setActiveTab('queue')}
@@ -968,7 +1190,7 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
                       <button
                         type="submit"
                         disabled={uploading || previews.length === 0}
-                        className="btn-primary text-xs flex items-center gap-1.5 px-5 py-2.5"
+                        className="btn-primary text-xs flex items-center gap-1.5 px-5 py-2.5 shadow-sm"
                       >
                         <Upload className="w-3.5 h-3.5" />
                         <span>{uploading ? 'Uploading & Forwarding...' : 'Complete & Dispatch Scans'}</span>

@@ -9,6 +9,7 @@ export type UserRole =
   | 'Super Admin' 
   | 'Equipment Marketplace'
   | 'BEMZ'
+  | 'BEMS'
   | 'Public Hospital Radiographer'
   | 'Private Hospital Admin'
   | 'Private Hospital Radiographer';

@@ -35,7 +35,7 @@ import {
   RotateCcw,
   MapPin,
 } from 'lucide-react';
-import { findNearestClinic } from '../../services/routingService';
+import { findNearestClinic, haversineDistance } from '../../services/routingService';
 
 const MODALITIES = Object.keys(MODALITY_REFERENCE_DATASET);
 
@@ -71,7 +71,7 @@ function createBlankExamCard(idSuffix: number): FormExamCard {
 
 export default function NewCaseRegistration() {
   const { currentUser } = useAuth();
-  const { clinics, patients, addCase, addAuditLog } = useData();
+  const { clinics, patients, addCase, addAuditLog, users } = useData();
   const { language, t } = useLanguage();
   const toast = useToast();
 
@@ -126,27 +126,57 @@ export default function NewCaseRegistration() {
 
   const [isManualClinicOverride, setIsManualClinicOverride] = useState(false);
 
-  // Compute nearest clinic for the selected patient
+  // Count active radiographers deployed per clinic
+  const radiographersByClinic = useMemo(() => {
+    const map: Record<string, number> = {};
+    (users || []).forEach((u) => {
+      const isRad =
+        u.role === 'Radiographer' ||
+        u.role === 'Public Hospital Radiographer' ||
+        u.role === 'Private Hospital Radiographer';
+      if (isRad && u.status === 'active' && u.deploymentLocationId && u.leaveStatus !== 'ON_LEAVE') {
+        map[u.deploymentLocationId] = (map[u.deploymentLocationId] || 0) + 1;
+      }
+    });
+    return map;
+  }, [users]);
+
+  // Compute nearest clinic for the selected patient factoring in radiographers & distance
   const nearestClinicForPatient = useMemo(() => {
     if (!selectedPatient) return null;
     const activeClinics = uniqueClinics.filter((c) => c.status === 'active' || !c.status);
     if (activeClinics.length === 0) return null;
 
     if (selectedPatient.latitude && selectedPatient.longitude) {
-      const nearest = findNearestClinic(selectedPatient.latitude, selectedPatient.longitude, activeClinics);
-      if (nearest) {
-        const found = activeClinics.find((c) => c.id === nearest.clinicId);
-        if (found) {
-          return { clinic: found, distanceKm: nearest.distanceKm };
-        }
+      const sorted = activeClinics
+        .map((c) => {
+          const lat = c.lat ?? c.latitude;
+          const lon = c.lon ?? c.longitude;
+          const dist = haversineDistance(
+            selectedPatient.latitude!,
+            selectedPatient.longitude!,
+            lat,
+            lon
+          );
+          const radCount = radiographersByClinic[c.id] || 0;
+          return { clinic: c, distanceKm: Math.round(dist * 10) / 10, radCount };
+        })
+        .sort((a, b) => {
+          if (a.radCount > 0 && b.radCount === 0) return -1;
+          if (b.radCount > 0 && a.radCount === 0) return 1;
+          return a.distanceKm - b.distanceKm;
+        });
+
+      if (sorted.length > 0) {
+        return sorted[0];
       }
     }
     if (selectedPatient.preferredClinicId) {
       const found = activeClinics.find((c) => c.id === selectedPatient.preferredClinicId);
-      if (found) return { clinic: found, distanceKm: 0 };
+      if (found) return { clinic: found, distanceKm: 0, radCount: radiographersByClinic[found.id] || 0 };
     }
     return null;
-  }, [selectedPatient, uniqueClinics]);
+  }, [selectedPatient, uniqueClinics, radiographersByClinic]);
 
   // When patient changes, automatically default to AI recommended facility unless manual override is toggled
   React.useEffect(() => {
@@ -365,29 +395,13 @@ export default function NewCaseRegistration() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 lg:px-6 pb-10">
+    <div className="w-full pb-10">
 
       {/* =========================================================
           PAGE HEADER
       ========================================================== */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-9 h-9 rounded-lg bg-[#EFF6F3] flex items-center justify-center">
-              <FileCheck2 className="w-5 h-5 text-[#0F4C42]" />
-            </div>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6B8580]">
-              {t('RADIOLOGY CASE', 'Pendaftaran Kes')}
-            </span>
-          </div>
 
-          <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
-            {t('Register New Case', 'Daftar Kes Radiologi Baharu')}
-          </h1>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-2">
 
         {/* =========================================================
             WORKFLOW STEPPER
@@ -396,10 +410,10 @@ export default function NewCaseRegistration() {
           <div className="px-4 py-3 border-b border-surface-200 bg-surface-50/60">
             <div className="flex flex-wrap items-center gap-2">
               {[
-                { step: 1, label: t('Patient & Indication', 'Pesakit & Indikasi') },
-                { step: 2, label: t('Modality & Exam', 'Modaliti & Ujian') },
+                { step: 1, label: t('Patient & Referral', 'Pesakit & Rujukan') },
+                { step: 2, label: t('Examination', 'Pemeriksaan') },
                 { step: 3, label: t('Clinical Screening', 'Saringan Klinikal') },
-                { step: 4, label: t('Priority & Submit', 'Keutamaan & Hantar') },
+                { step: 4, label: t('Review & Submit', 'Semak & Hantar') },
               ].map((item) => {
                 const accessible =
                   item.step === 1 ||
@@ -423,7 +437,7 @@ export default function NewCaseRegistration() {
                         ? 'bg-[#0F4C42] text-white border-[#0F4C42] shadow-sm'
                         : item.step < currentStep
                           ? 'bg-[#EFF6F3] text-[#0F4C42] border-[#D8E8E2] hover:bg-[#E5F1ED]'
-                          : 'bg-white text-surface-500 border-surface-200 hover:bg-surface-50'
+                          : 'bg-white text-surface-400 border-surface-200 hover:bg-surface-50 hover:text-surface-600'
                       }
                       disabled:cursor-not-allowed
                     `}
@@ -452,7 +466,7 @@ export default function NewCaseRegistration() {
         ========================================================== */}
         {currentStep === 1 && (
           <>
-            <section className="bg-white border border-surface-200 rounded-lg shadow-sm overflow-hidden">
+            <section className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#EFF6F3] flex items-center justify-center shrink-0">
@@ -464,8 +478,8 @@ export default function NewCaseRegistration() {
                     </h2>
                     <p className="text-[11px] text-surface-500 mt-0.5">
                       {t(
-                        'Select the registered patient and provide the clinical referral context.',
-                        'Pilih pesakit berdaftar dan masukkan konteks rujukan klinikal.'
+                        'Select the patient and provide referral details.',
+                        'Pilih pesakit dan masukkan maklumat rujukan.'
                       )}
                     </p>
                   </div>
@@ -475,53 +489,54 @@ export default function NewCaseRegistration() {
               <div className="p-6 space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                    {t('Select Registered Patient *', 'Pilih Pesakit Berdaftar *')}
+                    {t('Patient *', 'Pesakit *')}
                   </label>
                   <PatientSearchSelect patients={patients} value={patientId} onChange={setPatientId} />
                 </div>
 
                 {selectedPatient && (
-                  <div className="rounded-lg bg-[#F3F8F6] border border-[#D8E8E2] p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm font-bold text-[#0F4C42]">{selectedPatient.name}</h3>
-                          <span className="text-[10px] font-mono font-bold bg-white px-2 py-1 rounded border border-[#D8E8E2] text-[#0F4C42]">
-                            {selectedPatient.mrn}
-                          </span>
-                          {paymentBadge && (
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${paymentBadge.color}`}>
-                              {paymentBadge.label}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-surface-600 mt-2">
-                          NRIC: <span className="font-mono">{selectedPatient.nric}</span>
-                          <span className="mx-1.5 text-surface-300">•</span>
-                          {selectedPatient.gender}
-                          <span className="mx-1.5 text-surface-300">•</span>
-                          DOB: {selectedPatient.dob}
-                        </p>
-                        <p className="text-xs text-surface-500 mt-1">
-                          {selectedPatient.address}
-                        </p>
-                        {selectedPatient.medicalHistory && (
-                          <div className="mt-3 rounded-lg bg-white border border-[#D8E8E2] px-3 py-2">
-                            <p className="text-[10px] font-semibold text-[#0F4C42] mb-0.5">
-                              {t('Baseline Medical History', 'Sejarah Perubatan Asas')}
-                            </p>
-                            <p className="text-xs text-surface-600">{selectedPatient.medicalHistory}</p>
-                          </div>
-                        )}
-                      </div>
+                  <div className="rounded-xl border border-surface-200 bg-surface-50/60 p-4 space-y-2.5">
+                    {/* NRIC */}
+                    <div className="grid grid-cols-[110px_1fr] sm:grid-cols-[130px_1fr] gap-2 items-baseline text-xs">
+                      <span className="text-surface-500 font-medium">{t('NRIC', 'No. KP')}</span>
+                      <span className="font-mono font-semibold text-surface-900">{selectedPatient.nric}</span>
                     </div>
+
+                    {/* Gender */}
+                    <div className="grid grid-cols-[110px_1fr] sm:grid-cols-[130px_1fr] gap-2 items-baseline text-xs">
+                      <span className="text-surface-500 font-medium">{t('Gender', 'Jantina')}</span>
+                      <span className="font-semibold text-surface-900">{selectedPatient.gender}</span>
+                    </div>
+
+                    {/* Date of Birth */}
+                    <div className="grid grid-cols-[110px_1fr] sm:grid-cols-[130px_1fr] gap-2 items-baseline text-xs">
+                      <span className="text-surface-500 font-medium">{t('Date of birth', 'Tarikh lahir')}</span>
+                      <span className="font-semibold text-surface-900">{selectedPatient.dob}</span>
+                    </div>
+
+                    {/* Address */}
+                    {selectedPatient.address && (
+                      <div className="grid grid-cols-[110px_1fr] sm:grid-cols-[130px_1fr] gap-2 items-baseline text-xs">
+                        <span className="text-surface-500 font-medium">{t('Address', 'Alamat')}</span>
+                        <span className="text-surface-700 leading-relaxed">{selectedPatient.address}</span>
+                      </div>
+                    )}
+
+                    {/* Medical History */}
+                    {selectedPatient.medicalHistory && (
+                      <div className="grid grid-cols-[110px_1fr] sm:grid-cols-[130px_1fr] gap-2 items-baseline text-xs">
+                        <span className="text-surface-500 font-medium">{t('History', 'Sejarah')}</span>
+                        <span className="text-surface-700 leading-relaxed">{selectedPatient.medicalHistory}</span>
+                      </div>
+                    )}
                   </div>
                 )}
+
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                      {t('Location (Ward / Clinic / A&E) *', 'Lokasi (Wad / Klinik / A&E) *')}
+                      {t('Requesting Location *', 'Lokasi Pemohon *')}
                     </label>
                     <select
                       value={wardOrClinic}
@@ -529,7 +544,7 @@ export default function NewCaseRegistration() {
                       className="select-field w-full"
                       required
                     >
-                      <option value="">{t('-- Select Location --', '-- Pilih Lokasi --')}</option>
+                      <option value="">{t('Select ward, clinic, or A&E', 'Pilih wad, klinik, atau A&E')}</option>
                       {LOCATION_PRESETS.map((loc) => (
                         <option key={loc} value={loc}>{loc}</option>
                       ))}
@@ -552,7 +567,7 @@ export default function NewCaseRegistration() {
 
                   <div>
                     <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                      {t('Requesting Specialty / Department *', 'Jabatan / Disiplin Pemohon *')}
+                      {t('Requesting Department *', 'Jabatan Pemohon *')}
                     </label>
                     <select
                       value={disiplin}
@@ -561,7 +576,7 @@ export default function NewCaseRegistration() {
                       required
                     >
                       <option value="">
-                        {t('-- Select Specialty / Department --', '-- Pilih Jabatan / Disiplin --')}
+                        {t('Select department', 'Pilih jabatan')}
                       </option>
                       {SPECIALTY_PRESETS.map((spec) => (
                         <option key={spec} value={spec}>{spec}</option>
@@ -587,19 +602,18 @@ export default function NewCaseRegistration() {
                   </label>
                   <textarea
                     required
-                    rows={4}
                     value={indication}
                     onChange={(e) => setIndication(e.target.value)}
-                    className="input-field text-sm resize-none w-full"
+                    className="input-field !h-auto min-h-[110px] py-2.5 resize-y text-sm w-full"
                     placeholder={t(
-                      'Enter acute symptoms, clinical history, reason for scan, and any special notes for radiographer/radiologist...',
-                      'Masukkan simptom akut, sejarah klinikal, sebab imbasan, dan nota rujukan...'
+                      'Describe symptoms, relevant history, and reason for examination...',
+                      'Nyatakan simptom, sejarah berkaitan, dan sebab pemeriksaan...'
                     )}
                   />
 
                   <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-semibold text-surface-400">
-                      {t('Quick Presets', 'Pilihan Pantas')}:
+                      {t('Common indications', 'Indikasi biasa')}:
                     </span>
                     {SYMPTOM_SUGGESTIONS.slice(0, 7).map((preset) => (
                       <button
@@ -653,7 +667,7 @@ export default function NewCaseRegistration() {
                 onClick={() => setCurrentStep(2)}
                 className="btn-primary text-sm px-5 py-2.5 flex items-center gap-2 disabled:opacity-60"
               >
-                {t('Next: Imaging Modality', 'Seterusnya: Modaliti')}
+                {t('Next: Examination', 'Seterusnya: Pemeriksaan')}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -665,7 +679,7 @@ export default function NewCaseRegistration() {
         ========================================================== */}
         {currentStep === 2 && (
           <>
-            <section className="bg-white border border-surface-200 rounded-lg shadow-sm overflow-hidden">
+            <section className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#EFF6F3] flex items-center justify-center shrink-0">
@@ -673,12 +687,12 @@ export default function NewCaseRegistration() {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-navy-900">
-                      {t('Imaging Modality & Examination Requests', 'Modaliti & Permohonan Pemeriksaan')}
+                      {t('Examination Requests', 'Permohonan Pemeriksaan')}
                     </h2>
                     <p className="text-[11px] text-surface-500 mt-0.5">
                       {t(
-                        'Select the imaging modality and specify the requested examination.',
-                        'Pilih modaliti pengimejan dan nyatakan pemeriksaan yang diperlukan.'
+                        'Select the imaging modality and requested examination.',
+                        'Pilih modaliti pengimejan dan pemeriksaan yang diperlukan.'
                       )}
                     </p>
                   </div>
@@ -868,10 +882,9 @@ export default function NewCaseRegistration() {
                                 {t('Examination Notes', 'Nota Pemeriksaan')}
                               </label>
                               <textarea
-                                rows={2}
                                 value={card.notes}
                                 onChange={(e) => updateCard(index, { notes: e.target.value })}
-                                className="input-field w-full resize-none"
+                                className="input-field !h-auto min-h-[110px] py-2.5 resize-y text-sm w-full"
                                 placeholder={t('Optional notes for the radiographer or radiologist...', 'Nota tambahan untuk radiografer atau radiologis...')}
                               />
                             </div>
@@ -902,7 +915,7 @@ export default function NewCaseRegistration() {
         ========================================================== */}
         {currentStep === 3 && (
           <>
-            <section className="bg-white border border-surface-200 rounded-lg shadow-sm overflow-hidden">
+            <section className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#EFF6F3] flex items-center justify-center shrink-0">
@@ -923,23 +936,6 @@ export default function NewCaseRegistration() {
               </div>
 
               <div className="p-6 space-y-5">
-                {selectedPatient && (
-                  <div className="rounded-lg bg-[#F8FAFC] border border-surface-200 p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <User className="w-4 h-4 text-[#0F4C42]" />
-                      <span className="text-xs font-bold text-navy-900">
-                        {t('Patient Profile', 'Profil Pesakit')}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                      <div><span className="text-surface-400 block text-[10px]">Name</span><span className="font-semibold text-surface-700">{selectedPatient.name}</span></div>
-                      <div><span className="text-surface-400 block text-[10px]">MRN</span><span className="font-semibold text-surface-700 font-mono">{selectedPatient.mrn}</span></div>
-                      <div><span className="text-surface-400 block text-[10px]">Gender</span><span className="font-semibold text-surface-700">{selectedPatient.gender}</span></div>
-                      <div><span className="text-surface-400 block text-[10px]">Payment</span><span className="font-semibold text-surface-700">{paymentBadge?.label || '—'}</span></div>
-                    </div>
-                  </div>
-                )}
-
                 {isFemalePatient && (
                   <div className="rounded-lg border border-pink-200 bg-pink-50/50 p-4 space-y-4">
                     <div>
@@ -978,18 +974,34 @@ export default function NewCaseRegistration() {
                   </div>
                 )}
 
-                <div className="rounded-lg border border-surface-200 bg-white p-4">
-                  <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                    {t('Patient Transport / Mobility Mode', 'Mod Pengangkutan / Pergerakan Pesakit')}
-                  </label>
-                  <select
-                    value={hasMobileDevice}
-                    onChange={(e) => setHasMobileDevice(e.target.value as MohYaTidak)}
-                    className="select-field w-full md:max-w-md"
-                  >
-                    <option value="No">Ambulatory / Walking (Mobile)</option>
-                    <option value="Yes">Wheelchair / Stretcher / Trolley Required</option>
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                      {t('Patient Transport / Mobility Mode', 'Mod Pengangkutan / Pergerakan Pesakit')}
+                    </label>
+                    <select
+                      value={hasMobileDevice}
+                      onChange={(e) => setHasMobileDevice(e.target.value as MohYaTidak)}
+                      className="select-field w-full"
+                    >
+                      <option value="No">Ambulatory / Walking (Mobile)</option>
+                      <option value="Yes">Wheelchair / Stretcher / Trolley Required</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                      {t('Workflow Priority', 'Tahap Keutamaan Workflow')}
+                    </label>
+                    <select
+                      value={workflowPriority}
+                      onChange={(e) => setWorkflowPriority(e.target.value as 'Emergency' | 'Non-Emergency')}
+                      className="select-field w-full"
+                    >
+                      <option value="Emergency">Emergency (Immediate Slot / PACS Van Routing)</option>
+                      <option value="Non-Emergency">Non-Emergency / Elective Appointment</option>
+                    </select>
+                  </div>
                 </div>
 
                 {['CT', 'MRI', 'Fluoro', 'Angio'].includes(modality) && (
@@ -1038,7 +1050,7 @@ export default function NewCaseRegistration() {
                 {t('Back', 'Kembali')}
               </button>
               <button type="button" disabled={!step3Valid} onClick={() => setCurrentStep(4)} className="btn-primary text-sm flex items-center gap-1.5 disabled:opacity-60">
-                {t('Next: Priority & Submit', 'Seterusnya: Keutamaan & Hantar')}
+                {t('Next: Review & Submit', 'Seterusnya: Semak & Hantar')}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -1058,12 +1070,12 @@ export default function NewCaseRegistration() {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-navy-900">
-                      {t('Priority & Referral Submission', 'Keutamaan & Penyerahan Rujukan')}
+                      {t('Review & Submit', 'Semak & Hantar')}
                     </h2>
                     <p className="text-[11px] text-surface-500 mt-0.5">
                       {t(
-                        'Choose the workflow priority and preferred diagnostic location before submitting.',
-                        'Pilih keutamaan aliran kerja dan lokasi diagnostik pilihan sebelum menghantar.'
+                        'Review the case details and scheduling preference before submitting.',
+                        'Semak butiran kes dan keutamaan penjadualan sebelum menghantar.'
                       )}
                     </p>
                   </div>
@@ -1071,139 +1083,378 @@ export default function NewCaseRegistration() {
               </div>
 
               <div className="p-6 space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                      {t('Workflow Priority', 'Tahap Keutamaan Workflow')}
-                    </label>
-                    <select
-                      value={workflowPriority}
-                      onChange={(e) => setWorkflowPriority(e.target.value as 'Emergency' | 'Non-Emergency')}
-                      className="select-field w-full"
-                    >
-                      <option value="Emergency">Emergency (Immediate Slot / PACS Van Routing)</option>
-                      <option value="Non-Emergency">Non-Emergency / Elective Appointment</option>
-                    </select>
+                {/* 1. COMPREHENSIVE CASE SUMMARY CARD */}
+                <div className="rounded-xl border border-surface-200 bg-white p-5 space-y-5">
+                  <div className="flex items-center justify-between border-b border-surface-100 pb-3">
+                    <h3 className="text-xs font-bold text-surface-900 uppercase tracking-wider flex items-center gap-2">
+                      <FileCheck2 className="w-4 h-4 text-[#0F4C42]" />
+                      {t('Case Summary', 'Ringkasan Kes')}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                        workflowPriority === 'Emergency'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {workflowPriority}
+                      </span>
+                      <span className="text-[10px] font-semibold text-surface-600 bg-surface-100 px-2.5 py-0.5 rounded-full">
+                        {t('Severity', 'Tahap')}: {severity}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="rounded-xl border border-surface-200 bg-surface-50/60 p-3.5 space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <label className="block text-xs font-bold text-surface-900 uppercase tracking-wide">
-                          {t('Screening Facility & Outreach Unit', 'Pusat Saringan & Unit Bergerak')}
-                        </label>
-                        <p className="text-[11px] text-surface-500">
-                          Workflow automatically routes to the closest screening center to optimize patient commute.
-                        </p>
+                  {/* Section A: Patient Details */}
+                  <div className="space-y-2">
+                    <h4 className="text-[11px] font-bold text-surface-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-[#0F4C42]" />
+                      {t('Patient Details', 'Maklumat Pesakit')}
+                    </h4>
+                    <div className="rounded-lg border border-surface-200 bg-surface-50/60 p-3.5 space-y-2.5 text-xs">
+                      {/* Name */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Patient Name', 'Nama Pesakit')}</span>
+                        <span className="font-bold text-surface-900">{selectedPatient?.name || '—'}</span>
                       </div>
 
-                      {!isManualClinicOverride ? (
-                        <button
-                          type="button"
-                          onClick={() => setIsManualClinicOverride(true)}
-                          className="text-xs font-semibold text-teal-700 hover:text-teal-800 hover:underline flex items-center gap-1 shrink-0 px-2 py-1 rounded bg-teal-50 border border-teal-200"
-                          title="Click ONLY if patient explicitly prefers a different clinic"
-                        >
-                          <SlidersHorizontal className="w-3 h-3" />
-                          <span>{t('Manual Override', 'Tukar Pilihan')}</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsManualClinicOverride(false);
-                            if (nearestClinicForPatient?.clinic.id) {
-                              setPreferredClinicId(nearestClinicForPatient.clinic.id);
-                            }
-                          }}
-                          className="text-xs font-semibold text-amber-800 hover:text-amber-900 hover:underline flex items-center gap-1 shrink-0 px-2 py-1 rounded bg-amber-100/70 border border-amber-300"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>{t('Reset to AI Workflow', 'Guna Syor AI')}</span>
-                        </button>
+                      {/* IC / NRIC */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('IC / NRIC', 'No. KP')}</span>
+                        <span className="font-mono font-semibold text-surface-900">{selectedPatient?.nric || '—'}</span>
+                      </div>
+
+                      {/* MRN */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('MRN', 'No. MRN')}</span>
+                        <span className="font-mono font-semibold text-surface-900">{selectedPatient?.mrn || '—'}</span>
+                      </div>
+
+                      {/* Gender */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Gender', 'Jantina')}</span>
+                        <span className="font-semibold text-surface-900">{selectedPatient?.gender || '—'}</span>
+                      </div>
+
+                      {/* Date of Birth */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Date of Birth', 'Tarikh Lahir')}</span>
+                        <span className="font-semibold text-surface-900">{selectedPatient?.dob || '—'}</span>
+                      </div>
+
+                      {/* Address */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Address', 'Alamat')}</span>
+                        <span className="font-medium text-surface-800 leading-relaxed">{selectedPatient?.address || '—'}</span>
+                      </div>
+
+                      {/* History */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Medical History', 'Sejarah Perubatan')}</span>
+                        <span className="font-medium text-surface-800">
+                          {selectedPatient?.medicalHistory && selectedPatient.medicalHistory.length > 0
+                            ? selectedPatient.medicalHistory.join(', ')
+                            : t('No prior medical history recorded', 'Tiada sejarah perubatan direkodkan')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section B: Referral, Location & Context */}
+                  <div className="space-y-2">
+                    <h4 className="text-[11px] font-bold text-surface-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-[#0F4C42]" />
+                      {t('Referral Context & Location', 'Konteks Rujukan & Lokasi')}
+                    </h4>
+                    <div className="rounded-lg border border-surface-200 bg-surface-50/60 p-3.5 space-y-2.5 text-xs">
+                      {/* Requesting Location */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Requesting Location', 'Lokasi Pemohon')}</span>
+                        <span className="font-bold text-surface-900">{resolvedWardOrClinic || '—'}</span>
+                      </div>
+
+                      {/* Requesting Department */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Requesting Department', 'Jabatan / Disiplin')}</span>
+                        <span className="font-semibold text-surface-900">{resolvedDisiplin || '—'}</span>
+                      </div>
+
+                      {/* Clinical Indication */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Clinical Indication', 'Indikasi Klinikal')}</span>
+                        <span className="font-bold text-surface-900">{indication || '—'}</span>
+                      </div>
+
+                      {/* Referral / Clinical Notes */}
+                      {clinicalNotes && (
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                          <span className="text-surface-500 font-medium">{t('Referral Notes', 'Nota Rujukan')}</span>
+                          <span className="font-medium text-surface-800">{clinicalNotes}</span>
+                        </div>
+                      )}
+
+                      {/* Severity & Workflow Priority */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Severity & Priority', 'Tahap & Keutamaan')}</span>
+                        <span className="font-semibold text-surface-900">
+                          {severity} ({t('Workflow Priority', 'Keutamaan')}: {workflowPriority})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section C: Imaging & Requested Examination */}
+                  <div className="space-y-2">
+                    <h4 className="text-[11px] font-bold text-surface-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5 text-[#0F4C42]" />
+                      {t('Imaging & Requested Examination', 'Pengimejan & Pemeriksaan Dimohon')}
+                    </h4>
+                    <div className="rounded-lg border border-surface-200 bg-surface-50/60 p-3.5 space-y-2.5 text-xs">
+                      {/* Imaging Modality */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Imaging Modality', 'Modaliti Pengimejan')}</span>
+                        <span className="font-bold text-[#0F4C42]">{modality}</span>
+                      </div>
+
+                      {/* Requested Examination(s) */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-start">
+                        <span className="text-surface-500 font-medium">{t('Requested Examination', 'Pemeriksaan Dimohon')}</span>
+                        <div className="space-y-2">
+                          {examCards.map((card, idx) => {
+                            const part = card.bodyPart === 'Other' ? card.customBodyPart : card.bodyPart;
+                            const sideStr = card.side && card.side !== 'N/A' ? ` (${card.side})` : '';
+                            const viewsStr = card.viewsOrProtocol?.length > 0 ? ` · ${card.viewsOrProtocol.join(', ')}` : '';
+                            return (
+                              <div key={card.id || idx} className="space-y-0.5">
+                                <div className="font-semibold text-surface-900">
+                                  <span>{examCards.length > 1 ? `${idx + 1}. ` : ''}{part || 'Unspecified'}{sideStr}{viewsStr}</span>
+                                </div>
+                                {card.notes && (
+                                  <div className="text-[11px] text-surface-600 bg-white/80 border border-surface-200 rounded px-2 py-1">
+                                    <span className="font-semibold text-surface-700">{t('Exam Notes', 'Nota Pemeriksaan')}:</span> {card.notes}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Estimated Dose */}
+                      {primaryExamDose && (
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                          <span className="text-surface-500 font-medium">{t('Estimated Dose', 'Anggaran Dos')}</span>
+                          <span className="font-semibold text-emerald-700">
+                            ~{primaryExamDose.dosMsv} mSv ({primaryExamDose.category})
+                          </span>
+                        </div>
                       )}
                     </div>
+                  </div>
 
-                    {!isManualClinicOverride ? (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 flex items-start gap-2.5">
-                        <div className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                          <Sparkles className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-xs font-bold text-emerald-950">
-                              {preferredClinicId
-                                ? uniqueClinics.find((c) => c.id === preferredClinicId)?.name || 'AI Automated Facility'
-                                : 'AI Workflow Auto-Assignment'}
-                            </span>
-                            {nearestClinicForPatient && (
-                              <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded-full">
-                                {nearestClinicForPatient.distanceKm > 0 ? `${nearestClinicForPatient.distanceKm} km` : 'Closest'}
-                              </span>
-                            )}
-                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                              AI Workflow Prioritized
+                  {/* Section D: Clinical Safety, Female Screening & Patient Transport */}
+                  <div className="space-y-2">
+                    <h4 className="text-[11px] font-bold text-surface-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#0F4C42]" />
+                      {t('Clinical Safety & Patient Transport', 'Keselamatan Klinikal & Pengangkutan Pesakit')}
+                    </h4>
+                    <div className="rounded-lg border border-surface-200 bg-surface-50/60 p-3.5 space-y-2.5 text-xs">
+                      {/* Patient Transport */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Patient Transport', 'Pengangkutan Pesakit')}</span>
+                        <span className="font-semibold text-surface-900">
+                          {hasMobileDevice === 'Yes'
+                            ? t('Wheelchair / Stretcher / Trolley Required', 'Kerusi Roda / Pengusung Diperlukan')
+                            : t('Ambulatory / Walking (Mobile)', 'Boleh Berjalan (Bergerak Sendiri)')}
+                        </span>
+                      </div>
+
+                      {/* Workflow Priority */}
+                      <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                        <span className="text-surface-500 font-medium">{t('Workflow Priority', 'Tahap Keutamaan Workflow')}</span>
+                        <span className="font-bold text-surface-900">
+                          {workflowPriority}
+                        </span>
+                      </div>
+
+                      {/* Female Screening if applicable */}
+                      {isFemalePatient && (
+                        <>
+                          <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                            <span className="text-surface-500 font-medium">{t('Pregnant Status', 'Status Mengandung')}</span>
+                            <span className="font-semibold text-surface-900">
+                              {isPregnant === 'Yes'
+                                ? t('Yes (Pregnant)', 'Ya (Mengandung)')
+                                : isPregnant === 'No'
+                                ? t('No (Not Pregnant)', 'Tidak (Tidak Mengandung)')
+                                : '—'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-emerald-800 mt-0.5">
-                            Auto-assigned based on patient residential location to optimize route scheduling.
+
+                          <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                            <span className="text-surface-500 font-medium">{t('Last Menstrual Period (LMP)', 'Tarikh Haid Terakhir (LMP)')}</span>
+                            <span className="font-semibold text-surface-900">{lmp || '—'}</span>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Contrast Media details if applicable */}
+                      {contrastMediaRequired && (
+                        <div className="grid grid-cols-[120px_1fr] sm:grid-cols-[160px_1fr] gap-2 items-baseline">
+                          <span className="text-surface-500 font-medium">{t('IV Contrast', 'Media Kontras IV')}</span>
+                          <span className="font-semibold text-blue-900">
+                            {t('Required', 'Diperlukan')} · {t('Lab Date', 'Tarikh Lab')}: {renalFunctionDate || '—'} · Creatinine: {creatinine || '—'} µmol/L · eGFR: {egfr || '—'} mL/min/1.73m²
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. SCREENING FACILITY CARD */}
+                <div className="rounded-xl border border-surface-200 bg-white p-5 space-y-3.5">
+                  <div>
+                    <h3 className="text-xs font-bold text-surface-900 uppercase tracking-wider">
+                      {t('Screening Facility', 'Pusat Saringan')}
+                    </h3>
+                    <p className="text-xs text-surface-500 mt-0.5">
+                      {t(
+                        "HealthGrid IQ will recommend a suitable facility based on the patient's location and availability.",
+                        'HealthGrid IQ akan mengesyorkan pusat saringan yang sesuai berdasarkan lokasi dan ketersediaan pesakit.'
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* Automatic recommendation */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsManualClinicOverride(false);
+                        if (nearestClinicForPatient?.clinic.id) {
+                          setPreferredClinicId(nearestClinicForPatient.clinic.id);
+                        }
+                      }}
+                      className={`w-full text-left rounded-lg border p-3.5 transition ${!isManualClinicOverride
+                        ? 'border-teal-300 bg-teal-50/60'
+                        : 'border-surface-200 bg-white hover:bg-surface-50'
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center ${!isManualClinicOverride
+                            ? 'border-teal-600'
+                            : 'border-surface-300'
+                            }`}
+                        >
+                          {!isManualClinicOverride && (
+                            <div className="w-2 h-2 rounded-full bg-teal-600" />
+                          )}
+                        </div>
+
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-surface-900">
+                              {t('Automatic recommendation', 'Cadangan automatik')}
+                            </span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
+                              {t('Recommended', 'Disyorkan')}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-surface-500 mt-0.5">
+                            {t('Nearest suitable healthcare centre.', 'Pusat kesihatan yang sesuai dan terdekat.')}
                           </p>
                         </div>
                       </div>
-                    ) : (
-                      <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-2.5 space-y-2">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <span>Manual Override Active (Patient Explicit Preference)</span>
-                        </div>
-                        <select
-                          value={preferredClinicId}
-                          onChange={(e) => setPreferredClinicId(e.target.value)}
-                          className="select-field w-full bg-white text-xs font-medium"
+                    </button>
+
+                    {/* Patient preference */}
+                    <button
+                      type="button"
+                      onClick={() => setIsManualClinicOverride(true)}
+                      className={`w-full text-left rounded-lg border p-3.5 transition ${isManualClinicOverride
+                        ? 'border-teal-300 bg-teal-50/60'
+                        : 'border-surface-200 bg-white hover:bg-surface-50'
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center ${isManualClinicOverride
+                            ? 'border-teal-600'
+                            : 'border-surface-300'
+                            }`}
                         >
-                          <option value="">-- Select Preferred Clinic --</option>
-                          {uniqueClinics.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                              {nearestClinicForPatient?.clinic.id === c.id ? ' (✨ AI Recommended Nearest)' : ''}
-                            </option>
-                          ))}
-                        </select>
+                          {isManualClinicOverride && (
+                            <div className="w-2 h-2 rounded-full bg-teal-600" />
+                          )}
+                        </div>
+
+                        <div>
+                          <span className="text-sm font-semibold text-surface-900">
+                            {t('Patient prefers a specific healthcare centre', 'Pesakit memilih pusat kesihatan tertentu')}
+                          </span>
+
+                          <p className="text-xs text-surface-500 mt-0.5">
+                            {t('Patient-requested facility.', 'Pusat yang diminta oleh pesakit.')}
+                          </p>
+                        </div>
                       </div>
-                    )}
+                    </button>
                   </div>
 
-                  {workflowPriority === 'Non-Emergency' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                          {t('Preferred Appointment Date', 'Tarikh Temujanji Pilihan')}
-                        </label>
-                        <input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="input-field w-full" />
-                      </div>
+                  {isManualClinicOverride && (
+                    <div className="mt-3 pl-7">
+                      <label className="block text-xs font-semibold text-surface-700 mb-1.5">
+                        {t('Preferred Healthcare Centre', 'Pusat Kesihatan Pilihan')}
+                      </label>
 
-                      <div>
-                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                          {t('Preferred Time Slot', 'Slot Masa Pilihan')}
-                        </label>
-                        <input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="input-field w-full" />
-                      </div>
-                    </>
-                  )}
-                </div>
+                      <select
+                        value={preferredClinicId}
+                        onChange={(e) => setPreferredClinicId(e.target.value)}
+                        className="select-field w-full"
+                      >
+                        <option value="">
+                          -- {t('Select healthcare centre', 'Pilih pusat kesihatan')} --
+                        </option>
 
-                <div className="rounded-lg bg-[#F3F8F6] border border-[#D8E8E2] p-4">
-                  <div className="flex items-start gap-2.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-[#0F4C42]">
-                        {t('Ready to submit radiology referral', 'Sedia untuk menghantar rujukan radiologi')}
-                      </p>
-                      <p className="text-[10px] text-surface-500 mt-0.5">
-                        {selectedPatient?.name || '—'} · {modality} · {severity} · {workflowPriority}
+                        {uniqueClinics.map(clinic => (
+                          <option key={clinic.id} value={clinic.id}>
+                            {clinic.name}
+                            {radiographersByClinic[clinic.id] ? ` (${radiographersByClinic[clinic.id]} Radiographer on duty)` : ''}
+                            {nearestClinicForPatient?.clinic.id === clinic.id ? ' [Auto Recommended Nearest]' : ''}
+                          </option>
+                        ))}
+                      </select>
+
+                      <p className="text-[11px] text-surface-400 mt-1.5">
+                        {t(
+                          'This preference will be considered when the AI Scheduler processes the patient case.',
+                          'Pilihan ini akan dipertimbangkan apabila AI Scheduler memproses kes pesakit.'
+                        )}
                       </p>
                     </div>
-                  </div>
+                  )}
+
+                  {!isManualClinicOverride && nearestClinicForPatient && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-surface-50 border border-surface-200 px-3 py-2.5">
+                      <Building2 className="w-4 h-4 text-teal-600 shrink-0" />
+
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-surface-800">
+                          {nearestClinicForPatient.clinic.name}
+                        </p>
+
+                        <p className="text-[11px] text-surface-500">
+                          {nearestClinicForPatient.distanceKm > 0 ? `${nearestClinicForPatient.distanceKm} km away` : t('Nearest active facility', 'Pusat aktif terdekat')}
+                          {nearestClinicForPatient.radCount > 0 ? ` · ${nearestClinicForPatient.radCount} Radiographer(s) on duty` : ''}
+                        </p>
+                      </div>
+
+                      <span className="ml-auto text-[10px] font-semibold text-surface-500">
+                        {t('AI recommendation', 'Cadangan AI')}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -1222,7 +1473,7 @@ export default function NewCaseRegistration() {
                 {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
                 {submitting
                   ? t('Submitting Case...', 'Menghantar Kes...')
-                  : t('Submit Radiology Case', 'Hantar Kes Radiologi')}
+                  : t('Submit Case', 'Hantar Kes')}
               </button>
             </div>
           </>
@@ -1232,78 +1483,80 @@ export default function NewCaseRegistration() {
       {/* =========================================================
           DOSE REFERENCE MODAL
       ========================================================== */}
-      {showDoseModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-surface-200">
-            <div className="px-5 py-4 bg-[#0F4C42] text-white flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-sm">
-                  {t('Effective Radiation Dose Reference List', 'Senarai Dos Berkesan Pemeriksaan Radiologi')}
-                </h3>
-                <p className="text-[10px] text-emerald-100 mt-0.5">
-                  Kementerian Kesihatan Malaysia PER.SS-RA301 Benchmark
+      {
+        showDoseModal && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-surface-200">
+              <div className="px-5 py-4 bg-[#0F4C42] text-white flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-sm">
+                    {t('Effective Radiation Dose Reference List', 'Senarai Dos Berkesan Pemeriksaan Radiologi')}
+                  </h3>
+                  <p className="text-[10px] text-emerald-100 mt-0.5">
+                    Kementerian Kesihatan Malaysia PER.SS-RA301 Benchmark
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDoseModal(false)}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-red-500 text-white flex items-center justify-center font-bold text-xs transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-4 overflow-y-auto space-y-3 text-xs">
+                <p className="text-slate-600 text-[11px] italic bg-slate-50 p-2 rounded-lg border border-slate-200">
+                  Source: Health Physics Society Fact Sheet 2010, UNSCEAR 2008 Report Vol.1 &amp; FA Mettler et al., Radiology 2008
                 </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowDoseModal(false)}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-red-500 text-white flex items-center justify-center font-bold text-xs transition-colors"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="p-4 overflow-y-auto space-y-3 text-xs">
-              <p className="text-slate-600 text-[11px] italic bg-slate-50 p-2 rounded-lg border border-slate-200">
-                Source: Health Physics Society Fact Sheet 2010, UNSCEAR 2008 Report Vol.1 &amp; FA Mettler et al., Radiology 2008
-              </p>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse border border-slate-200 text-xs">
-                  <thead className="bg-slate-100 font-bold text-slate-800">
-                    <tr>
-                      <th className="p-2.5 border border-slate-200">Radiology Examination</th>
-                      <th className="p-2.5 border border-slate-200 text-center">Dose (mSv)</th>
-                      <th className="p-2.5 border border-slate-200 text-center">Chest (AP) Ratio</th>
-                      <th className="p-2.5 border border-slate-200">Category</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {SENARAI_DOS_BERKESAN.map((item) => (
-                      <tr key={item.id} className="hover:bg-amber-50/40 border-b border-slate-200">
-                        <td className="p-2.5 font-semibold text-slate-900 border border-slate-200">
-                          {item.examination}
-                          {item.notes && <span className="block text-[10px] text-amber-700 font-normal">{item.notes}</span>}
-                        </td>
-                        <td className="p-2.5 border border-slate-200 text-center font-mono font-bold text-navy-900">
-                          {item.dosMsv}
-                        </td>
-                        <td className="p-2.5 border border-slate-200 text-center font-mono font-bold text-emerald-700">
-                          ~{item.chestXrayRatio}
-                        </td>
-                        <td className="p-2.5 border border-slate-200 text-[11px] text-slate-600">
-                          {item.category}
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse border border-slate-200 text-xs">
+                    <thead className="bg-slate-100 font-bold text-slate-800">
+                      <tr>
+                        <th className="p-2.5 border border-slate-200">Radiology Examination</th>
+                        <th className="p-2.5 border border-slate-200 text-center">Dose (mSv)</th>
+                        <th className="p-2.5 border border-slate-200 text-center">Chest (AP) Ratio</th>
+                        <th className="p-2.5 border border-slate-200">Category</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {SENARAI_DOS_BERKESAN.map((item) => (
+                        <tr key={item.id} className="hover:bg-amber-50/40 border-b border-slate-200">
+                          <td className="p-2.5 font-semibold text-slate-900 border border-slate-200">
+                            {item.examination}
+                            {item.notes && <span className="block text-[10px] text-amber-700 font-normal">{item.notes}</span>}
+                          </td>
+                          <td className="p-2.5 border border-slate-200 text-center font-mono font-bold text-navy-900">
+                            {item.dosMsv}
+                          </td>
+                          <td className="p-2.5 border border-slate-200 text-center font-mono font-bold text-emerald-700">
+                            ~{item.chestXrayRatio}
+                          </td>
+                          <td className="p-2.5 border border-slate-200 text-[11px] text-slate-600">
+                            {item.category}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
 
-            <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowDoseModal(false)}
-                className="btn-secondary text-xs px-4 py-2"
-              >
-                Close Reference Guide
-              </button>
+              <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowDoseModal(false)}
+                  className="btn-secondary text-xs px-4 py-2"
+                >
+                  Close Reference Guide
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }
 
@@ -1340,7 +1593,7 @@ function PatientSearchSelect({
     <div className="relative" ref={ref}>
       <input
         type="text"
-        value={open ? search : (selected ? `${selected.name} (${selected.mrn}) — NRIC: ${selected.nric}` : '')}
+        value={open ? search : (selected ? `${selected.name} (${selected.mrn})` : '')}
         onChange={(e) => { setSearch(e.target.value); if (!open) setOpen(true); }}
         onFocus={() => { setOpen(true); setSearch(''); }}
         placeholder="Search patient name, MRN, or NRIC..."

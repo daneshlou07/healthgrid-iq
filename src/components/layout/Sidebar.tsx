@@ -79,24 +79,14 @@ function getNavGroups(
               icon: <House className="w-[18px] h-[18px]" />,
             },
             {
-              label: t('Scan Queue & Upload', 'Giliran & Muat Naik Imbasan'),
+              label: t('My Cases', 'Senarai Tugas Saya'),
               path: '/scan-queue',
-              icon: <Upload className="w-[18px] h-[18px]" />,
-            },
-            {
-              label: t('Daily Worklist & Schedule', 'Senarai Tugas Harian & Jadual'),
-              path: '/schedule',
               icon: <Calendar className="w-[18px] h-[18px]" />,
             },
             {
-              label: t('All Medical Cases', 'Semua Kes Perubatan'),
-              path: '/cases',
-              icon: <FolderOpen className="w-[18px] h-[18px]" />,
-            },
-            {
-              label: t('Track Case Status', 'Jejak Status Kes'),
-              path: '/track-status',
-              icon: <ArrowRightLeft className="w-[18px] h-[18px]" />,
+              label: t('Upload Scans', 'Muat Naik Imbasan'),
+              path: '/upload',
+              icon: <Upload className="w-[18px] h-[18px]" />,
             },
             {
               label: t('My Credentials', 'Kelayakan Saya'),
@@ -119,7 +109,7 @@ function getNavGroups(
             },
             {
               label: t('Diagnostic Hub & Reports', 'Hab Diagnostik & Laporan'),
-              path: '/reporting',
+              path: '/review-queue',
               icon: <FileText className="w-[18px] h-[18px]" />,
             },
             {
@@ -198,7 +188,6 @@ function getNavGroups(
               icon: (
                 <Inbox className="w-[18px] h-[18px]" />
               ),
-              badge: pendingRequests,
             },
             {
               label: t(
@@ -223,7 +212,7 @@ function getNavGroups(
                 'Diagnostic Hub & Reports',
                 'Hab Diagnostik & Laporan'
               ),
-              path: '/reporting',
+              path: '/review-queue',
               icon: (
                 <FileText className="w-[18px] h-[18px]" />
               ),
@@ -259,22 +248,6 @@ function getNavGroups(
               label: t('Dashboard', 'Papan Pemuka'),
               path: '/dashboard',
               icon: <House className="w-[18px] h-[18px]" />,
-            },
-            {
-              label: t('BEMS Referral Portal', 'Portal Rujukan BEMS'),
-              path: '/bems',
-              icon: <Wrench className="w-[18px] h-[18px]" />,
-              badge: pendingBems,
-            },
-            {
-              label: t('All Medical Cases', 'Semua Kes Perubatan'),
-              path: '/cases',
-              icon: <FolderOpen className="w-[18px] h-[18px]" />,
-            },
-            {
-              label: t('Track Case Status', 'Jejak Status Kes'),
-              path: '/track-status',
-              icon: <ArrowRightLeft className="w-[18px] h-[18px]" />,
             },
           ],
         },
@@ -727,8 +700,10 @@ export default function Sidebar({
   const pathToKeyMap: Record<string, string> = {
     '/dashboard': 'dashboard',
     '/scan-queue': 'scan_queue',
+    '/upload': 'upload_scans',
     '/schedule': 'schedule',
     '/reporting': 'reporting',
+    '/review-queue': 'reporting',
     '/patients': 'patients',
     '/patients/register': 'register_patient',
     '/cases/new': 'new_case',
@@ -736,37 +711,59 @@ export default function Sidebar({
     '/requests': 'patient_requests',
     '/bems': 'bems',
     '/private-admin': 'private_admin',
+    '/external-radiographer': 'external_radiographer',
     '/ai-scheduler': 'ai_scheduler',
     '/fleet': 'fleet',
     '/clinics': 'clinics',
     '/users': 'users',
+    '/reports': 'reports',
+    '/recycle-bin': 'recycle_bin',
     '/audit-logs': 'audit_logs',
     '/analytics': 'analytics',
     '/tech-stack': 'tech_stack',
     '/track-status': 'track_status',
     '/onboarding': 'credentials',
+    '/marketplace/medical': 'marketplace_medical',
+    '/marketplace/non-medical': 'marketplace_non_medical',
+    '/marketplace/orders': 'marketplace_orders',
+    '/marketplace/manage-items': 'marketplace_manage',
+    '/marketplace': 'marketplace_all',
   };
 
   const allowedKeys = roleNavigationConfig?.[currentUser.role];
 
-  // Dynamically filter items according to configured role permissions
+  // Dynamically filter and sort items according to configured role permissions & custom order
   const groups = React.useMemo(() => {
-    // If Super Admin, always show everything
-    if (currentUser.role === 'Super Admin' || !allowedKeys) {
+    if (!allowedKeys || allowedKeys.length === 0) {
       return rawGroups;
     }
 
     return rawGroups
-      .map((g) => ({
-        ...g,
-        items: g.items.filter((item) => {
+      .map((g) => {
+        const filtered = g.items.filter((item) => {
           const key = pathToKeyMap[item.path];
           if (!key) return true;
           return allowedKeys.includes(key);
-        }),
-      }))
+        });
+
+        const sorted = [...filtered].sort((a, b) => {
+          const keyA = pathToKeyMap[a.path];
+          const keyB = pathToKeyMap[b.path];
+          const idxA = keyA ? allowedKeys.indexOf(keyA) : 999;
+          const idxB = keyB ? allowedKeys.indexOf(keyB) : 999;
+          if (idxA === -1 && idxB === -1) return 0;
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+        });
+
+        return {
+          ...g,
+          items: sorted,
+        };
+      })
       .filter((g) => g.items.length > 0);
-  }, [rawGroups, allowedKeys, currentUser.role]);
+  }, [rawGroups, allowedKeys]);
 
   return (
     <aside
@@ -953,8 +950,9 @@ export default function Sidebar({
                 {group.items.map(
                   (item) => {
                     const isActive =
-                      location.pathname ===
-                      item.path;
+                      location.pathname === item.path ||
+                      (item.path === '/review-queue' && (location.pathname === '/reporting' || location.pathname === '/review-queue')) ||
+                      (item.path === '/reporting' && (location.pathname === '/reporting' || location.pathname === '/review-queue'));
 
                     return (
                       <NavLink

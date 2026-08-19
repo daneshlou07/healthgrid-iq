@@ -179,146 +179,192 @@ export default function CaseDetail() {
   if (caseItem.reportedAt) timeline.push({ label: 'Report Drafted', date: caseItem.reportedAt, status: 'REPORTED' });
   if (caseItem.finalizedAt) timeline.push({ label: 'Finalized', date: caseItem.finalizedAt, status: 'FINALIZED' });
 
+  const isBemz = currentUser?.role === 'BEMZ' || currentUser?.role === 'BEMS';
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 border border-surface-200 rounded-xl shadow-sm">
-        {/* Left: Case Title & Context Badges */}
-        <div className="flex items-start gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-surface-100 rounded-lg transition-colors mt-0.5 shrink-0" title="Back">
-            <ArrowLeft className="w-4 h-4 text-surface-500" />
-          </button>
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-bold text-navy-900 tracking-tight">{caseItem.caseNumber}</h1>
-              <button onClick={handleCopy} className="p-1 hover:bg-surface-100 rounded transition-colors" title="Copy case number">
-                {copied ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-surface-400" />}
-              </button>
-              <StatusBadge status={caseItem.status} />
-              <SeverityBadge severity={caseItem.severity} />
+    <div className="w-full space-y-6">
+      {/* Header Card */}
+      <div className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden">
+        {/* Top Tier: Case Identification & Clinical Metadata */}
+        <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 hover:bg-surface-100 rounded-lg transition-colors mt-0.5 shrink-0 border border-slate-200"
+              title="Back"
+            >
+              <ArrowLeft className="w-4 h-4 text-surface-500" />
+            </button>
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-xl font-bold text-navy-900 tracking-tight">{caseItem.caseNumber}</h1>
+                <button
+                  onClick={handleCopy}
+                  className="p-1 hover:bg-surface-100 rounded transition-colors"
+                  title="Copy case number"
+                >
+                  {copied ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-surface-400" />}
+                </button>
+                <StatusBadge status={caseItem.status} />
+                <SeverityBadge severity={caseItem.severity} />
+              </div>
+              <p className="text-xs text-surface-600 font-medium flex flex-wrap items-center gap-2">
+                {!isBemz && (
+                  <>
+                    <span className="font-semibold text-slate-900">{caseItem.patientName}</span>
+                    <span>&middot;</span>
+                  </>
+                )}
+                <span className="font-medium text-slate-700">Modality: {caseItem.scanType}</span>
+                {caseItem.clinicName && (
+                  <>
+                    <span>&middot;</span>
+                    <span className="text-[#0F4C42] font-semibold bg-[#0F4C42]/5 px-2 py-0.5 rounded border border-[#0F4C42]/10">
+                      Origin: {caseItem.clinicName}
+                    </span>
+                  </>
+                )}
+                {caseItem.externalFacilityName && (
+                  <>
+                    <span>&middot;</span>
+                    <span className="text-purple-800 font-semibold bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                      Relocated To: {caseItem.externalFacilityName}
+                    </span>
+                  </>
+                )}
+              </p>
             </div>
-            <p className="text-xs text-surface-500 font-medium flex flex-wrap items-center gap-1.5">
-              <span>{caseItem.patientName}</span>
-              <span>&middot;</span>
-              <span className="font-semibold text-slate-700">{caseItem.scanType}</span>
-              {caseItem.clinicName && (
-                <>
-                  <span>&middot;</span>
-                  <span className="text-purple-700 font-medium">{caseItem.clinicName}</span>
-                </>
-              )}
-            </p>
+          </div>
+
+          {/* Primary Action Button if relevant */}
+          <div className="flex items-center gap-2 shrink-0">
+            {!isBemz && caseItem.status === 'SCHEDULED' && (
+              <Link
+                to={`/upload?caseId=${caseItem.id}`}
+                className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
+                title="Upload medical scans for this case"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Scan</span>
+              </Link>
+            )}
+            {!isBemz && caseItem.status === 'FINALIZED' && report && (
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
+                title="Share finalized report with patient via QR code or secure link"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>Share Report</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Right: Uniform Single-Line Action Buttons (h-9 whitespace-nowrap) */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {caseItem.status === 'SCHEDULED' && (
-            <Link
-              to={`/upload?caseId=${caseItem.id}`}
-              className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
-              title="Upload medical scans for this case"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Upload Scan</span>
+        {/* Bottom Tier: Action Toolbar */}
+        {!isBemz ? (
+          <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            {/* Scheduling & Patient Communication */}
+            <div className="flex flex-wrap items-center gap-2">
+              {caseItem.status !== 'FINALIZED' && caseItem.status !== 'CANCELLED' && caseItem.status !== 'NO_SHOW' && (
+                <>
+                  <button
+                    onClick={() => {
+                      setRescheduleDate(caseItem.officeTarikhAppointment || '');
+                      setRescheduleTime(caseItem.officeMasaAppointment || '');
+                      setShowRescheduleModal(true);
+                    }}
+                    className="h-8 px-3 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-300 transition-colors whitespace-nowrap shadow-xs"
+                    title="Change or update scan appointment"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Reschedule</span>
+                  </button>
+                  <button
+                    onClick={() => setShowSmsModal(true)}
+                    className="h-8 px-3 bg-white hover:bg-purple-50 text-purple-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-purple-200 transition-colors whitespace-nowrap shadow-xs"
+                    title="Send automated SMS / WhatsApp appointment alert to patient"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Send SMS</span>
+                  </button>
+                  <button
+                    onClick={() => setShowNoShowModal(true)}
+                    className="h-8 px-3 bg-white hover:bg-rose-50 text-rose-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-rose-200 transition-colors whitespace-nowrap shadow-xs"
+                    title="Flag patient no-show or cancel referral"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Cancel / No-Show</span>
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Clinical Documents & Export */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => exportDossierPdf(caseItem, patient, report)}
+                className="h-8 px-3 bg-navy-900 hover:bg-navy-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all border border-navy-700 whitespace-nowrap"
+                title="Download full multi-page Clinical Dossier PDF Package"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Export Dossier</span>
+              </button>
+
+              <PrintMohReferralLetterModal
+                caseItem={caseItem}
+                patient={patient}
+                report={report}
+                clinic={clinics.find((c) => c.id === caseItem.clinicId || c.name === caseItem.clinicName)}
+                buttonClassName="h-8 px-3 bg-white hover:bg-red-50 text-red-800 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-red-200 transition-colors whitespace-nowrap shadow-xs"
+              />
+
+              <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
+            </div>
+          </div>
+        ) : (
+          <div className="px-5 py-2.5 bg-amber-50/70 border-t border-amber-200/60 flex items-center justify-between text-xs text-amber-900">
+            <span className="font-semibold">
+              BEMS Relocation Mode &middot; Imaging service outsourced to {caseItem.externalFacilityType || 'External Facility'}
+            </span>
+            <Link to="/dashboard" className="font-bold text-[#0F4C42] hover:underline">
+              Return to BEMS Dashboard &rarr;
             </Link>
-          )}
-
-          {caseItem.status !== 'FINALIZED' && caseItem.status !== 'CANCELLED' && caseItem.status !== 'NO_SHOW' && (
-            <>
-              <button
-                onClick={() => {
-                  setRescheduleDate(caseItem.officeTarikhAppointment || '');
-                  setRescheduleTime(caseItem.officeMasaAppointment || '');
-                  setShowRescheduleModal(true);
-                }}
-                className="h-9 px-3 btn-secondary text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors"
-                title="Change or update scan appointment"
-              >
-                <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                <span>Reschedule</span>
-              </button>
-              <button
-                onClick={() => setShowSmsModal(true)}
-                className="h-9 px-3 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-purple-200 transition-colors whitespace-nowrap"
-                title="Send automated SMS / WhatsApp appointment alert to patient"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Send SMS</span>
-              </button>
-              <button
-                onClick={() => setShowNoShowModal(true)}
-                className="h-9 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-300 transition-colors whitespace-nowrap"
-                title="Flag patient no-show or cancel referral"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />
-                <span>Cancel / No-Show</span>
-              </button>
-            </>
-          )}
-
-          <button
-            onClick={() => exportDossierPdf(caseItem, patient, report)}
-            className="h-9 px-3.5 bg-navy-900 hover:bg-navy-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all border border-navy-700 whitespace-nowrap"
-            title="Download full multi-page Clinical Dossier PDF Package"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Export Dossier</span>
-          </button>
-
-          {/* Share Report with Patient (only when finalized) */}
-          {caseItem.status === 'FINALIZED' && report && (
-            <button
-              onClick={() => setShowReportModal(true)}
-              className="h-9 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
-              title="Share finalized report with patient via QR code or secure link"
-            >
-              <QrCode className="w-3.5 h-3.5" />
-              <span>Share Report</span>
-            </button>
-          )}
-
-          <PrintMohReferralLetterModal
-            caseItem={caseItem}
-            patient={patient}
-            report={report}
-            clinic={clinics.find((c) => c.id === caseItem.clinicId || c.name === caseItem.clinicName)}
-            buttonClassName="h-9 px-3 bg-red-50 hover:bg-red-100 text-red-800 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-red-200 transition-colors whitespace-nowrap shadow-sm"
-          />
-
-          <DownloadMohFormButton caseItem={caseItem} patient={patient} report={report} />
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Clinical Workflow Pipeline & Engine Stepper */}
       <ClinicalWorkflowPipeline caseItem={caseItem} />
 
       {/* Tab navigation */}
-      <div className="flex gap-1 p-1 bg-surface-100 rounded-xl w-fit">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'overview'
-              ? 'bg-white text-navy-800 shadow-sm'
-              : 'text-surface-500 hover:text-surface-700'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          Case Overview
-        </button>
-        <button
-          onClick={() => setActiveTab('worksheet')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'worksheet'
-              ? 'bg-white text-navy-800 shadow-sm'
-              : 'text-surface-500 hover:text-surface-700'
-          }`}
-        >
-          <ClipboardList className="w-3.5 h-3.5" />
-          MOH Worksheet
-          <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold ml-0.5">PER.SS-RA301</span>
-        </button>
-      </div>
+      {!isBemz && (
+        <div className="flex gap-1 p-1 bg-surface-100 rounded-xl w-fit">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'overview'
+                ? 'bg-white text-navy-800 shadow-sm'
+                : 'text-surface-500 hover:text-surface-700'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Case Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('worksheet')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'worksheet'
+                ? 'bg-white text-navy-800 shadow-sm'
+                : 'text-surface-500 hover:text-surface-700'
+            }`}
+          >
+            <ClipboardList className="w-3.5 h-3.5" />
+            MOH Worksheet
+            <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold ml-0.5">PER.SS-RA301</span>
+          </button>
+        </div>
+      )}
 
       {/* Tab: MOH Worksheet */}
       {activeTab === 'worksheet' && (

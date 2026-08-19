@@ -31,7 +31,7 @@ const ROLES: UserRole[] = [
   'Radiologist',
   'Administrator',
   'Super Admin',
-  'BEMZ',
+  'BEMS',
   'Private Hospital Admin',
   'Public Hospital Radiographer',
   'Private Hospital Radiographer',
@@ -109,7 +109,7 @@ export default function UsersManagement() {
       'Radiographer',
       'Radiologist',
       'Administrator',
-      'BEMZ',
+      'BEMS',
       'Private Hospital Admin',
       'Public Hospital Radiographer',
       'Private Hospital Radiographer',
@@ -120,7 +120,7 @@ export default function UsersManagement() {
       'Medical Officer',
       'Radiographer',
       'Radiologist',
-      'BEMZ',
+      'BEMS',
       'Private Hospital Admin',
       'Public Hospital Radiographer',
       'Private Hospital Radiographer',
@@ -207,11 +207,12 @@ export default function UsersManagement() {
     }
 
     // Role
-    if (
-      roleFilter !== 'all' &&
-      u.role !== roleFilter
-    ) {
-      return false;
+    if (roleFilter !== 'all') {
+      if (roleFilter === 'BEMS' || roleFilter === 'BEMZ') {
+        if (u.role !== 'BEMZ' && u.role !== 'BEMS') return false;
+      } else if (u.role !== roleFilter) {
+        return false;
+      }
     }
 
     // Shift
@@ -236,7 +237,7 @@ export default function UsersManagement() {
   });
 
   // =========================================================
-  // STATISTICS
+  // STATISTICS & DYNAMIC ROLE COUNTS
   // =========================================================
 
   const trackedAccountsForStats = visibleAccounts;
@@ -263,30 +264,24 @@ export default function UsersManagement() {
       (u) => u.isDeleted
     ).length;
 
-  const radiographerCount =
-    trackedAccountsForStats.filter(
-      (u) => u.role === 'Radiographer'
-    ).length;
+  // Accounts filtered by current status tab for real-time synchronized card counts
+  const accountsForRoleCounts = React.useMemo(() => {
+    return visibleAccounts.filter((u) => {
+      if (statusFilter === 'active') return !u.isDeleted && u.status === 'active';
+      if (statusFilter === 'inactive') return !u.isDeleted && u.status === 'inactive';
+      if (statusFilter === 'deleted') return u.isDeleted;
+      return true; // 'all'
+    });
+  }, [visibleAccounts, statusFilter]);
 
-  const moCount =
-    trackedAccountsForStats.filter(
-      (u) => u.role === 'Medical Officer'
-    ).length;
-
-  const radiologistCount =
-    trackedAccountsForStats.filter(
-      (u) => u.role === 'Radiologist'
-    ).length;
-
-  const adminCount =
-    trackedAccountsForStats.filter(
-      (u) => u.role === 'Administrator'
-    ).length;
-
-  const superAdminCount =
-    trackedAccountsForStats.filter(
-      (u) => u.role === 'Super Admin'
-    ).length;
+  const countForRole = (roleKey: string) => {
+    return accountsForRoleCounts.filter((u) => {
+      if (roleKey === 'BEMZ' || roleKey === 'BEMS') {
+        return u.role === 'BEMZ' || u.role === 'BEMS';
+      }
+      return u.role === roleKey;
+    }).length;
+  };
 
   // =========================================================
   // EXPORT
@@ -771,7 +766,7 @@ export default function UsersManagement() {
                     )
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Medical Officer'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -786,7 +781,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-emerald-700">
-                      {moCount}
+                      {countForRole('Medical Officer')}
                     </p>
                   </div>
 
@@ -805,7 +800,7 @@ export default function UsersManagement() {
                     )
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Radiographer'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -820,7 +815,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-sky-700">
-                      {radiographerCount}
+                      {countForRole('Radiographer')}
                     </p>
                   </div>
 
@@ -839,7 +834,7 @@ export default function UsersManagement() {
                     )
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Radiologist'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -854,7 +849,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-purple-700">
-                      {radiologistCount}
+                      {countForRole('Radiologist')}
                     </p>
                   </div>
 
@@ -873,7 +868,7 @@ export default function UsersManagement() {
                     )
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Administrator'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -888,7 +883,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-amber-700">
-                      {adminCount}
+                      {countForRole('Administrator')}
                     </p>
                   </div>
 
@@ -907,7 +902,7 @@ export default function UsersManagement() {
                     )
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Super Admin'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -922,7 +917,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-blue-700">
-                      {superAdminCount}
+                      {countForRole('Super Admin')}
                     </p>
                   </div>
 
@@ -935,13 +930,13 @@ export default function UsersManagement() {
                   type="button"
                   onClick={() =>
                     setRoleFilter(
-                      roleFilter === 'BEMZ'
+                      roleFilter === 'BEMS' || roleFilter === 'BEMZ'
                         ? 'all'
-                        : 'BEMZ'
+                        : 'BEMS'
                     )
                   }
-                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'BEMZ'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'BEMS' || roleFilter === 'BEMZ'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -956,11 +951,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-orange-700">
-                      {
-                        visibleAccounts.filter(
-                          (u) => u.role === 'BEMZ'
-                        ).length
-                      }
+                      {countForRole('BEMS')}
                     </p>
                   </div>
 
@@ -979,7 +970,7 @@ export default function UsersManagement() {
                     )
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Private Hospital Admin'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -994,13 +985,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-rose-700">
-                      {
-                        visibleAccounts.filter(
-                          (u) =>
-                            u.role ===
-                            'Private Hospital Admin'
-                        ).length
-                      }
+                      {countForRole('Private Hospital Admin')}
                     </p>
                   </div>
 
@@ -1021,7 +1006,7 @@ export default function UsersManagement() {
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter ===
                     'Public Hospital Radiographer'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -1036,13 +1021,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-cyan-700">
-                      {
-                        visibleAccounts.filter(
-                          (u) =>
-                            u.role ===
-                            'Public Hospital Radiographer'
-                        ).length
-                      }
+                      {countForRole('Public Hospital Radiographer')}
                     </p>
                   </div>
 
@@ -1063,7 +1042,7 @@ export default function UsersManagement() {
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter ===
                     'Private Hospital Radiographer'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -1078,13 +1057,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-indigo-700">
-                      {
-                        visibleAccounts.filter(
-                          (u) =>
-                            u.role ===
-                            'Private Hospital Radiographer'
-                        ).length
-                      }
+                      {countForRole('Private Hospital Radiographer')}
                     </p>
                   </div>
 
@@ -1105,7 +1078,7 @@ export default function UsersManagement() {
                   }
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter ===
                     'Equipment Marketplace'
-                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
@@ -1120,13 +1093,7 @@ export default function UsersManagement() {
                     </p>
 
                     <p className="text-lg font-bold text-teal-700">
-                      {
-                        visibleAccounts.filter(
-                          (u) =>
-                            u.role ===
-                            'Equipment Marketplace'
-                        ).length
-                      }
+                      {countForRole('Equipment Marketplace')}
                     </p>
                   </div>
 
@@ -1249,34 +1216,48 @@ export default function UsersManagement() {
                   className="select-field !w-full text-xs py-2.5 focus:outline-none focus:ring-[#0F4C42]/15 focus:border-[#0F4C42]"
                 >
                   <option value="all">
-                    All Roles
+                    All Roles ({accountsForRoleCounts.length})
                   </option>
 
-                  {ROLES.map((role) => (
-                    <option
-                      key={role}
-                      value={role}
-                    >
-                      {role}
-                    </option>
-                  ))}
+                  <option value="Medical Officer">
+                    Medical Officer ({countForRole('Medical Officer')})
+                  </option>
 
-                  <option value="BEMZ">
-                    BEMS Officer
+                  <option value="Radiographer">
+                    Radiographer ({countForRole('Radiographer')})
+                  </option>
+
+                  <option value="Radiologist">
+                    Radiologist ({countForRole('Radiologist')})
+                  </option>
+
+                  <option value="Administrator">
+                    Administrator ({countForRole('Administrator')})
+                  </option>
+
+                  <option value="Super Admin">
+                    Super Admin ({countForRole('Super Admin')})
+                  </option>
+
+                  <option value="BEMS">
+                    BEMS Officer ({countForRole('BEMS')})
                   </option>
 
                   <option value="Private Hospital Admin">
-                    Private Hospital Admin
+                    Private Hospital Admin ({countForRole('Private Hospital Admin')})
                   </option>
 
                   <option value="Public Hospital Radiographer">
-                    Public Hospital Radiographer
+                    Public Hospital Radiographer ({countForRole('Public Hospital Radiographer')})
                   </option>
 
                   <option value="Private Hospital Radiographer">
-                    Private Hospital Radiographer
+                    Private Hospital Radiographer ({countForRole('Private Hospital Radiographer')})
                   </option>
 
+                  <option value="Equipment Marketplace">
+                    Equipment Marketplace ({countForRole('Equipment Marketplace')})
+                  </option>
                 </select>
 
 

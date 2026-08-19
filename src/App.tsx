@@ -134,9 +134,9 @@ function AppRoutes() {
         <Route path="/scheduling" element={<Navigate to="/ai-scheduler" replace />} />
 
         {/* Radiographer routes */}
-        <Route path="/scan-queue" element={<ProtectedRoute allowedRoles={['Radiographer']}><ScanQueue /></ProtectedRoute>} />
-        <Route path="/schedule" element={<ProtectedRoute allowedRoles={['Radiographer']}><ScheduleView /></ProtectedRoute>} />
-        <Route path="/upload" element={<ProtectedRoute allowedRoles={['Radiographer']}><UploadScans /></ProtectedRoute>} />
+        <Route path="/scan-queue" element={<ProtectedRoute allowedRoles={['Radiographer', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><ScanQueue /></ProtectedRoute>} />
+        <Route path="/schedule" element={<ProtectedRoute allowedRoles={['Radiographer', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><ScheduleView /></ProtectedRoute>} />
+        <Route path="/upload" element={<ProtectedRoute allowedRoles={['Radiographer', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><UploadScans /></ProtectedRoute>} />
 
         {/* Radiologist & Medical Officer review and reporting routes */}
         <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><RoleRouter moPage={MoReviewQueue} defaultPage={ReviewQueue} /></ProtectedRoute>} />

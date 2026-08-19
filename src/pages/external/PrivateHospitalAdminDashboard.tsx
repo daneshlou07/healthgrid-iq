@@ -31,24 +31,23 @@ export default function PrivateHospitalAdminDashboard() {
   const [adminNotes, setAdminNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Available private hospital clinical imaging team (Radiographers & Radiologists)
+  // Available private hospital clinical imaging team
   const privateRadiographers = useMemo(() => {
     return users.filter(
       (u) =>
         u.role === 'Private Hospital Radiographer' ||
-        u.role === 'Radiographer' ||
-        u.role === 'Radiologist' ||
-        u.role === 'Public Hospital Radiographer'
+        (u.role === 'Radiographer' && (u.specialty?.includes('Private') || u.name.includes('KPJ') || u.name.includes('Private')))
     );
   }, [users]);
 
-  // Referrals routed to this private hospital admin or unassigned private hospital cases
+  // Referrals routed to this private hospital admin (Strictly excludes Public Hospital cases)
   const myHospitalReferrals = useMemo(() => {
     return externalReferrals.filter(
       (r) =>
-        r.facilityType === 'PRIVATE_HOSPITAL' ||
-        r.assignedHospitalAdminId === currentUser?.id ||
-        r.status === 'PRIVATE_ADMIN_REVIEW'
+        (r.facilityType === 'PRIVATE_HOSPITAL' ||
+          r.assignedHospitalAdminId === currentUser?.id ||
+          (r.status === 'PRIVATE_ADMIN_REVIEW' && r.facilityType !== 'PUBLIC_HOSPITAL')) &&
+        r.facilityType !== 'PUBLIC_HOSPITAL'
     );
   }, [externalReferrals, currentUser?.id]);
 

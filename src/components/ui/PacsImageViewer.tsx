@@ -202,9 +202,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
   }
 
   return (
-    <div className={`bg-slate-950 text-white rounded-xl border border-slate-800 overflow-hidden shadow-2xl space-y-0 ${
-      isTheaterMode ? 'fixed inset-0 z-50 rounded-none border-0 flex flex-col' : ''
-    }`}>
+    <div className={`bg-slate-950 text-white rounded-xl border border-slate-800 overflow-hidden shadow-2xl space-y-0 ${isTheaterMode ? 'fixed inset-0 z-50 rounded-none border-0 flex flex-col' : ''
+      }`}>
       {/* ── PACS TOOLBAR ──────────────────────────────────────────────────────── */}
       <div className="bg-slate-900 border-b border-slate-800 p-2 sm:p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2">
@@ -248,9 +247,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
                   key={seq}
                   type="button"
                   onClick={() => setMriSeq(seq)}
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                    mriSeq === seq ? 'bg-purple-700 text-white' : 'text-slate-400 hover:text-white'
-                  }`}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${mriSeq === seq ? 'bg-purple-700 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
                 >
                   {seq}
                 </button>
@@ -267,9 +265,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
                   key={preset}
                   type="button"
                   onClick={() => handleApplyCtPreset(preset)}
-                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${
-                    ctPreset === preset ? 'bg-teal-700 text-white' : 'text-slate-400 hover:text-white'
-                  }`}
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${ctPreset === preset ? 'bg-teal-700 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
                 >
                   {preset.replace('_', ' ')}
                 </button>
@@ -293,9 +290,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
           <button
             type="button"
             onClick={() => setIsTheaterMode(!isTheaterMode)}
-            className={`p-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1 ${
-              isTheaterMode ? 'bg-amber-700 text-white border-amber-600' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
-            }`}
+            className={`p-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1 ${isTheaterMode ? 'bg-amber-700 text-white border-amber-600' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+              }`}
             title="Expand to Fullscreen Theater Mode"
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -337,9 +333,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
           <button
             type="button"
             onClick={() => setIsInverted(!isInverted)}
-            className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-              isInverted ? 'bg-purple-700 text-white border-purple-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-            }`}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${isInverted ? 'bg-purple-700 text-white border-purple-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}
             title="Invert Grayscale Colors"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -350,9 +345,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
           <button
             type="button"
             onClick={() => setShowAiOverlay(!showAiOverlay)}
-            className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-              showAiOverlay ? 'bg-amber-700 text-white border-amber-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
-            }`}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${showAiOverlay ? 'bg-amber-700 text-white border-amber-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+              }`}
             title="Toggle AI Pathology Lesion Heatmap & Bounding Box Overlay"
           >
             <Brain className="w-3.5 h-3.5" />
@@ -367,9 +361,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
               setMeasureStart(null);
               setMeasureEnd(null);
             }}
-            className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-              isMeasuring ? 'bg-emerald-700 text-white border-emerald-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-            }`}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${isMeasuring ? 'bg-emerald-700 text-white border-emerald-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}
             title="Linear Distance Measurement Tool"
           >
             <Ruler className="w-3.5 h-3.5" />
@@ -520,9 +513,8 @@ export default function PacsImageViewer({ imageKeys, previewUrls, heightClass = 
                 key={idx}
                 type="button"
                 onClick={() => setActiveIdx(idx)}
-                className={`relative rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
-                  activeIdx === idx ? 'border-teal-500 shadow-md scale-105' : 'border-slate-800 opacity-60 hover:opacity-100'
-                }`}
+                className={`relative rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${activeIdx === idx ? 'border-teal-500 shadow-md scale-105' : 'border-slate-800 opacity-60 hover:opacity-100'
+                  }`}
               >
                 <img src={url} alt={`Slice ${idx + 1}`} className="w-12 h-12 object-cover bg-black pointer-events-none" />
                 <span className="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-mono px-1 font-bold pointer-events-none">

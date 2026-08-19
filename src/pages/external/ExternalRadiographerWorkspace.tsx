@@ -43,15 +43,34 @@ export default function ExternalRadiographerWorkspace() {
   const [radiographerImpression, setRadiographerImpression] = useState('');
   const [routedToRole, setRoutedToRole] = useState<'Medical Officer' | 'Radiologist'>('Medical Officer');
 
-  // Filter assigned external imaging cases
+  // Filter assigned external imaging cases strictly separated between Public and Private
   const assignedCases = useMemo(() => {
+    if (!currentUser) return [];
+
+    if (currentUser.role === 'Public Hospital Radiographer') {
+      return externalReferrals.filter(
+        (r) =>
+          r.assignedRadiographerId === currentUser.id ||
+          (r.facilityType === 'PUBLIC_HOSPITAL' && r.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED') ||
+          (r.caseId === caseIdFromUrl && r.facilityType === 'PUBLIC_HOSPITAL')
+      );
+    }
+
+    if (currentUser.role === 'Private Hospital Radiographer') {
+      return externalReferrals.filter(
+        (r) =>
+          r.assignedRadiographerId === currentUser.id ||
+          (r.facilityType === 'PRIVATE_HOSPITAL' && r.assignedRadiographerId === currentUser.id && r.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED') ||
+          (r.caseId === caseIdFromUrl && r.facilityType === 'PRIVATE_HOSPITAL')
+      );
+    }
+
     return externalReferrals.filter(
       (r) =>
-        r.assignedRadiographerId === currentUser?.id ||
-        r.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED' ||
+        r.assignedRadiographerId === currentUser.id ||
         r.caseId === caseIdFromUrl
     );
-  }, [externalReferrals, currentUser?.id, caseIdFromUrl]);
+  }, [externalReferrals, currentUser, caseIdFromUrl]);
 
   // Set initial selected referral if caseId in URL or list available
   React.useEffect(() => {

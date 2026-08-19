@@ -28,7 +28,7 @@ import {
 } from '../../utils/malaysianNric';
 
 import { PredictiveAddressInput } from '../../components/ui/PredictiveAddressInput';
-import { geocodeAddress, findNearestClinic } from '../../services/routingService';
+import { geocodeAddress, findNearestClinic, haversineDistance } from '../../services/routingService';
 import {
   calculateMohPaymentCategory,
   formatPaymentCategoryBadge,
@@ -58,7 +58,7 @@ function generateMrn(): string {
 
 export default function PatientRegistration() {
   const { currentUser } = useAuth();
-  const { clinics, patients, addPatient } = useData();
+  const { clinics, patients, addPatient, users } = useData();
   const { language, t } = useLanguage();
   const toast = useToast();
 
@@ -201,40 +201,64 @@ export default function PatientRegistration() {
     clinicId: string;
     clinicName: string;
     distanceKm: number;
+    radCount: number;
   } | null>(null);
 
-  // Automatically compute and assign the nearest active clinic based on patient coordinates
+  // Count active radiographers deployed per clinic
+  const radiographersByClinic = useMemo(() => {
+    const map: Record<string, number> = {};
+    (users || []).forEach((u) => {
+      const isRad =
+        u.role === 'Radiographer' ||
+        u.role === 'Public Hospital Radiographer' ||
+        u.role === 'Private Hospital Radiographer';
+      if (isRad && u.status === 'active' && u.deploymentLocationId && u.leaveStatus !== 'ON_LEAVE') {
+        map[u.deploymentLocationId] = (map[u.deploymentLocationId] || 0) + 1;
+      }
+    });
+    return map;
+  }, [users]);
+
+  // Automatically determine the nearest healthcare center based on radiographer availability
   useEffect(() => {
+    if (!patientGeo.lat || !patientGeo.lon) return;
+
     const activeClinics = uniqueClinics.filter(
       (c) => c.status === 'active' || !c.status
     );
     if (activeClinics.length === 0) return;
 
-    if (patientGeo.lat && patientGeo.lon) {
-      const nearest = findNearestClinic(
-        patientGeo.lat,
-        patientGeo.lon,
-        activeClinics
-      );
-      if (nearest) {
-        const found = activeClinics.find((c) => c.id === nearest.clinicId);
-        if (found) {
-          setAiNearestInfo({
-            clinicId: found.id,
-            clinicName: found.name,
-            distanceKm: nearest.distanceKm,
-          });
-          // Prioritize the workflow: auto-assign nearest clinic unless patient explicitly chose manual override
-          if (!isManualOverride) {
-            setForm((prev) => ({
-              ...prev,
-              preferredClinicId: found.id,
-            }));
-          }
-        }
+    // Prioritize clinics with on-duty radiographers, then by shortest distance
+    const sorted = activeClinics
+      .map((c) => {
+        const dist = haversineDistance(patientGeo.lat!, patientGeo.lon!, c.lat, c.lon);
+        const radCount = radiographersByClinic[c.id] || 0;
+        return { clinic: c, distanceKm: Math.round(dist * 10) / 10, radCount };
+      })
+      .sort((a, b) => {
+        if (a.radCount > 0 && b.radCount === 0) return -1;
+        if (b.radCount > 0 && a.radCount === 0) return 1;
+        return a.distanceKm - b.distanceKm;
+      });
+
+    const bestMatch = sorted[0];
+    if (bestMatch) {
+      setAiNearestInfo({
+        clinicId: bestMatch.clinic.id,
+        clinicName: bestMatch.clinic.name,
+        distanceKm: bestMatch.distanceKm,
+        radCount: bestMatch.radCount,
+      });
+
+      // Auto-assign nearest facility unless user explicitly triggered manual override
+      if (!isManualOverride) {
+        setForm((prev) => ({
+          ...prev,
+          preferredClinicId: bestMatch.clinic.id,
+        }));
       }
     }
-  }, [patientGeo.lat, patientGeo.lon, uniqueClinics, isManualOverride]);
+  }, [patientGeo.lat, patientGeo.lon, uniqueClinics, radiographersByClinic, isManualOverride]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -380,38 +404,15 @@ export default function PatientRegistration() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 lg:px-6 pb-10">
+    <div className="w-full pb-10">
 
       {/* =========================================================
           PAGE HEADER
       ========================================================== */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-9 h-9 rounded-lg bg-[#EFF6F3] flex items-center justify-center">
-              <User className="w-5 h-5 text-[#0F4C42]" />
-            </div>
-
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6B8580]">
-              {t(
-                'Patient Registration',
-                'Pendaftaran Pesakit'
-              )}
-            </span>
-          </div>
-
-          <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
-            {t(
-              'Register New Patient',
-              'Daftar Pesakit Baharu'
-            )}
-          </h1>
-        </div>
-      </div>
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-6"
+        className="space-y-2"
       >
 
         {/* =========================================================
@@ -435,7 +436,7 @@ export default function PatientRegistration() {
 
                 <p className="text-[11px] text-surface-500 mt-0.5">
                   {t(
-                    'Basic information used to identify and contact the patient.',
+                    'Basic information for patient identification and contact.',
                     'Maklumat asas untuk mengenal pasti dan menghubungi pesakit.'
                   )}
                 </p>
@@ -786,123 +787,6 @@ export default function PatientRegistration() {
                   }
                 }}
               />
-
-              <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-surface-400">
-                <MapPin className="w-3 h-3 text-surface-400" />
-                <span>
-                  Address coordinates are resolved automatically to prioritize the nearest screening facility for the patient.
-                </span>
-              </div>
-            </div>
-
-            {/* Screening Facility / Preferred Clinic (Workflow Priority vs Manual Override) */}
-            <div className="rounded-xl border border-surface-200 bg-surface-50/60 p-4">
-              <div className="flex items-center justify-between gap-2 mb-2.5">
-                <div>
-                  <label className="block text-xs font-bold text-surface-900 uppercase tracking-wide">
-                    {t(
-                      'Assigned Screening Facility',
-                      'Pusat Saringan Ditetapkan'
-                    )}
-                  </label>
-                  <p className="text-[11px] text-surface-500">
-                    System prioritizes the closest clinic/PACS van to optimize patient commute &amp; AI route scheduling.
-                  </p>
-                </div>
-
-                {!isManualOverride ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsManualOverride(true)}
-                    className="text-xs font-semibold text-teal-700 hover:text-teal-800 hover:underline flex items-center gap-1 shrink-0 px-2 py-1 rounded bg-teal-50 border border-teal-200"
-                    title="Click ONLY if patient explicitly prefers a different clinic"
-                  >
-                    <SlidersHorizontal className="w-3 h-3" />
-                    <span>{t('Manual Override', 'Tukar Pilihan')}</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsManualOverride(false);
-                      if (aiNearestInfo?.clinicId) {
-                        setForm((prev) => ({
-                          ...prev,
-                          preferredClinicId: aiNearestInfo.clinicId,
-                        }));
-                      }
-                    }}
-                    className="text-xs font-semibold text-amber-800 hover:text-amber-900 hover:underline flex items-center gap-1 shrink-0 px-2 py-1 rounded bg-amber-100/70 border border-amber-300"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>{t('Reset to AI Workflow', 'Guna Syor AI')}</span>
-                  </button>
-                )}
-              </div>
-
-              {!isManualOverride ? (
-                /* Workflow-First: AI Nearest Assignment */
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold text-emerald-950">
-                          {aiNearestInfo
-                            ? aiNearestInfo.clinicName
-                            : form.preferredClinicId
-                            ? uniqueClinics.find((c) => c.id === form.preferredClinicId)?.name || 'AI Automated Facility'
-                            : 'AI Workflow Auto-Assignment'}
-                        </span>
-                        {aiNearestInfo && (
-                          <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full">
-                            {aiNearestInfo.distanceKm} km away
-                          </span>
-                        )}
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                          AI Recommended
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-emerald-800 mt-1">
-                        {aiNearestInfo
-                          ? `Automatically selected as the closest facility to the patient's address.`
-                          : `Enter patient address above to auto-detect the nearest screening facility.`}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* Manual Override (Only if Patient Explicitly Requests) */
-                <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>Patient Manual Override Active</span>
-                  </div>
-                  <p className="text-[11px] text-amber-800">
-                    Use this ONLY if the patient explicitly prefers another facility (e.g. closer to workplace, family preference).
-                  </p>
-                  <select
-                    value={form.preferredClinicId}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        preferredClinicId: e.target.value,
-                      }))
-                    }
-                    className="select-field w-full bg-white text-xs font-medium"
-                  >
-                    <option value="">-- Select Preferred Clinic --</option>
-                    {uniqueClinics.map((clinic) => (
-                      <option key={clinic.id} value={clinic.id}>
-                        {clinic.name}
-                        {aiNearestInfo?.clinicId === clinic.id ? ' (✨ AI Recommended Nearest)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
 
             {/* Emergency Contact */}
@@ -933,14 +817,14 @@ export default function PatientRegistration() {
         {/* =========================================================
             SECONDARY INFORMATION
         ========================================================== */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5">
 
           {/* =======================================================
               PAYMENT
           ======================================================== */}
-          <section className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden">
+          <section className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
 
-            <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
+            <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60 shrink-0">
               <div className="flex items-center justify-between gap-3">
 
                 <div className="flex items-center gap-3">
@@ -964,24 +848,10 @@ export default function PatientRegistration() {
                     </p>
                   </div>
                 </div>
-
-                <span
-                  className={`
-                    px-2.5 py-1
-                    text-[10px]
-                    font-bold
-                    rounded-full
-                    border
-                    whitespace-nowrap
-                    ${paymentBadge.color}
-                  `}
-                >
-                  {paymentBadge.label}
-                </span>
               </div>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 flex-1 flex flex-col justify-between">
 
               <div className="grid grid-cols-1 gap-4">
 
@@ -1059,7 +929,7 @@ export default function PatientRegistration() {
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     {t(
                       'Full Paying Patient (FPP)',
-                      'Skim Pesakit Bayar Penuh'
+                      'Pesakit Bayar Penuh (FPP)'
                     )}
                   </label>
 
@@ -1078,7 +948,10 @@ export default function PatientRegistration() {
                     }
                   >
                     <option value="No">
-                      {t('No', 'Tidak')}
+                      {t(
+                        'No (Standard Subsidised)',
+                        'Tidak (Subsidi Standard)'
+                      )}
                     </option>
 
                     <option value="Yes">
@@ -1091,7 +964,7 @@ export default function PatientRegistration() {
                 </div>
               </div>
 
-              <div className="rounded-lg bg-[#F3F8F6] border border-[#D8E8E2] p-3">
+              <div className="rounded-lg bg-[#F3F8F6] border border-[#D8E8E2] p-3 mt-auto">
                 <div className="flex items-start gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
 
@@ -1115,9 +988,9 @@ export default function PatientRegistration() {
           {/* =======================================================
               CLINICAL
           ======================================================== */}
-          <section className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden">
+          <section className="bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
 
-            <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60">
+            <div className="px-6 py-4 border-b border-surface-200 bg-surface-50/60 shrink-0">
               <div className="flex items-center gap-3">
 
                 <div className="w-8 h-8 rounded-lg bg-[#EFF6F3] flex items-center justify-center shrink-0">
@@ -1142,9 +1015,9 @@ export default function PatientRegistration() {
               </div>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-4 flex-1 flex flex-col">
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -1212,7 +1085,7 @@ export default function PatientRegistration() {
 
               {form.previousContrastReaction ===
                 'Yes' && (
-                  <div>
+                  <div className="shrink-0">
                     <label className="block text-xs font-bold text-amber-800 mb-1.5">
                       Contrast Reaction Details
                     </label>
@@ -1234,8 +1107,8 @@ export default function PatientRegistration() {
                   </div>
                 )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <div className="flex-1 flex flex-col min-h-0">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 shrink-0">
                   {t(
                     'General Medical History',
                     'Sejarah Perubatan Am'
@@ -1243,7 +1116,6 @@ export default function PatientRegistration() {
                 </label>
 
                 <textarea
-                  rows={4}
                   value={form.medicalHistory}
                   onChange={(e) =>
                     setForm({
@@ -1252,13 +1124,9 @@ export default function PatientRegistration() {
                         e.target.value,
                     })
                   }
-                  className="input-field resize-none w-full"
-                  placeholder="e.g., Hypertension, Type 2 Diabetes"
+                  className="input-field flex-1 w-full !h-full min-h-[110px] py-2.5 resize-none text-sm"
+                  placeholder={t('Separate multiple conditions with commas.', 'Separate multiple conditions with commas.')}
                 />
-
-                <p className="text-[10px] text-surface-400 mt-1.5">
-                  Separate multiple conditions with commas.
-                </p>
               </div>
             </div>
           </section>

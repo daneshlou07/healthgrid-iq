@@ -9,7 +9,6 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import PacsImageViewer from '../../components/ui/PacsImageViewer';
 import Modal from '../../components/ui/Modal';
-import PrintMohReferralLetterModal from '../../components/ui/PrintMohReferralLetter';
 import { loadImages } from '../../services/imageStorage';
 import { generateAiReportDraft } from '../../services/aiReportingCopilot';
 import { analyzeImageWithVisionAi } from '../../services/visionAiAnalyzer';
@@ -248,7 +247,7 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
     }
   }, [caseIdFromUrl]);
 
-  // Pre-fill existing report draft or findings when a case is selected
+  // Pre-fill existing report draft or findings ONLY when a case is selected
   useEffect(() => {
     if (!selectedCase) {
       setFindings('');
@@ -269,7 +268,7 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
       setImpression(selectedCase.radiographerImpression || '');
       setSuggestions('');
     }
-  }, [selectedCase, reports]);
+  }, [selectedCase?.id]);
 
   // AI draft generator
   const handleGenerateAiDraft = async () => {
@@ -414,22 +413,16 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
   const activeQueueCases = isRadiologist
     ? radiologistReviewCases
     : queueSubTab === 'awaiting'
-    ? moReviewCases
-    : queueSubTab === 'teleradiology'
-    ? teleradiologyCases
-    : finalizedCases;
+      ? moReviewCases
+      : queueSubTab === 'teleradiology'
+        ? teleradiologyCases
+        : finalizedCases;
 
   return (
     <div className="space-y-6">
       {/* ── UNIFIED HEADER & TOP METRICS ───────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 text-[10px] font-bold bg-[#0F4C42] text-white rounded">
-              DIAGNOSTIC &amp; REPORTING HUB
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Clinician: {currentUser?.name}</span>
-          </div>
           <h1 className="page-title">Diagnostic Review &amp; Reporting Hub</h1>
           <p className="page-subtitle">
             Triage incoming medical scans, author diagnostic reports with AI Copilot, and manage finalized report archives.
@@ -444,9 +437,8 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
               setActiveTab('queue');
               setSearchParams({});
             }}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${
-              activeTab === 'queue' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${activeTab === 'queue' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
           >
             <Clock className="w-3.5 h-3.5" />
             <span>Review Queue ({isRadiologist ? radiologistReviewCases.length : moReviewCases.length})</span>
@@ -455,9 +447,8 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
           <button
             type="button"
             onClick={() => setActiveTab('reporting')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${
-              activeTab === 'reporting' ? 'bg-[#0F4C42] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${activeTab === 'reporting' ? 'bg-[#0F4C42] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Clinical Reporting Desk</span>
@@ -469,9 +460,8 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
               setActiveTab('reports');
               setSearchParams({});
             }}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${
-              activeTab === 'reports' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${activeTab === 'reports' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Finalized Reports Archive ({reports.length})</span>
@@ -512,11 +502,10 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
               <button
                 type="button"
                 onClick={() => setQueueSubTab('awaiting')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  queueSubTab === 'awaiting'
-                    ? 'bg-[#0F4C42] text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${queueSubTab === 'awaiting'
+                  ? 'bg-[#0F4C42] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
               >
                 Awaiting MO Review ({moReviewCases.length})
               </button>
@@ -524,11 +513,10 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
               <button
                 type="button"
                 onClick={() => setQueueSubTab('teleradiology')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  queueSubTab === 'teleradiology'
-                    ? 'bg-[#0F4C42] text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${queueSubTab === 'teleradiology'
+                  ? 'bg-[#0F4C42] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
               >
                 Teleradiology Escalations ({teleradiologyCases.length})
               </button>
@@ -536,11 +524,10 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
               <button
                 type="button"
                 onClick={() => setQueueSubTab('finalized')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  queueSubTab === 'finalized'
-                    ? 'bg-[#0F4C42] text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${queueSubTab === 'finalized'
+                  ? 'bg-[#0F4C42] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
               >
                 Finalized / Signed Today ({finalizedCases.length})
               </button>
@@ -554,13 +541,12 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
               return (
                 <div
                   key={c.id}
-                  className={`card p-4 border transition-all ${
-                    c.severity === 'Critical'
-                      ? 'bg-red-50/50 border-red-300'
-                      : isFinal
+                  className={`card p-4 border transition-all ${c.severity === 'Critical'
+                    ? 'bg-red-50/50 border-red-300'
+                    : isFinal
                       ? 'bg-slate-50/70 border-slate-200'
                       : 'bg-white border-slate-300 shadow-xs'
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="space-y-1">
@@ -606,10 +592,6 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
                         View Details
                       </Link>
 
-                      {isDoctor && (
-                        <PrintMohReferralLetterModal caseItem={c} />
-                      )}
-
                       {!isFinal ? (
                         <button
                           type="button"
@@ -648,279 +630,585 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
 
       {/* ── TAB 2: CLINICAL REPORT AUTHORING DESK ───────────────────────── */}
       {activeTab === 'reporting' && (
-        <form onSubmit={handleSaveReport} className="space-y-6">
-          {/* Case Selector Card */}
-          <div className="card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wider">
-                Select Case for Diagnostic Evaluation <span className="text-red-500">*</span>
-              </label>
-              <select
-                required
-                value={selectedCaseId}
-                onChange={(e) => setSelectedCaseId(e.target.value)}
-                className="select-field text-xs"
-              >
-                <option value="">-- Choose an imaging case from queue --</option>
-                {cases.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.caseNumber} — {c.patientName} ({c.modality || 'X-Ray'} · {c.scanType}) [{c.status}]
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedCase && (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+        <form onSubmit={handleSaveReport} className="space-y-5">
+          {/* ================================================================
+              CASE HEADER
+          ================================================================= */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-200">
+              <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-500 block uppercase">Patient</span>
-                  <span className="font-bold text-slate-900 flex items-center gap-1.5 mt-0.5">
-                    <User className="w-3.5 h-3.5 text-teal-700" />
-                    {selectedCase.patientName}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-mono">ID: {selectedCase.patientId}</span>
-                </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#0F4C42]/10 flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-[#0F4C42]" />
+                    </div>
 
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-500 block uppercase">Modality &amp; Scan</span>
-                  <span className="font-bold text-teal-900 mt-0.5 block">
-                    {selectedCase.modality || 'X-Ray'} — {selectedCase.scanType}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-mono">Case #{selectedCase.caseNumber}</span>
-                </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900">
+                        Clinical Report
+                      </h2>
 
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-500 block uppercase">Severity &amp; Origin</span>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <SeverityBadge severity={selectedCase.severity} />
-                    <span className="text-[11px] text-slate-600 truncate">{selectedCase.clinicName}</span>
+                      <p className="text-[11px] text-slate-500">
+                        Review the imaging study and complete the diagnostic report
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-500 block uppercase">Clinical Indication</span>
-                  <p className="text-[11px] text-slate-700 font-medium truncate mt-0.5">
-                    {getCaseIndication(selectedCase)}
-                  </p>
+                {/* Case selector */}
+                <div className="w-full lg:w-[430px]">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Reporting Case
+                  </label>
+
+                  <select
+                    required
+                    value={selectedCaseId}
+                    onChange={(e) => setSelectedCaseId(e.target.value)}
+                    className="w-full h-10 px-3 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:border-[#0F4C42] focus:ring-2 focus:ring-[#0F4C42]/10"
+                  >
+                    <option value="">
+                      Select an imaging case...
+                    </option>
+
+                    {cases.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.caseNumber} — {c.patientName} ({c.modality || 'X-Ray'} · {c.scanType})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Case metadata */}
+            {selectedCase && (
+              <div className="px-5 py-4 bg-slate-50/70">
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-x-6 gap-y-4">
+                  {/* Patient */}
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Patient
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-[#0F4C42]" />
+
+                      <span className="text-xs font-bold text-slate-900 truncate">
+                        {selectedCase.patientName}
+                      </span>
+                    </div>
+
+                    <span className="block text-[10px] font-mono text-slate-500 mt-0.5">
+                      ID: {selectedCase.patientId}
+                    </span>
+                  </div>
+
+                  {/* Case */}
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Case
+                    </span>
+
+                    <span className="block text-xs font-bold font-mono text-[#0F4C42]">
+                      #{selectedCase.caseNumber}
+                    </span>
+
+                    <span className="block text-[10px] text-slate-500 mt-0.5 truncate">
+                      {selectedCase.clinicName}
+                    </span>
+                  </div>
+
+                  {/* Examination */}
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Examination
+                    </span>
+
+                    <span className="block text-xs font-bold text-slate-800">
+                      {selectedCase.modality || 'X-Ray'}
+                    </span>
+
+                    <span className="block text-[10px] text-slate-500 mt-0.5">
+                      {selectedCase.scanType}
+                      {selectedCase.bodyRegion
+                        ? ` · ${selectedCase.bodyRegion}`
+                        : ''}
+                    </span>
+                  </div>
+
+                  {/* Indication */}
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Clinical Indication
+                    </span>
+
+                    <p className="text-[11px] leading-relaxed text-slate-700 font-medium line-clamp-2">
+                      {getCaseIndication(selectedCase)}
+                    </p>
+                  </div>
+
+                  {/* Severity */}
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Priority
+                    </span>
+
+                    <SeverityBadge severity={selectedCase.severity} />
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {selectedCase && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* PACS SCAN VIEWER (Left Column) */}
-              <div className="lg:col-span-6 card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4 text-[#0F4C42]" />
-                    <span>1. Interactive PACS Viewer</span>
-                  </h2>
-                  <span className="text-[11px] text-slate-500">
-                    {selectedCase.images?.length || 0} scan capture(s)
-                  </span>
-                </div>
-
-                {selectedCase.images && selectedCase.images.length > 0 ? (
-                  <PacsImageViewer imageKeys={selectedCase.images} caseItem={selectedCase} />
-                ) : (
-                  <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
-                    <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-xs font-semibold text-slate-600">No images uploaded for this case yet.</p>
-                  </div>
-                )}
+          {/* ================================================================
+              EMPTY STATE
+          ================================================================= */}
+          {!selectedCase && (
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm py-20 text-center">
+              <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-6 h-6 text-slate-400" />
               </div>
 
-              {/* CLINICAL REPORT EDITOR (Right Column) */}
-              <div className="lg:col-span-6 card bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-[#0F4C42]" />
-                    <span>2. Diagnostic Report Authoring</span>
-                  </h2>
+              <h3 className="text-sm font-bold text-slate-800">
+                Select a case to begin
+              </h3>
 
-                  <button
-                    type="button"
-                    onClick={handleGenerateAiDraft}
-                    disabled={isVisionAiAnalyzing}
-                    className="btn-secondary text-xs flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                    <span>{isVisionAiAnalyzing ? 'Analyzing Scan...' : 'Generate AI Copilot Draft'}</span>
-                  </button>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Choose an imaging case above to open the PACS viewer and diagnostic
+                report workspace.
+              </p>
+            </div>
+          )}
+
+          {/* ================================================================
+              REPORTING WORKSPACE
+          ================================================================= */}
+          {selectedCase && (
+            <div className="grid grid-cols-1 xl:grid-cols-[1.08fr_0.92fr] gap-5 items-start">
+              {/* ============================================================
+                  PACS VIEWER
+              ============================================================= */}
+              <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                {/* Viewer header */}
+                <div className="px-5 py-3.5 border-b border-slate-200">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#0F4C42]/10 flex items-center justify-center">
+                        <ImageIcon className="w-4 h-4 text-[#0F4C42]" />
+                      </div>
+
+                      <div>
+                        <h2 className="text-xs font-bold text-slate-900">
+                          PACS Image Viewer
+                        </h2>
+
+                        <p className="text-[10px] text-slate-500">
+                          Review the imaging study
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {selectedCase.severity === 'Critical' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 border border-red-200 text-[10px] font-bold text-red-700">
+                          <AlertTriangle className="w-3 h-3" />
+                          Critical
+                        </span>
+                      )}
+
+                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+                        {selectedCase.images?.length || 0} scan
+                        {(selectedCase.images?.length || 0) !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-3 text-xs">
+                {/* PACS */}
+                <div className="p-4">
+                  {selectedCase.images && selectedCase.images.length > 0 ? (
+                    <PacsImageViewer
+                      imageKeys={selectedCase.images}
+                      caseItem={selectedCase}
+                    />
+                  ) : (
+                    <div className="min-h-[440px] flex flex-col items-center justify-center bg-slate-950 rounded-xl border border-slate-800">
+                      <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-3">
+                        <ImageIcon className="w-6 h-6 text-slate-500" />
+                      </div>
+
+                      <p className="text-xs font-bold text-slate-300">
+                        No imaging available
+                      </p>
+
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        No PACS images have been uploaded for this case.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Clinical context */}
+                <div className="px-4 pb-4">
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#0F4C42]" />
+
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Clinical Indication
+                      </span>
+                    </div>
+
+                    <p className="text-xs leading-relaxed text-slate-700">
+                      {getCaseIndication(selectedCase)}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* ============================================================
+                  REPORT EDITOR
+              ============================================================= */}
+              <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                {/* Report header */}
+                <div className="px-5 py-3.5 border-b border-slate-200">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#0F4C42]/10 flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-[#0F4C42]" />
+                      </div>
+
+                      <div>
+                        <h2 className="text-xs font-bold text-slate-900">
+                          Diagnostic Report
+                        </h2>
+
+                        <p className="text-[10px] text-slate-500">
+                          Author and finalize the clinical report
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* AI */}
+                    <button
+                      type="button"
+                      onClick={handleGenerateAiDraft}
+                      disabled={isVisionAiAnalyzing}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-bold transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+
+                      {isVisionAiAnalyzing
+                        ? 'Analyzing...'
+                        : 'Generate AI Draft'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Editor */}
+                <div className="p-5 space-y-5">
                   {/* Findings */}
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Clinical Findings <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-end justify-between gap-3 mb-2">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-900">
+                          Clinical Findings
+                          <span className="text-red-500 ml-1">*</span>
+                        </label>
+
+                        <span className="text-[10px] text-slate-400">
+                          Describe the objective radiological findings
+                        </span>
+                      </div>
+
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        Required
+                      </span>
+                    </div>
+
                     <textarea
                       required
                       value={findings}
                       onChange={(e) => setFindings(e.target.value)}
-                      placeholder="Enter detailed radiological findings (e.g. lung fields, cardiac silhouette, osseous structures)..."
-                      rows={5}
-                      className="w-full bg-white border border-slate-300 rounded-lg p-2.5"
+                      placeholder="Describe the radiological findings..."
+                      rows={8}
+                      className="w-full resize-y min-h-[180px] bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-xs leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42] transition"
                     />
                   </div>
 
                   {/* Impression */}
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Diagnostic Impression <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-end justify-between gap-3 mb-2">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-900">
+                          Diagnostic Impression
+                          <span className="text-red-500 ml-1">*</span>
+                        </label>
+
+                        <span className="text-[10px] text-slate-400">
+                          Summarise the primary diagnostic conclusion
+                        </span>
+                      </div>
+
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        Required
+                      </span>
+                    </div>
+
                     <textarea
                       required
                       value={impression}
                       onChange={(e) => setImpression(e.target.value)}
-                      placeholder="Primary diagnostic conclusion / impression..."
-                      rows={3}
-                      className="w-full bg-white border border-slate-300 rounded-lg p-2.5"
+                      placeholder="Enter the primary diagnostic impression..."
+                      rows={4}
+                      className="w-full resize-y min-h-[105px] bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 text-xs leading-relaxed font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42] transition"
                     />
                   </div>
 
                   {/* Recommendations */}
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Recommendations &amp; Follow-up
-                    </label>
+                    <div className="flex items-end justify-between gap-3 mb-2">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-900">
+                          Recommendations & Follow-up
+                        </label>
+
+                        <span className="text-[10px] text-slate-400">
+                          Optional clinical recommendations
+                        </span>
+                      </div>
+
+                      <span className="text-[10px] text-slate-400">
+                        Optional
+                      </span>
+                    </div>
+
                     <textarea
                       value={suggestions}
                       onChange={(e) => setSuggestions(e.target.value)}
-                      placeholder="Suggested clinical management, antibiotic therapy, or follow-up imaging..."
-                      rows={2}
-                      className="w-full bg-white border border-slate-300 rounded-lg p-2.5"
+                      placeholder="Add follow-up imaging, referral, or other clinical recommendations..."
+                      rows={3}
+                      className="w-full resize-y min-h-[80px] bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-xs leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42] transition"
                     />
                   </div>
 
-                  {/* Critical Finding Flag */}
-                  <div className="p-3 bg-red-50/70 border border-red-200 rounded-lg space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer font-bold text-red-900">
+                  {/* Critical finding */}
+                  <div
+                    className={`rounded-lg border transition-colors ${isCriticalFinding
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-slate-200 bg-slate-50'
+                      }`}
+                  >
+                    <label className="flex items-start gap-3 p-3.5 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={isCriticalFinding}
-                        onChange={(e) => setIsCriticalFinding(e.target.checked)}
-                        className="rounded text-red-600 focus:ring-red-500"
+                        onChange={(e) =>
+                          setIsCriticalFinding(e.target.checked)
+                        }
+                        className="mt-0.5 w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
                       />
-                      <span>Flag as Critical / Urgent Finding (Immediate Notification)</span>
+
+                      <div>
+                        <span
+                          className={`block text-xs font-bold ${isCriticalFinding
+                            ? 'text-red-900'
+                            : 'text-slate-800'
+                            }`}
+                        >
+                          Critical / Urgent Finding
+                        </span>
+
+                        <span
+                          className={`block text-[10px] mt-0.5 ${isCriticalFinding
+                            ? 'text-red-700'
+                            : 'text-slate-500'
+                            }`}
+                        >
+                          Mark this report for immediate clinical notification.
+                        </span>
+                      </div>
                     </label>
 
                     {isCriticalFinding && (
-                      <input
-                        type="text"
-                        value={criticalFindingNote}
-                        onChange={(e) => setCriticalFindingNote(e.target.value)}
-                        placeholder="Specify urgent action needed (e.g. Immediate chest tube insertion required)..."
-                        className="w-full bg-white border border-red-300 rounded px-2.5 py-1.5 text-xs text-red-950"
-                      />
+                      <div className="px-3.5 pb-3.5">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-red-800 mb-1.5">
+                          Urgent Action / Notification Note
+                        </label>
+
+                        <input
+                          type="text"
+                          value={criticalFindingNote}
+                          onChange={(e) =>
+                            setCriticalFindingNote(e.target.value)
+                          }
+                          placeholder="Specify the urgent action required..."
+                          className="w-full h-9 px-3 bg-white border border-red-300 rounded-lg text-xs text-red-950 placeholder:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                        />
+                      </div>
                     )}
                   </div>
+                </div>
 
-                  {/* Actions Row */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200">
-                    {isDoctor && (
-                      <button
-                        type="button"
-                        onClick={() => setShowEscalateModal(true)}
-                        className="btn-secondary text-xs flex items-center gap-1 text-purple-700 border-purple-300 hover:bg-purple-50"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Escalate to Radiologist</span>
-                      </button>
-                    )}
+                {/* ========================================================
+                    REPORT ACTIONS
+                ========================================================= */}
+                <div className="px-5 py-4 bg-slate-50 border-t border-slate-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    {/* Escalation */}
+                    <div>
+                      {isDoctor && (
+                        <button
+                          type="button"
+                          onClick={() => setShowEscalateModal(true)}
+                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-purple-200 bg-white text-purple-800 hover:bg-purple-50 text-xs font-bold transition-colors"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Escalate to Radiologist
+                        </button>
+                      )}
+                    </div>
 
-                    <div className="flex items-center gap-2 ml-auto">
+                    {/* Main actions */}
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setActiveTab('queue')}
-                        className="btn-secondary text-xs"
+                        className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors"
                       >
                         Cancel
                       </button>
+
                       <button
                         type="submit"
                         disabled={saving}
-                        className="btn-primary text-xs flex items-center gap-1.5 px-5 py-2.5"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0F4C42] hover:bg-[#0B3D35] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold shadow-sm transition-colors"
                       >
                         <FileCheck2 className="w-3.5 h-3.5" />
-                        <span>{saving ? 'Signing...' : 'Sign & Finalize Report'}</span>
+
+                        {saving
+                          ? 'Signing Report...'
+                          : 'Sign & Finalize Report'}
                       </button>
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
           )}
 
-          {/* Escalate Modal */}
+          {/* ================================================================
+              ESCALATION MODAL
+          ================================================================= */}
           {showEscalateModal && (
-            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl max-w-md w-full p-5 space-y-4 shadow-xl border border-slate-200">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <h3 className="text-sm font-bold text-purple-900 flex items-center gap-2">
-                    <Send className="w-4 h-4 text-purple-700" />
-                    <span>Escalate Case to Specialist Radiologist</span>
-                  </h3>
+            <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+                {/* Modal header */}
+                <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <Send className="w-4 h-4 text-purple-700" />
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Escalate Case
+                      </h3>
+
+                      <p className="text-[10px] text-slate-500">
+                        Request specialist radiologist review
+                      </p>
+                    </div>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => setShowEscalateModal(false)}
-                    className="text-slate-400 hover:text-slate-600"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Route this scan to the central hospital radiology network for formal secondary diagnosis.
-                </p>
+                {/* Modal content */}
+                <div className="p-5 space-y-4">
+                  <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg">
+                    <p className="text-[11px] leading-relaxed text-purple-900">
+                      This case will be routed to the central hospital radiology
+                      network for formal secondary review.
+                    </p>
+                  </div>
 
-                <div className="space-y-3 text-xs">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Reason for Escalation</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Reason for Escalation
+                    </label>
+
                     <select
                       value={escalateReason}
                       onChange={(e) => setEscalateReason(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg p-2"
+                      className="w-full h-10 px-3 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/10 focus:border-purple-500"
                     >
                       <option value="Suspected Abnormality / Requires Specialist Opinion">
                         Suspected Abnormality / Requires Specialist Opinion
                       </option>
-                      <option value="Pediatric Complex Case">Pediatric Complex Case</option>
-                      <option value="Suspected Trauma / Fracture">Suspected Trauma / Fracture</option>
-                      <option value="Unclear Image Artifacts">Unclear Image Artifacts</option>
-                      <option value="Urgent Pre-Operative Assessment">Urgent Pre-Operative Assessment</option>
+
+                      <option value="Pediatric Complex Case">
+                        Pediatric Complex Case
+                      </option>
+
+                      <option value="Suspected Trauma / Fracture">
+                        Suspected Trauma / Fracture
+                      </option>
+
+                      <option value="Unclear Image Artifacts">
+                        Unclear Image Artifacts
+                      </option>
+
+                      <option value="Urgent Pre-Operative Assessment">
+                        Urgent Pre-Operative Assessment
+                      </option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Clinical Questions / Notes</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Clinical Questions / Notes
+                    </label>
+
                     <textarea
                       value={escalateNotes}
                       onChange={(e) => setEscalateNotes(e.target.value)}
-                      placeholder="Note specific areas for specialist review..."
-                      rows={3}
-                      className="w-full bg-white border border-slate-300 rounded-lg p-2"
+                      placeholder="Describe what you would like the specialist to review..."
+                      rows={4}
+                      className="w-full resize-none px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-xs leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/10 focus:border-purple-500"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                {/* Modal footer */}
+                <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setShowEscalateModal(false)}
-                    className="btn-secondary text-xs"
+                    className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs font-semibold"
                   >
                     Cancel
                   </button>
+
                   <button
                     type="button"
                     onClick={handleConfirmEscalation}
                     disabled={saving}
-                    className="btn-primary text-xs bg-purple-700 hover:bg-purple-800 px-4 py-2"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-xs font-bold"
                   >
-                    {saving ? 'Dispatching...' : 'Dispatch Escalation'}
+                    <Send className="w-3.5 h-3.5" />
+
+                    {saving
+                      ? 'Dispatching...'
+                      : 'Dispatch Escalation'}
                   </button>
                 </div>
               </div>
