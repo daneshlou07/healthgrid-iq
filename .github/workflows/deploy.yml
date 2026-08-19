@@ -19,6 +19,7 @@ jobs:
         run: |
           rsync -av --delete \
             --exclude='.git' \
+            --exclude='.env' \
             "$GITHUB_WORKSPACE/" \
             "/opt/docker/healthgridiq/app/"
 
