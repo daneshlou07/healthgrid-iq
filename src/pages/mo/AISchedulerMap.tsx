@@ -136,12 +136,43 @@ export default function AISchedulerMap() {
     return () => { map.remove(); mapInstance.current = null; };
   }, []);
 
+  const clearMapRoutes = useCallback(() => {
+    const map = mapInstance.current;
+    const markers = markersLayer.current;
+    if (!map || !markers) return;
+
+    markers.clearLayers();
+    if (routeLayer.current) {
+      map.removeLayer(routeLayer.current);
+      routeLayer.current = null;
+    }
+    if (routesLayer.current) {
+      map.removeLayer(routesLayer.current);
+      routesLayer.current = null;
+    }
+
+    // Show clean clinic center markers without connecting polylines
+    allClinics.filter((c) => c.status === 'active').forEach((clinic) => {
+      const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
+        radius: 8,
+        fillColor: '#0F4C42',
+        color: '#FFFFFF',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.8,
+      });
+      marker.bindPopup(`<strong>${clinic.name}</strong><br/><small>${clinic.address}</small>`);
+      markers.addLayer(marker);
+    });
+
+    map.setView([3.14, 101.69], 10);
+  }, [allClinics]);
+
   useEffect(() => {
     if (cases.length === 0 && step === 'select-case') {
-      drawBulkRoutes();
+      clearMapRoutes();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cases.length, step]);
+  }, [cases.length, step, clearMapRoutes]);
 
   // Redraw preview routes whenever bulkPreview changes (user checks/unchecks assignments)
   useEffect(() => {
@@ -608,8 +639,7 @@ export default function AISchedulerMap() {
 
     // Clear route cache after bulk confirm
     routeCache.clear();
-
-    drawBulkRoutes();
+    clearMapRoutes();
   };
 
   // ─── DRAW BULK ROUTES ─────────────────────────────────────────────────────────
@@ -888,13 +918,12 @@ export default function AISchedulerMap() {
                 )}
 
                 {cases.length === 0 ? (
-                  <div className="text-center py-6 space-y-3">
-                    <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto opacity-60" />
-                    <p className="text-sm text-surface-600 font-medium">All cases scheduled</p>
-                    <p className="text-xs text-surface-400">{allCases.filter((c) => c.status === 'SCHEDULED').length} cases currently scheduled. Routes displayed on map.</p>
-                    <button onClick={drawBulkRoutes} className="text-xs text-[#0F4C42] hover:text-[#112A28] font-medium bg-[#F1F8F6] hover:bg-[#E4F2EE] px-3 py-2 rounded-lg border border-[#BFD8D1] transition-colors">
-                      Refresh Map Routes
-                    </button>
+                  <div className="text-center py-8 space-y-3">
+                    <CheckCircle className="w-10 h-10 text-emerald-600 mx-auto opacity-70" />
+                    <p className="text-sm text-slate-800 font-bold">All Cases Scheduled</p>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                      Intake queue is clear. There are currently no unscheduled clinical cases awaiting AI routing dispatch.
+                    </p>
                   </div>
                 ) : (
                   !showBulkReview && cases.map((c) => (
