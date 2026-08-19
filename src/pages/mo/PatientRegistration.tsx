@@ -212,7 +212,7 @@ export default function PatientRegistration() {
         u.role === 'Radiographer' ||
         u.role === 'Public Hospital Radiographer' ||
         u.role === 'Private Hospital Radiographer';
-      if (isRad && u.status === 'active' && u.deploymentLocationId && u.leaveStatus !== 'ON_LEAVE') {
+      if (isRad && u.status === 'active' && u.deploymentLocationId && u.leaveStatus !== 'On Leave') {
         map[u.deploymentLocationId] = (map[u.deploymentLocationId] || 0) + 1;
       }
     });
@@ -231,7 +231,7 @@ export default function PatientRegistration() {
     // Prioritize clinics with on-duty radiographers, then by shortest distance
     const sorted = activeClinics
       .map((c) => {
-        const dist = haversineDistance(patientGeo.lat!, patientGeo.lon!, c.lat, c.lon);
+        const dist = haversineDistance(patientGeo.lat!, patientGeo.lon!, c.latitude, c.longitude);
         const radCount = radiographersByClinic[c.id] || 0;
         return { clinic: c, distanceKm: Math.round(dist * 10) / 10, radCount };
       })

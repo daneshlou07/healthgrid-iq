@@ -134,7 +134,7 @@ export default function NewCaseRegistration() {
         u.role === 'Radiographer' ||
         u.role === 'Public Hospital Radiographer' ||
         u.role === 'Private Hospital Radiographer';
-      if (isRad && u.status === 'active' && u.deploymentLocationId && u.leaveStatus !== 'ON_LEAVE') {
+      if (isRad && u.status === 'active' && u.deploymentLocationId && u.leaveStatus !== 'On Leave') {
         map[u.deploymentLocationId] = (map[u.deploymentLocationId] || 0) + 1;
       }
     });
@@ -150,8 +150,8 @@ export default function NewCaseRegistration() {
     if (selectedPatient.latitude && selectedPatient.longitude) {
       const sorted = activeClinics
         .map((c) => {
-          const lat = c.lat ?? c.latitude;
-          const lon = c.lon ?? c.longitude;
+          const lat = c.latitude;
+          const lon = c.longitude;
           const dist = haversineDistance(
             selectedPatient.latitude!,
             selectedPatient.longitude!,

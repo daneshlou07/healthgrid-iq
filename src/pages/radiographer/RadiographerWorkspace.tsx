@@ -156,7 +156,7 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
       (c) =>
         (c.radiographerId === currentUser.id ||
           c.registeredById === currentUser.id ||
-          (c.clinicId === currentUser.clinicId && !c.externalFacilityType)) &&
+          (c.clinicId === currentUser.deploymentLocationId && !c.externalFacilityType)) &&
         c.externalFacilityType !== 'Private Hospital' &&
         c.externalFacilityType !== 'Public Hospital'
     );
