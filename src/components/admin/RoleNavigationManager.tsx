@@ -36,6 +36,7 @@ import {
   Check,
   Eye,
   Info,
+  ChevronRight,
 } from 'lucide-react';
 
 const MANAGED_ROLES: UserRole[] = [
@@ -48,6 +49,7 @@ const MANAGED_ROLES: UserRole[] = [
   'Private Hospital Admin',
   'Administrator',
   'Super Admin',
+  'Equipment Marketplace',
 ];
 
 const CATEGORIES = [
@@ -59,41 +61,73 @@ const CATEGORIES = [
 
 function getModuleIcon(iconName: string) {
   const props = { className: 'w-4 h-4' };
+
   switch (iconName) {
-    case 'House': return <House {...props} />;
-    case 'Users': return <Users {...props} />;
-    case 'UserPlus': return <UserPlus {...props} />;
-    case 'FilePlus2': return <FilePlus2 {...props} />;
-    case 'FolderOpen': return <FolderOpen {...props} />;
-    case 'FileText': return <FileText {...props} />;
-    case 'ClipboardList': return <ClipboardList {...props} />;
-    case 'ArrowRightLeft': return <ArrowRightLeft {...props} />;
-    case 'Upload': return <Upload {...props} />;
-    case 'Calendar': return <Calendar {...props} />;
-    case 'ShieldCheck': return <ShieldCheck {...props} />;
-    case 'Wrench': return <Wrench {...props} />;
-    case 'Building2': return <Building2 {...props} />;
-    case 'Sparkles': return <Sparkles {...props} />;
-    case 'Truck': return <Truck {...props} />;
-    case 'Building': return <Building {...props} />;
-    case 'Shield': return <Shield {...props} />;
-    case 'ScrollText': return <ScrollText {...props} />;
-    case 'BarChart3': return <BarChart3 {...props} />;
-    case 'Layers': return <Layers {...props} />;
-    default: return <Layers {...props} />;
+    case 'House':
+      return <House {...props} />;
+    case 'Users':
+      return <Users {...props} />;
+    case 'UserPlus':
+      return <UserPlus {...props} />;
+    case 'FilePlus2':
+      return <FilePlus2 {...props} />;
+    case 'FolderOpen':
+      return <FolderOpen {...props} />;
+    case 'FileText':
+      return <FileText {...props} />;
+    case 'ClipboardList':
+      return <ClipboardList {...props} />;
+    case 'ArrowRightLeft':
+      return <ArrowRightLeft {...props} />;
+    case 'Upload':
+      return <Upload {...props} />;
+    case 'Calendar':
+      return <Calendar {...props} />;
+    case 'ShieldCheck':
+      return <ShieldCheck {...props} />;
+    case 'Wrench':
+      return <Wrench {...props} />;
+    case 'Building2':
+      return <Building2 {...props} />;
+    case 'Sparkles':
+      return <Sparkles {...props} />;
+    case 'Truck':
+      return <Truck {...props} />;
+    case 'Building':
+      return <Building {...props} />;
+    case 'Shield':
+      return <Shield {...props} />;
+    case 'ScrollText':
+      return <ScrollText {...props} />;
+    case 'BarChart3':
+      return <BarChart3 {...props} />;
+    case 'Layers':
+      return <Layers {...props} />;
+    default:
+      return <Layers {...props} />;
   }
 }
 
 export default function RoleNavigationManager() {
-  const { roleNavigationConfig, updateRoleNavigation, resetRoleNavigation, addAuditLog } = useData();
+  const {
+    roleNavigationConfig,
+    updateRoleNavigation,
+    resetRoleNavigation,
+    addAuditLog,
+  } = useData();
+
   const { currentUser } = useAuth();
   const toast = useToast();
 
-  const [selectedRole, setSelectedRole] = useState<UserRole>('Medical Officer');
-  const [localDraft, setLocalDraft] = useState<RoleNavigationConfig>(() => ({
-    ...DEFAULT_ROLE_NAV_CONFIG,
-    ...roleNavigationConfig,
-  }));
+  const [selectedRole, setSelectedRole] =
+    useState<UserRole>('Medical Officer');
+
+  const [localDraft, setLocalDraft] =
+    useState<RoleNavigationConfig>(() => ({
+      ...DEFAULT_ROLE_NAV_CONFIG,
+      ...roleNavigationConfig,
+    }));
+
   const [hasChanges, setHasChanges] = useState(false);
 
   // Sync draft if external config updates
@@ -108,17 +142,21 @@ export default function RoleNavigationManager() {
 
   const toggleModule = (moduleId: string) => {
     if (selectedRole === 'Super Admin') {
-      toast.info('Super Admin retains full system visibility across all modules.');
+      toast.info(
+        'Super Admin retains full system visibility across all modules.'
+      );
       return;
     }
 
     setLocalDraft((prev) => {
       const currentList = prev[selectedRole] || [];
+
       const updatedList = currentList.includes(moduleId)
         ? currentList.filter((id) => id !== moduleId)
         : [...currentList, moduleId];
 
       setHasChanges(true);
+
       return {
         ...prev,
         [selectedRole]: updatedList,
@@ -127,28 +165,40 @@ export default function RoleNavigationManager() {
   };
 
   const handleSelectAllForRole = () => {
-    setLocalDraft((prev) => {
-      setHasChanges(true);
-      return {
-        ...prev,
-        [selectedRole]: ALL_NAV_MODULES.map((m) => m.id),
-      };
-    });
+    if (selectedRole === 'Super Admin') {
+      toast.info(
+        'Super Admin already has full system visibility.'
+      );
+      return;
+    }
+
+    setLocalDraft((prev) => ({
+      ...prev,
+      [selectedRole]: ALL_NAV_MODULES.map((m) => m.id),
+    }));
+
+    setHasChanges(true);
   };
 
   const handleDeselectAllForRole = () => {
-    if (selectedRole === 'Super Admin') return;
-    setLocalDraft((prev) => {
-      setHasChanges(true);
-      return {
-        ...prev,
-        [selectedRole]: ['dashboard'], // keep dashboard
-      };
-    });
+    if (selectedRole === 'Super Admin') {
+      toast.info(
+        'Super Admin must retain full system visibility.'
+      );
+      return;
+    }
+
+    setLocalDraft((prev) => ({
+      ...prev,
+      [selectedRole]: ['dashboard'],
+    }));
+
+    setHasChanges(true);
   };
 
   const handleSave = async () => {
     if (!currentUser) return;
+
     updateRoleNavigation(selectedRole, activeKeys);
     setHasChanges(false);
 
@@ -162,16 +212,22 @@ export default function RoleNavigationManager() {
       timestamp: new Date().toISOString(),
     });
 
-    toast.success(`Saved sidebar navigation permissions for ${selectedRole}.`);
+    toast.success(
+      `Saved sidebar navigation permissions for ${selectedRole}.`
+    );
   };
 
   const handleResetRole = async () => {
     if (!currentUser) return;
-    const defaultList = DEFAULT_ROLE_NAV_CONFIG[selectedRole] || [];
+
+    const defaultList =
+      DEFAULT_ROLE_NAV_CONFIG[selectedRole] || [];
+
     setLocalDraft((prev) => ({
       ...prev,
       [selectedRole]: defaultList,
     }));
+
     updateRoleNavigation(selectedRole, defaultList);
     setHasChanges(false);
 
@@ -185,13 +241,19 @@ export default function RoleNavigationManager() {
       timestamp: new Date().toISOString(),
     });
 
-    toast.info(`Reset ${selectedRole} navigation to default.`);
+    toast.info(
+      `Reset ${selectedRole} navigation to default.`
+    );
   };
 
   const handleResetAll = async () => {
     if (!currentUser) return;
+
     resetRoleNavigation();
-    setLocalDraft({ ...DEFAULT_ROLE_NAV_CONFIG });
+    setLocalDraft({
+      ...DEFAULT_ROLE_NAV_CONFIG,
+    });
+
     setHasChanges(false);
 
     await addAuditLog({
@@ -200,249 +262,620 @@ export default function RoleNavigationManager() {
       userRole: currentUser.role,
       action: 'SETTINGS_UPDATE',
       target: `rbac/navigation/all`,
-      details: `Reset all role sidebar permissions to factory defaults.`,
+      details:
+        'Reset all role sidebar permissions to factory defaults.',
       timestamp: new Date().toISOString(),
     });
 
-    toast.info('Reset all roles to default permissions.');
+    toast.info(
+      'Reset all roles to default permissions.'
+    );
   };
 
-  // Group modules by category
   const categorizedModules = useMemo(() => {
-    const map: Record<string, NavModuleDefinition[]> = {};
-    CATEGORIES.forEach((c) => {
-      map[c] = ALL_NAV_MODULES.filter((m) => m.category === c);
+    const map: Record<
+      string,
+      NavModuleDefinition[]
+    > = {};
+
+    CATEGORIES.forEach((category) => {
+      map[category] = ALL_NAV_MODULES.filter(
+        (module) => module.category === category
+      );
     });
+
     return map;
   }, []);
 
+  const enabledPercentage =
+    ALL_NAV_MODULES.length > 0
+      ? Math.round(
+        (activeKeys.length /
+          ALL_NAV_MODULES.length) *
+        100
+      )
+      : 0;
+
   return (
-    <div className="space-y-6">
-      {/* Header Info */}
-      <div className="card p-5 bg-white border border-slate-200 rounded-xl space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-[#0F4C42]" />
-              <span>Role-Based Navigation &amp; Sidebar Access Control (RBAC)</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Control exactly which operational modules, diagnostic workspaces, and pages appear in the sidebar for each clinical role.
-            </p>
-          </div>
+    <div className="space-y-4 pb-6">
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleResetAll}
-              className="btn-secondary text-xs text-slate-600 border-slate-300 hover:bg-slate-100"
-              title="Reset all roles to factory defaults"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset All Roles</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!hasChanges}
-              className={`btn-primary text-xs flex items-center gap-1.5 px-4 py-2 ${
-                hasChanges ? 'bg-[#0F4C42] hover:bg-[#0c3c34]' : 'opacity-60 cursor-not-allowed'
-              }`}
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>{hasChanges ? 'Save Changes' : 'Saved'}</span>
-            </button>
-          </div>
-        </div>
+      {/* =====================================================
+          RBAC HEADER
+      ====================================================== */}
 
-        {/* Role Selector Strip */}
-        <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto pb-1">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">
-            Target Role:
-          </span>
-          {MANAGED_ROLES.map((role) => {
-            const isSelected = selectedRole === role;
-            const count = (localDraft[role] || []).length;
-            return (
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+        <div className="px-5 py-4">
+
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+
+            <div className="min-w-0">
+
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#0F4C42]">
+                  <Shield className="h-4.5 w-4.5" />
+                </div>
+
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    Role & Access Control
+                  </h2>
+
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    Control which modules and workspaces are visible to each role.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+
               <button
-                key={role}
                 type="button"
-                onClick={() => {
-                  setSelectedRole(role);
-                  setHasChanges(false);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#0F4C42] text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
+                onClick={handleResetAll}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800"
+                title="Reset all roles to factory defaults"
               >
-                <span>{role}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
-                  }`}
-                >
-                  {count}
-                </span>
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset All
               </button>
-            );
-          })}
+
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!hasChanges}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[11px] font-bold transition-all ${hasChanges
+                    ? 'bg-[#0F4C42] text-white hover:bg-[#0c3c34] shadow-sm'
+                    : 'cursor-not-allowed bg-slate-100 text-slate-400'
+                  }`}
+              >
+                {hasChanges ? (
+                  <Save className="h-3.5 w-3.5" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                )}
+
+                {hasChanges
+                  ? 'Save Changes'
+                  : 'Saved'}
+              </button>
+
+            </div>
+
+          </div>
+
         </div>
+
+
+        {/* =====================================================
+            ROLE SELECTOR
+        ====================================================== */}
+
+        <div className="border-t border-slate-100 px-5 py-3">
+
+          <div className="mb-2 flex items-center justify-between">
+
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Target Role
+              </p>
+
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                Select a role to configure its navigation.
+              </p>
+            </div>
+
+            <div className="hidden items-center gap-2 text-[10px] text-slate-400 sm:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0F4C42]" />
+              {activeKeys.length} modules enabled
+            </div>
+
+          </div>
+
+
+          <div className="relative">
+
+            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+
+              {MANAGED_ROLES.map((role) => {
+
+                const isSelected =
+                  selectedRole === role;
+
+                const count =
+                  (localDraft[role] || []).length;
+
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRole(role);
+                      setHasChanges(false);
+                    }}
+                    className={`group flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-semibold transition-all ${isSelected
+                        ? 'border-[#0F4C42] bg-[#0F4C42] text-white shadow-sm'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-800'
+                      }`}
+                  >
+
+                    <span>
+                      {role}
+                    </span>
+
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${isSelected
+                          ? 'bg-white/15 text-white'
+                          : 'bg-white text-slate-500 border border-slate-200'
+                        }`}
+                    >
+                      {count}
+                    </span>
+
+                  </button>
+                );
+              })}
+
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
 
-      {/* Main Grid: Modules on Left, Live Preview on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Module Configuration List (8 cols) */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Controls Bar for Selected Role */}
-          <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-800">
-                Active Role: <span className="text-[#0F4C42]">{selectedRole}</span>
-              </span>
-              <span className="text-slate-400">&bull;</span>
-              <span className="text-slate-600">
-                <strong>{activeKeys.length}</strong> of {ALL_NAV_MODULES.length} modules visible
-              </span>
+
+      {/* =====================================================
+          MAIN CONTENT
+      ====================================================== */}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+
+        {/* ===================================================
+            MODULE CONFIGURATION
+        ==================================================== */}
+
+        <div className="space-y-4 lg:col-span-8">
+
+          {/* Role Controls */}
+
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+              <div className="min-w-0">
+
+                <div className="flex flex-wrap items-center gap-2">
+
+                  <span className="text-xs font-bold text-slate-800">
+                    {selectedRole}
+                  </span>
+
+                  <span className="h-1 w-1 rounded-full bg-slate-300" />
+
+                  <span className="text-[11px] text-slate-500">
+                    {activeKeys.length} of{' '}
+                    {ALL_NAV_MODULES.length}{' '}
+                    modules visible
+                  </span>
+
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-[#0F4C42]">
+                    {enabledPercentage}%
+                  </span>
+
+                </div>
+
+              </div>
+
+
+              <div className="flex shrink-0 items-center gap-1.5">
+
+                <button
+                  type="button"
+                  onClick={handleSelectAllForRole}
+                  disabled={
+                    selectedRole === 'Super Admin'
+                  }
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-[#0F4C42] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Select All
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeselectAllForRole}
+                  disabled={
+                    selectedRole === 'Super Admin'
+                  }
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Clear
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetRole}
+                  className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-amber-100"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Reset
+                </button>
+
+              </div>
+
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSelectAllForRole}
-                className="text-[11px] font-semibold text-[#0F4C42] hover:underline"
-              >
-                Select All
-              </button>
-              <span className="text-slate-300">|</span>
-              <button
-                type="button"
-                onClick={handleDeselectAllForRole}
-                className="text-[11px] font-semibold text-slate-600 hover:underline"
-              >
-                Clear All
-              </button>
-              <span className="text-slate-300">|</span>
-              <button
-                type="button"
-                onClick={handleResetRole}
-                className="text-[11px] font-semibold text-amber-700 hover:underline flex items-center gap-1"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset Defaults</span>
-              </button>
-            </div>
           </div>
 
-          {/* Categorized Module Cards */}
+
+          {/* =================================================
+              MODULE CATEGORIES
+          ================================================== */}
+
           {CATEGORIES.map((category) => {
-            const modules = categorizedModules[category] || [];
-            if (modules.length === 0) return null;
+
+            const modules =
+              categorizedModules[category] || [];
+
+            if (modules.length === 0) {
+              return null;
+            }
+
+            const enabledCount =
+              modules.filter((module) =>
+                activeKeys.includes(module.id)
+              ).length;
 
             return (
-              <div key={category} className="space-y-3">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#0F4C42]" />
-                  <span>{category}</span>
-                  <span className="text-slate-400 text-[11px] font-normal">
-                    ({modules.filter((m) => activeKeys.includes(m.id)).length} / {modules.length} enabled)
+              <div
+                key={category}
+                className="space-y-2.5"
+              >
+
+                {/* Category Header */}
+
+                <div className="flex items-center justify-between px-1">
+
+                  <div className="flex min-w-0 items-center gap-2">
+
+                    <div className="h-2 w-2 shrink-0 rounded-full bg-[#0F4C42]" />
+
+                    <h3 className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                      {category}
+                    </h3>
+
+                  </div>
+
+                  <span className="shrink-0 text-[10px] font-medium text-slate-400">
+                    {enabledCount}/{modules.length}
                   </span>
-                </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {modules.map((mod) => {
-                    const isEnabled = activeKeys.includes(mod.id);
+                </div>
+
+
+                {/* Modules */}
+
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+
+                  {modules.map((module) => {
+
+                    const isEnabled =
+                      activeKeys.includes(
+                        module.id
+                      );
+
                     return (
-                      <div
-                        key={mod.id}
-                        onClick={() => toggleModule(mod.id)}
-                        className={`p-3.5 rounded-xl border transition-all cursor-pointer select-none flex items-start gap-3 ${
-                          isEnabled
-                            ? 'bg-white border-[#0F4C42] ring-1 ring-[#0F4C42]/20 shadow-xs'
-                            : 'bg-slate-50/70 border-slate-200 opacity-60 hover:opacity-100 hover:bg-white'
-                        }`}
-                      >
-                        {/* Checkbox Icon */}
-                        <div
-                          className={`w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                            isEnabled ? 'bg-[#0F4C42] text-white' : 'border border-slate-300 bg-white text-transparent'
+                      <button
+                        key={module.id}
+                        type="button"
+                        onClick={() =>
+                          toggleModule(module.id)
+                        }
+                        disabled={
+                          selectedRole ===
+                          'Super Admin'
+                        }
+                        className={`group w-full rounded-xl border p-3 text-left transition-all ${isEnabled
+                            ? 'border-[#0F4C42]/50 bg-white shadow-sm hover:border-[#0F4C42] hover:shadow-md'
+                            : 'border-slate-200 bg-slate-50/60 opacity-70 hover:bg-white hover:opacity-100'
+                          } ${selectedRole ===
+                            'Super Admin'
+                            ? 'cursor-not-allowed'
+                            : 'cursor-pointer'
                           }`}
-                        >
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      >
+
+                        <div className="flex items-start gap-3">
+
+                          {/* Status */}
+
+                          <div
+                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-all ${isEnabled
+                                ? 'bg-[#0F4C42] text-white'
+                                : 'border border-slate-300 bg-white text-transparent'
+                              }`}
+                          >
+                            <Check className="h-3.5 w-3.5 stroke-[3]" />
+                          </div>
+
+
+                          {/* Content */}
+
+                          <div className="min-w-0 flex-1">
+
+                            <div className="flex items-start justify-between gap-2">
+
+                              <div className="flex min-w-0 items-center gap-1.5">
+
+                                <span
+                                  className={
+                                    isEnabled
+                                      ? 'text-[#0F4C42]'
+                                      : 'text-slate-400'
+                                  }
+                                >
+                                  {getModuleIcon(
+                                    module.iconName
+                                  )}
+                                </span>
+
+                                <span className="truncate text-xs font-bold text-slate-900">
+                                  {module.label}
+                                </span>
+
+                              </div>
+
+                              <span
+                                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide ${isEnabled
+                                    ? 'bg-emerald-50 text-[#0F4C42]'
+                                    : 'bg-slate-100 text-slate-400'
+                                  }`}
+                              >
+                                {isEnabled
+                                  ? 'Enabled'
+                                  : 'Hidden'}
+                              </span>
+
+                            </div>
+
+
+                            <div className="mt-1.5 flex items-center justify-between gap-2">
+
+                              <p className="line-clamp-2 text-[10px] leading-4 text-slate-500">
+                                {module.description}
+                              </p>
+
+                              <span className="hidden shrink-0 font-mono text-[9px] text-slate-300 xl:block">
+                                {module.defaultPath}
+                              </span>
+
+                            </div>
+
+                          </div>
+
                         </div>
 
-                        {/* Details */}
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-slate-600">{getModuleIcon(mod.iconName)}</span>
-                              <span className="font-bold text-xs text-slate-900 truncate">{mod.label}</span>
-                            </div>
-                            <span className="font-mono text-[10px] text-slate-400">{mod.defaultPath}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">
-                            {mod.description}
-                          </p>
-                        </div>
-                      </div>
+                      </button>
                     );
                   })}
+
                 </div>
+
               </div>
             );
           })}
+
         </div>
 
-        {/* Live Sidebar Preview (4 cols) */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="card p-4 bg-white border border-slate-200 rounded-xl space-y-3 sticky top-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Eye className="w-4 h-4 text-[#0F4C42]" />
-                <span>Live Sidebar Preview</span>
-              </h3>
-              <span className="text-[11px] font-semibold text-[#0F4C42] bg-emerald-50 px-2 py-0.5 rounded">
-                {selectedRole}
-              </span>
-            </div>
 
-            <p className="text-[11px] text-slate-500">
-              This preview shows exactly how the navigation menu appears for users signed in as <strong>{selectedRole}</strong>.
-            </p>
+        {/* ===================================================
+            LIVE PREVIEW
+        ==================================================== */}
 
-            {/* Mock Sidebar Canvas */}
-            <div className="bg-[#F8FAFC] border border-slate-200 rounded-lg p-3 space-y-1 max-h-[500px] overflow-y-auto">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
-                Navigation Menu
+        <div className="lg:col-span-4">
+
+          <div className="sticky top-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+
+            {/* Preview Header */}
+
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+
+              <div className="flex items-center gap-2">
+
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-[#0F4C42]">
+                  <Eye className="h-3.5 w-3.5" />
+                </div>
+
+                <div>
+
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                    Live Preview
+                  </h3>
+
+                  <p className="text-[9px] text-slate-400">
+                    Sidebar navigation
+                  </p>
+
+                </div>
+
               </div>
 
-              {activeKeys.length === 0 ? (
-                <div className="text-center py-8 text-xs text-slate-400">
-                  No modules enabled for this role.
-                </div>
-              ) : (
-                ALL_NAV_MODULES.filter((m) => activeKeys.includes(m.id)).map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white border border-slate-100 text-xs font-medium text-slate-800 shadow-2xs"
-                  >
-                    <span className="text-[#0F4C42]">{getModuleIcon(m.iconName)}</span>
-                    <span className="truncate">{m.label}</span>
-                  </div>
-                ))
-              )}
+              <span className="max-w-[130px] truncate rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-[#0F4C42]">
+                {selectedRole}
+              </span>
+
             </div>
 
-            <div className="bg-amber-50/70 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-900 flex items-start gap-2">
-              <Info className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-              <span>
-                Changes saved here take effect immediately across all active browser sessions and tabs for this role.
-              </span>
+
+            {/* Preview Description */}
+
+            <div className="mt-3 rounded-lg bg-slate-50 p-3">
+
+              <div className="flex items-center justify-between">
+
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  Visible Modules
+                </span>
+
+                <span className="text-[10px] font-bold text-[#0F4C42]">
+                  {activeKeys.length}
+                </span>
+
+              </div>
+
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+
+                <div
+                  className="h-full rounded-full bg-[#0F4C42] transition-all"
+                  style={{
+                    width: `${enabledPercentage}%`,
+                  }}
+                />
+
+              </div>
+
             </div>
+
+
+            {/* Mock Sidebar */}
+
+            <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-[#F8FAFC]">
+
+              <div className="border-b border-slate-200 bg-white px-3 py-2.5">
+
+                <div className="flex items-center gap-2">
+
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-50 text-[#0F4C42]">
+                    <Layers className="h-3.5 w-3.5" />
+                  </div>
+
+                  <div>
+
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Navigation Menu
+                    </p>
+
+                    <p className="text-[10px] font-semibold text-slate-700">
+                      HealthGrid IQ
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <div className="max-h-[460px] space-y-1 overflow-y-auto p-2">
+
+                {activeKeys.length === 0 ? (
+
+                  <div className="py-10 text-center">
+
+                    <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100">
+                      <Layers className="h-4 w-4 text-slate-400" />
+                    </div>
+
+                    <p className="text-[10px] font-semibold text-slate-500">
+                      No modules enabled
+                    </p>
+
+                    <p className="mt-0.5 text-[9px] text-slate-400">
+                      Select modules on the left.
+                    </p>
+
+                  </div>
+
+                ) : (
+
+                  ALL_NAV_MODULES
+                    .filter((module) =>
+                      activeKeys.includes(
+                        module.id
+                      )
+                    )
+                    .map((module) => (
+
+                      <div
+                        key={module.id}
+                        className="flex items-center gap-2 rounded-lg border border-slate-100 bg-white px-2.5 py-2 text-[10px] font-medium text-slate-700 shadow-sm"
+                      >
+
+                        <span className="text-[#0F4C42]">
+                          {getModuleIcon(
+                            module.iconName
+                          )}
+                        </span>
+
+                        <span className="truncate">
+                          {module.label}
+                        </span>
+
+                      </div>
+
+                    ))
+
+                )}
+
+              </div>
+
+            </div>
+
+
+            {/* Information */}
+
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-2.5">
+
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600" />
+
+              <p className="text-[10px] leading-4 text-blue-800">
+                Changes saved here take effect immediately across active browser sessions for this role.
+              </p>
+
+            </div>
+
+
+            {/* Super Admin Notice */}
+
+            {selectedRole === 'Super Admin' && (
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 p-2.5">
+
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+
+                <p className="text-[10px] leading-4 text-amber-800">
+                  Super Admin has full system visibility and cannot have modules manually disabled.
+                </p>
+
+              </div>
+            )}
+
           </div>
+
         </div>
+
       </div>
+
     </div>
   );
 }
