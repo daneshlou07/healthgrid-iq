@@ -1,0 +1,21 @@
+name: Deploy HealthGridIQ
+
+on:
+  push:
+    branches:
+      - healthgridiq-stg-01
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show deployment information
+        run: |
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Commit: $GITHUB_SHA"
+          echo "Server: $(hostname)"
+          echo "User: $(whoami)"

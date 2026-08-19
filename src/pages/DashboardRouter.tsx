@@ -5,6 +5,9 @@ import RadiogrDashboard from './radiographer/RadiogrDashboard';
 import RadiologistDashboard from './radiologist/RadiologistDashboard';
 import MoDashboard from './mo/DepartmentDashboard';
 import AdminDashboard from './admin/AdminDashboard';
+import BemsDashboard from './bemz/BemsDashboard';
+import PrivateHospitalAdminDashboard from './external/PrivateHospitalAdminDashboard';
+import ExternalRadiographerWorkspace from './external/ExternalRadiographerWorkspace';
 import ImpersonationBanner from '../components/common/ImpersonationBanner';
 
 export default function DashboardRouter() {
@@ -13,11 +16,17 @@ export default function DashboardRouter() {
   const renderDashboard = () => {
     switch (currentUser?.role) {
       case 'Radiographer':
+      case 'Public Hospital Radiographer':
+      case 'Private Hospital Radiographer':
         return <RadiogrDashboard />;
       case 'Radiologist':
         return <RadiologistDashboard />;
       case 'Medical Officer':
         return <MoDashboard />;
+      case 'BEMZ':
+        return <BemsDashboard />;
+      case 'Private Hospital Admin':
+        return <PrivateHospitalAdminDashboard />;
       case 'Equipment Marketplace':
         return <Navigate to="/marketplace" replace />;
       case 'Administrator':

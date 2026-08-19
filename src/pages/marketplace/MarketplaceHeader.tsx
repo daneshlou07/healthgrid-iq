@@ -14,6 +14,8 @@ import {
   Lock,
   ChevronDown,
   ShoppingBag,
+  Package,
+  ClipboardList,
 } from 'lucide-react';
 
 interface MarketplaceHeaderProps {
@@ -23,11 +25,12 @@ interface MarketplaceHeaderProps {
 export default function MarketplaceHeader({
   onOpenDraftDrawer,
 }: MarketplaceHeaderProps) {
-  const navigate = useNavigate();
-  const { currentUser, logout, updateCurrentUser } = useAuth();
-  const { rfqDraft } = useData();
+  const { currentUser, logout, updateCurrentUser, isMasterAdmin } = useAuth();
+  const { rfqDraft, quotationRequests } = useData();
   const toast = useToast();
 
+  const isSuperOrMaster = isMasterAdmin || currentUser?.role === 'Super Admin';
+  const pendingOrdersCount = quotationRequests.filter((q) => q.status === 'SUBMITTED').length;
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Profile Modal State
@@ -96,8 +99,8 @@ export default function MarketplaceHeader({
       'flex',
       'h-[76px]',
       'items-center',
-      'gap-2.5',
-      'px-6',
+      'gap-2',
+      'px-4 lg:px-5',
       'text-[13px]',
       'font-semibold',
       'whitespace-nowrap',
@@ -105,8 +108,8 @@ export default function MarketplaceHeader({
       isActive ? 'text-[#0F4C42]' : 'text-[#475569] hover:text-[#0F4C42]',
       'after:absolute',
       'after:bottom-0',
-      'after:left-6',
-      'after:right-6',
+      'after:left-4',
+      'after:right-4',
       'after:h-[2px]',
       'after:rounded-full',
       isActive ? 'after:bg-[#0F4C42]' : 'after:bg-transparent',
@@ -115,7 +118,7 @@ export default function MarketplaceHeader({
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-[#E2E8F0] bg-white">
-        {/* DESKTOP HEADER */}
+        {/* DESKTOP HEADER (Adjust height with h-[76px], horizontal padding with px-6 lg:px-8 xl:px-12) */}
         <div className="flex h-[76px] w-full items-center px-6 lg:px-8 xl:px-12">
           {/* BRAND */}
           <button
@@ -133,7 +136,7 @@ export default function MarketplaceHeader({
                   HealthGrid IQ
                 </span>
                 <span className="rounded-md bg-[#EFF6F3] px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-[#0F4C42]">
-                  Marketplace
+                  {isSuperOrMaster ? 'Marketplace Admin' : 'Marketplace'}
                 </span>
               </div>
               <p className="mt-1.5 text-[10px] font-medium tracking-wide text-[#64748B]">
@@ -142,8 +145,8 @@ export default function MarketplaceHeader({
             </div>
           </button>
 
-          {/* MAIN NAVIGATION */}
-          <nav className="ml-12 hidden h-full items-center lg:flex xl:ml-16">
+          {/* MAIN NAVIGATION (Adjust spacing from brand using ml-8 to ml-16) */}
+          <nav className="ml-8 hidden h-full items-center lg:flex xl:ml-12">
             <NavLink to="/marketplace" end className={navClass}>
               Home
             </NavLink>
@@ -157,6 +160,26 @@ export default function MarketplaceHeader({
               <Building2 className="h-[17px] w-[17px]" />
               Non-Medical Equipment
             </NavLink>
+
+            {/* SUPER ADMIN MANAGEMENT TABS */}
+            {isSuperOrMaster && (
+              <>
+                <NavLink to="/marketplace/manage-items" className={navClass}>
+                  <Package className="h-[17px] w-[17px]" />
+                  Manage Equipment
+                </NavLink>
+
+                <NavLink to="/marketplace/orders" className={navClass}>
+                  <ClipboardList className="h-[17px] w-[17px]" />
+                  <span>Manage Orders</span>
+                  {pendingOrdersCount > 0 && (
+                    <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+                      {pendingOrdersCount}
+                    </span>
+                  )}
+                </NavLink>
+              </>
+            )}
           </nav>
 
           {/* RIGHT CONTROLS */}
@@ -193,7 +216,7 @@ export default function MarketplaceHeader({
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-xs font-bold text-[#112A28] leading-tight">
-                    {currentUser?.name || 'Farid Zakaria'}
+                    {currentUser?.name || 'User'}
                   </p>
                   <p className="text-[10px] text-[#64748B] leading-tight">
                     {currentUser?.role || 'Equipment Marketplace'}
@@ -278,7 +301,7 @@ export default function MarketplaceHeader({
             }
           >
             <Stethoscope className="h-3.5 w-3.5" />
-            Medical Equipment
+            Medical
           </NavLink>
 
           <NavLink
@@ -290,8 +313,36 @@ export default function MarketplaceHeader({
             }
           >
             <Building2 className="h-3.5 w-3.5" />
-            Non-Medical Equipment
+            Non-Medical
           </NavLink>
+
+          {isSuperOrMaster && (
+            <>
+              <NavLink
+                to="/marketplace/manage-items"
+                className={({ isActive }) =>
+                  `inline-flex h-11 shrink-0 items-center gap-1.5 px-4 text-xs font-semibold ${
+                    isActive ? 'border-b-2 border-[#0F4C42] text-[#0F4C42]' : 'text-[#64748B]'
+                  }`
+                }
+              >
+                <Package className="h-3.5 w-3.5" />
+                Manage Equipment
+              </NavLink>
+
+              <NavLink
+                to="/marketplace/orders"
+                className={({ isActive }) =>
+                  `inline-flex h-11 shrink-0 items-center gap-1.5 px-4 text-xs font-semibold ${
+                    isActive ? 'border-b-2 border-[#0F4C42] text-[#0F4C42]' : 'text-[#64748B]'
+                  }`
+                }
+              >
+                <ClipboardList className="h-3.5 w-3.5" />
+                Orders {pendingOrdersCount > 0 && `(${pendingOrdersCount})`}
+              </NavLink>
+            </>
+          )}
         </div>
       </header>
 

@@ -48,7 +48,7 @@ export default function MarketplaceCatalogue() {
   const [manageAvailItem, setManageAvailItem] = useState<EquipmentItem | null>(null);
   const [isDraftDrawerOpen, setIsDraftDrawerOpen] = useState(false);
 
-  const isSuperOrMaster = isMasterAdmin || currentUser?.role === 'Super Admin';
+  const isSuperOrMaster = currentUser?.role === 'Super Admin' || (isMasterAdmin && currentUser?.role !== 'Equipment Marketplace');
   const isEquipmentMarketplaceUser = currentUser?.role === 'Equipment Marketplace';
   const isLegacyHealthcareCenterAdmin = currentUser?.role === 'Administrator';
   const canRequestQuotation = isEquipmentMarketplaceUser || isLegacyHealthcareCenterAdmin || isSuperOrMaster;
@@ -313,8 +313,47 @@ export default function MarketplaceCatalogue() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
-      {/* 1. TOP GLOBAL HEADER */}
-      <MarketplaceHeader onOpenDraftDrawer={() => setIsDraftDrawerOpen(true)} />
+      {/* 1. TOP WEBSITE HEADER (Only for standalone Marketplace website user mode) */}
+      {!isSuperOrMaster && (
+        <MarketplaceHeader onOpenDraftDrawer={() => setIsDraftDrawerOpen(true)} />
+      )}
+
+      {/* SUPER ADMIN QUICK ACTION BANNER */}
+      {isSuperOrMaster && (
+        <div className="border-b border-[#CDE1DA] bg-[#EFF6F3] px-4 py-2.5 sm:px-6">
+          <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-2 text-xs text-[#0F4C42]">
+            <div className="flex items-center gap-2 font-bold">
+              <Package className="h-4 w-4" />
+              <span>Super Admin Master Access: Manage all medical & non-medical items and incoming orders.</span>
+            </div>
+            <div className="flex items-center gap-2 font-bold">
+              <button
+                type="button"
+                onClick={() => navigate('/marketplace/manage-items')}
+                className="rounded-lg border border-[#B9D2CA] bg-white px-2.5 py-1 text-[#0F4C42] hover:bg-[#F8FAFC]"
+              >
+                Manage Equipment Items
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/marketplace/orders')}
+                className="rounded-lg bg-[#0F4C42] px-2.5 py-1 text-white hover:bg-[#0B3831]"
+              >
+                Manage Orders & Quotations
+              </button>
+              {rfqDraft.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsDraftDrawerOpen(true)}
+                  className="rounded-lg border border-[#B9D2CA] bg-white px-2.5 py-1 text-[#0F4C42] hover:bg-[#F8FAFC]"
+                >
+                  RFQ Draft ({rfqDraft.length})
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. MUDAH.MY STYLE SEARCH HERO SECTION */}
       <section className="border-b border-[#E2E8F0] bg-[#E8F3F1] px-4 py-6 sm:px-6">

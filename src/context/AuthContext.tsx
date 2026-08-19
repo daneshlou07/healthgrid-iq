@@ -34,7 +34,7 @@ export interface AuthContextType {
   loginAsUser: (userId: string) => void;
   
   /** Super-Admin feature to switch view to any registered account */
-  impersonateUser: (targetUserId: string) => void;
+  impersonateUser: (targetUserId: string, targetUserObj?: User) => void;
   stopImpersonating: () => void;
   
   completeMfaLogin: (totpCode: string) => Promise<void>;
@@ -63,10 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [mfaResolver, setMfaResolver] = useState<any | null>(null);
 
-  // Is Master Admin (Danesh Lou)
+  // Is Master Admin (Danesh Lou / Super Admin / Administrator)
   const isMasterAdmin =
     currentUser?.email === 'daneshlou05@gmail.com' ||
-    originalAdminUser?.email === 'daneshlou05@gmail.com';
+    currentUser?.role === 'Super Admin' ||
+    currentUser?.role === 'Administrator' ||
+    originalAdminUser?.email === 'daneshlou05@gmail.com' ||
+    originalAdminUser?.role === 'Super Admin' ||
+    originalAdminUser?.role === 'Administrator';
 
   // -----------------------------------------------------------------------
   // Map a Firebase user → HealthGrid User profile by reading Firestore
@@ -173,35 +177,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let matched: User | null = null;
     const db = getFirestoreDb();
 
+    const matchUser = (u: User) => {
+      const email = (u.email || '').toLowerCase();
+      const id = (u.id || '').toLowerCase();
+      const name = (u.name || '').toLowerCase();
+      const emailPrefix = email.split('@')[0];
+
+      return (
+        email === cleanId ||
+        id === cleanId ||
+        name === cleanId ||
+        emailPrefix === cleanId ||
+        // BEMS aliases
+        ((cleanId === 'bems' || cleanId === 'bemz' || cleanId === 'khairul') && (u.role === 'BEMZ' || u.id === 'bemz-001')) ||
+        // Private Hospital Admin aliases
+        ((cleanId === 'kpj' || cleanId === 'kpjadmin' || cleanId === 'privateadmin' || cleanId === 'sarah') && (u.role === 'Private Hospital Admin' || u.id === 'priv-admin-001')) ||
+        // Public Hospital Radiographer aliases
+        ((cleanId === 'pubrad' || cleanId === 'publicrad' || cleanId === 'noraini') && (u.role === 'Public Hospital Radiographer' || u.id === 'pub-rad-001')) ||
+        // Private Hospital Radiographer aliases
+        ((cleanId === 'privrad' || cleanId === 'privaterad' || cleanId === 'david') && (u.role === 'Private Hospital Radiographer' || u.id === 'priv-rad-001')) ||
+        // Medical Officer aliases
+        ((cleanId === 'mo' || cleanId === 'doctor' || cleanId === 'michelle') && (u.role === 'Medical Officer' || u.id === 'mo-001')) ||
+        // Radiographer aliases
+        ((cleanId === 'rad' || cleanId === 'radiographer' || cleanId === 'ahmad') && (u.role === 'Radiographer' || u.id === 'rad-001')) ||
+        // Radiologist aliases
+        ((cleanId === 'radiologist' || cleanId === 'amira') && (u.role === 'Radiologist' || u.id === 'rologist-001')) ||
+        // Admin aliases
+        ((cleanId === 'admin' || cleanId === 'noraishah') && (u.role === 'Administrator' || u.id === 'admin-001')) ||
+        // Super Admin aliases
+        ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && email === 'daneshlou05@gmail.com') ||
+        ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin') ||
+        ((cleanId === 'marketplace' || cleanId === 'procurement' || cleanId === 'farid') && u.role === 'Equipment Marketplace')
+      );
+    };
+
     // 1. Check Live Firestore Database in Real Time
     if (db && isFirebaseConfigured()) {
       try {
         const usersRef = collection(db, 'users');
         const snapshot = await getDocs(usersRef);
 
-        if (snapshot.empty) {
-          // If Firestore users collection is freshly initialized, seed base users
-          for (const u of mockUsers) {
-            await setDoc(doc(db, 'users', u.id), u, { merge: true });
+        const firestoreUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+        matched = firestoreUsers.find(matchUser) || null;
+
+        // If not in Firestore yet, find in base pool and write directly to Firestore database
+        if (!matched) {
+          const fallbackMatch = mockUsers.find(matchUser);
+          if (fallbackMatch) {
+            matched = fallbackMatch;
+            await setDoc(doc(db, 'users', matched.id), matched, { merge: true });
           }
         }
-
-        const firestoreUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
-
-        matched = firestoreUsers.find((u) => {
-          const userEmail = (u.email || '').toLowerCase();
-          const userId = (u.id || '').toLowerCase();
-          const userName = (u.name || '').toLowerCase();
-
-          return (
-            userEmail === cleanId ||
-            userId === cleanId ||
-            userName === cleanId ||
-            ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com') ||
-            ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin') ||
-            ((cleanId === 'marketplace' || cleanId === 'procurement' || cleanId === 'farid') && u.role === 'Equipment Marketplace')
-          );
-        }) || null;
       } catch (err) {
         console.warn('Firestore user fetch during login failed, checking fallback pool:', err);
       }
@@ -222,20 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('Failed to parse local pool users:', e);
       }
 
-      matched = localPool.find((u) => {
-        const userEmail = (u.email || '').toLowerCase();
-        const userId = (u.id || '').toLowerCase();
-        const userName = (u.name || '').toLowerCase();
-
-        return (
-          userEmail === cleanId ||
-          userId === cleanId ||
-          userName === cleanId ||
-          ((cleanId === 'master' || cleanId === 'danesh' || cleanId === 'daneshlou') && userEmail === 'daneshlou05@gmail.com') ||
-          ((cleanId === 'superadmin' || cleanId === 'theta' || cleanId === 'thetaadmin') && u.role === 'Super Admin') ||
-          ((cleanId === 'marketplace' || cleanId === 'procurement' || cleanId === 'farid') && u.role === 'Equipment Marketplace')
-        );
-      }) || null;
+      matched = localPool.find(matchUser) || null;
     }
 
     if (!matched) {
@@ -283,8 +296,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // -----------------------------------------------------------------------
   // Super-Admin User Impersonation Feature
   // -----------------------------------------------------------------------
-  const impersonateUser = (targetUserId: string) => {
-    const target = mockUsers.find((u) => u.id === targetUserId);
+  const impersonateUser = (targetUserId: string, targetUserObj?: User) => {
+    let target = targetUserObj || mockUsers.find((u) => u.id === targetUserId);
+    if (!target) {
+      try {
+        const custom = localStorage.getItem('healthgrid_custom_users');
+        if (custom) {
+          const list: User[] = JSON.parse(custom);
+          target = list.find((u) => u.id === targetUserId);
+        }
+      } catch {}
+    }
     if (!target) return;
 
     if (!originalAdminUser && (currentUser?.email === 'daneshlou05@gmail.com' || isMasterAdmin)) {
