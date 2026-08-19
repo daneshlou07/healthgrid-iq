@@ -1,21 +1,32 @@
-name: Deploy HealthGridIQ
+name: Deploy HealthGrid IQ
 
 on:
   push:
     branches:
       - healthgridiq-stg-01
 
+  workflow_dispatch:
+
 jobs:
   deploy:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Show deployment information
+      - name: Deploy HealthGrid IQ
         run: |
-          echo "Branch: $GITHUB_REF_NAME"
-          echo "Commit: $GITHUB_SHA"
-          echo "Server: $(hostname)"
-          echo "User: $(whoami)"
+          rsync -av --delete \
+            --exclude='.git' \
+            "$GITHUB_WORKSPACE/" \
+            "/opt/docker/healthgridiq/app/"
+
+          cd /opt/docker/healthgridiq
+
+          docker compose up -d --build
+
+      - name: Verify deployment
+        run: |
+          docker ps
+          curl -I http://127.0.0.1
