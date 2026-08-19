@@ -6,7 +6,7 @@ Whenever code changes or fixes are completed:
    ```bash
    git add .
    git commit -m "<descriptive commit message>"
-   git push origin master
+   git push origin healthgridiq-stg-01
    ```
 2. Deploy the project to Vercel:
    ```bash

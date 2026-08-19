@@ -36,6 +36,7 @@ import type {
   RadioScheduleProfile,
   CaseStatus,
   PatientRequestStatus,
+  ExternalImagingRequest,
 } from '../types';
 
 // Helper to determine if we use live Firestore or mock data
@@ -54,12 +55,19 @@ export async function getUsers(): Promise<User[]> {
   if (db && isFirebaseConfigured()) {
     try {
       const snapshot = await getDocs(collection(db, 'users'));
-      if (!snapshot.empty) {
-        return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+      const existingUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+      
+      // Ensure all standard hospital role accounts exist in Firestore
+      const missingUsers = mockUsers.filter((mu) => !existingUsers.some((eu) => eu.id === mu.id || eu.email === mu.email));
+      if (missingUsers.length > 0) {
+        for (const u of missingUsers) {
+          await setDoc(doc(db, 'users', u.id), u, { merge: true });
+        }
+        return [...existingUsers, ...missingUsers];
       }
-      // If collection is empty, seed base users to Firestore so database has live records
-      for (const u of mockUsers) {
-        await setDoc(doc(db, 'users', u.id), u, { merge: true });
+
+      if (existingUsers.length > 0) {
+        return existingUsers;
       }
       return [...mockUsers];
     } catch (e) {
@@ -449,4 +457,79 @@ export async function getRadioSchedulesByClinic(clinicId: string): Promise<Radio
 
 export async function getRadioScheduleProfiles(): Promise<RadioScheduleProfile[]> {
   return getRadioSchedules();
+}
+
+// ==================== BEMS & EXTERNAL IMAGING REFERRALS ====================
+export async function getExternalReferrals(): Promise<ExternalImagingRequest[]> {
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const q = query(collection(db, 'external_referrals'), orderBy('submittedAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as ExternalImagingRequest));
+    } catch (e) {
+      console.warn('Firestore getExternalReferrals fallback:', e);
+    }
+  }
+  const raw = localStorage.getItem('healthgrid_external_referrals');
+  return raw ? JSON.parse(raw) : [];
+}
+
+export async function getExternalReferralById(id: string): Promise<ExternalImagingRequest | null> {
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const docSnap = await getDoc(doc(db, 'external_referrals', id));
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as ExternalImagingRequest;
+      }
+    } catch (e) {
+      console.warn('Firestore getExternalReferralById fallback:', e);
+    }
+  }
+  const all = await getExternalReferrals();
+  return all.find((r) => r.id === id) || null;
+}
+
+export async function createExternalReferral(req: Omit<ExternalImagingRequest, 'id'>): Promise<ExternalImagingRequest> {
+  const id = generateId('bems-ref');
+  const newReq: ExternalImagingRequest = { ...req, id };
+
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'external_referrals', id), newReq);
+    } catch (e) {
+      console.warn('Firestore createExternalReferral failed:', e);
+    }
+  }
+
+  // Local storage persistence fallback
+  const raw = localStorage.getItem('healthgrid_external_referrals');
+  const existing: ExternalImagingRequest[] = raw ? JSON.parse(raw) : [];
+  existing.unshift(newReq);
+  localStorage.setItem('healthgrid_external_referrals', JSON.stringify(existing));
+
+  return newReq;
+}
+
+export async function updateExternalReferral(id: string, updates: Partial<ExternalImagingRequest>): Promise<void> {
+  if (!id) throw new Error('Update referral failed: Missing document ID');
+
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      await updateDoc(doc(db, 'external_referrals', id), updates as any);
+    } catch (e) {
+      console.warn('Firestore updateExternalReferral fallback:', e);
+    }
+  }
+
+  const raw = localStorage.getItem('healthgrid_external_referrals');
+  const existing: ExternalImagingRequest[] = raw ? JSON.parse(raw) : [];
+  const idx = existing.findIndex((r) => r.id === id);
+  if (idx !== -1) {
+    existing[idx] = { ...existing[idx], ...updates };
+    localStorage.setItem('healthgrid_external_referrals', JSON.stringify(existing));
+  }
 }

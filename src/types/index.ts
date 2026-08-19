@@ -1,9 +1,47 @@
 // HealthGrid IQ — Domain Entity Types
 // All timestamp fields use ISO 8601 strings (e.g. "2026-07-27T14:00:00Z").
 
-export type UserRole = 'Medical Officer' | 'Radiographer' | 'Radiologist' | 'Administrator' | 'Super Admin' | 'Equipment Marketplace';
+export type UserRole = 
+  | 'Medical Officer' 
+  | 'Radiographer' 
+  | 'Radiologist' 
+  | 'Administrator' 
+  | 'Super Admin' 
+  | 'Equipment Marketplace'
+  | 'BEMZ'
+  | 'Public Hospital Radiographer'
+  | 'Private Hospital Admin'
+  | 'Private Hospital Radiographer';
 
-export type CaseStatus = 'CREATED' | 'SCHEDULED' | 'SCANNED' | 'REPORTED' | 'FINALIZED' | 'NO_SHOW' | 'CANCELLED';
+export type CaseStatus = 
+  // ── Normal Workflow Statuses ──────────────────────────────────────────────
+  | 'CASE_CREATED'
+  | 'SCHEDULING'
+  | 'RADIOGRAPHER_ASSIGNED'
+  | 'READY_FOR_SCAN'
+  | 'SCANNING'
+  | 'IMAGES_AVAILABLE'
+  | 'RADIOLOGIST_REVIEW'
+  | 'MO_REVIEW'
+  | 'REPORT_SUBMITTED'
+  | 'COMPLETED'
+  // ── BEMS & External Imaging Exception Statuses ───────────────────────────
+  | 'MACHINE_UNAVAILABLE'
+  | 'EXTERNAL_REFERRAL_PENDING'
+  | 'BEMZ_REVIEW'
+  | 'FACILITY_SELECTED'
+  | 'EXTERNAL_RADIOGRAPHER_ASSIGNED'
+  | 'PRIVATE_HOSPITAL_ADMIN_REVIEW'
+  | 'EXTERNAL_SCANNING'
+  | 'EXTERNAL_IMAGES_AVAILABLE'
+  // ── Legacy Aliases & Exceptions ──────────────────────────────────────────
+  | 'CREATED'
+  | 'SCHEDULED'
+  | 'SCANNED'
+  | 'REPORTED'
+  | 'FINALIZED'
+  | 'NO_SHOW'
+  | 'CANCELLED';
 
 export type LeaveStatus = 'Active' | 'On Leave';
 
@@ -280,12 +318,86 @@ export interface Case {
   criticalFindingAcknowledged?: boolean;
   criticalFindingAcknowledgedAt?: string;
 
+  // ── Initial MO Case Ownership (Core Business Rule) ─────────────────────────
+  /**
+   * The INITIAL MEDICAL OFFICER remains the owner of the original patient case
+   * throughout the entire process. External hospitals DO NOT create a new clinical case.
+   * They provide imaging service only.
+   */
+  initialMoId?: string;
+  initialMoName?: string;
+
+  // ── BEMS & External Imaging Referral Tracking ──────────────────────────────
+  externalReferralId?: string;
+  externalReferral?: ExternalImagingRequest;
+  machineIssue?: {
+    reason: MachineIssueReason;
+    reportedAt: string;
+    notes?: string;
+    reportedById?: string;
+    reportedByName?: string;
+  };
+  externalFacilityType?: 'Public Hospital' | 'Private Hospital';
+  externalFacilityName?: string;
+  externalRadiographerId?: string;
+  externalRadiographerName?: string;
+  externalAdminId?: string;
+  externalAdminName?: string;
+
   /** @deprecated Read-only support for cases created before the symptom workflow. */
   disease?: string;
   /** @deprecated Read-only support for cases created before radiology registration. */
   doctorId?: string;
   /** @deprecated */
   doctorName?: string;
+}
+
+// ---------------------------------------------------------------------------
+// 4.4.1 External Imaging Request & BEMS Domain Entity
+// ---------------------------------------------------------------------------
+export type ExternalFacilityType = 'PUBLIC_HOSPITAL' | 'PRIVATE_HOSPITAL';
+export type MachineIssueReason = 'Broken' | 'Unavailable' | 'Maintenance' | 'Calibration' | 'Power Failure' | 'Detector Fault' | 'Other';
+
+export interface ExternalImagingRequest {
+  id: string;
+  caseId: string;
+  caseNumber: string;
+  patientId: string;
+  patientName: string;
+  originatingClinicId?: string;
+  originatingClinicName?: string;
+  requestingRadiographerId: string;
+  requestingRadiographerName: string;
+  machineIssueReason: MachineIssueReason;
+  machineIssueDetails?: string;
+  submittedAt: string;
+  status: 
+    | 'PENDING_BEMZ'
+    | 'BEMZ_REVIEWING'
+    | 'FACILITY_SELECTED'
+    | 'PRIVATE_ADMIN_REVIEW'
+    | 'EXTERNAL_RADIOGRAPHER_ASSIGNED'
+    | 'SCANNING'
+    | 'SCANNED'
+    | 'COMPLETED'
+    | 'REJECTED';
+  facilityType?: ExternalFacilityType;
+  assignedFacilityId?: string;
+  assignedFacilityName?: string;
+  assignedHospitalAdminId?: string;
+  assignedHospitalAdminName?: string;
+  assignedRadiographerId?: string;
+  assignedRadiographerName?: string;
+  bemzOfficerId?: string;
+  bemzOfficerName?: string;
+  bemzNotes?: string;
+  bemzProcessedAt?: string;
+  externalImages?: string[];
+  externalImageKeys?: string[];
+  scannedAt?: string;
+  scanNotes?: string;
+  modality?: string;
+  urgency?: 'Routine' | 'Urgent' | 'Emergency';
 }
 
 // ---------------------------------------------------------------------------

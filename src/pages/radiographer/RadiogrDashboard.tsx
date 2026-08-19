@@ -12,9 +12,21 @@ export default function RadiogrDashboard() {
   const { cases, clinics, updateUserLocally } = useData();
   const [showEndShiftModal, setShowEndShiftModal] = useState(false);
 
-  const myCases = cases.filter((c) => c.radiographerId === currentUser?.id);
-  const scheduled = myCases.filter((c) => c.status === 'SCHEDULED');
-  const scanned = myCases.filter((c) => c.status === 'SCANNED');
+  const myCases = cases.filter(
+    (c) =>
+      c.radiographerId === currentUser?.id ||
+      c.registeredById === currentUser?.id ||
+      c.externalRadiographerId === currentUser?.id ||
+      (c.externalReferral && c.externalReferral.assignedRadiographerId === currentUser?.id) ||
+      ((currentUser?.role === 'Public Hospital Radiographer' || currentUser?.role === 'Private Hospital Radiographer') &&
+        c.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED')
+  );
+  const scheduled = myCases.filter(
+    (c) => c.status === 'SCHEDULED' || c.status === 'READY_FOR_SCAN' || c.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED'
+  );
+  const scanned = myCases.filter(
+    (c) => c.status === 'SCANNED' || c.status === 'IMAGES_AVAILABLE' || c.status === 'COMPLETED' || c.status === 'FINALIZED'
+  );
 
   const assignedClinic = clinics.find((c) => c.id === currentUser?.deploymentLocationId);
   const isShiftCompleted = currentUser?.shiftStatus === 'COMPLETED';
@@ -236,6 +248,15 @@ export default function RadiogrDashboard() {
               <div>
                 <Link to={`/case/${c.id}`} className="text-sm font-medium text-navy-700 hover:underline">{c.caseNumber} — {c.patientName}</Link>
                 <p className="text-xs text-surface-500">{c.scanType} &middot; {c.clinicName}</p>
+                {c.externalReferral ? (
+                  <span className="text-[10px] text-purple-800 font-semibold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 mt-1 inline-block">
+                    Referred via BEMS &middot; Assigned by {c.externalReferral.bemzOfficerName || c.externalReferral.assignedHospitalAdminName || 'BEMS'} &middot; Origin MO: {c.initialMoName || 'Initial MO'}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mt-1 inline-block">
+                    Origin: {c.clinicName || 'Local Center'} &middot; MO: {c.initialMoName || c.registeredByName || 'Initial MO'}
+                  </span>
+                )}
               </div>
               <StatusBadge status={c.status} />
             </div>

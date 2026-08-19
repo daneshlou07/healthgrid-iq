@@ -18,9 +18,12 @@ import {
   FileText,
   Sparkles,
   Building2,
+  UserCheck,
+  Users,
 } from 'lucide-react';
 import { exportToCSV } from '../../utils/exportUtils';
 import { saveUser } from '../../services/dataService';
+import RoleNavigationManager from '../../components/admin/RoleNavigationManager';
 
 const ROLES: UserRole[] = [
   'Medical Officer',
@@ -41,7 +44,7 @@ interface TrackedAccount extends User {
 }
 
 export default function UsersManagement() {
-  const { currentUser } = useAuth();
+  const { currentUser, impersonateUser } = useAuth();
   const {
     users,
     setUsers,
@@ -59,6 +62,7 @@ export default function UsersManagement() {
     useState<AccountStatusFilter>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [shiftFilter, setShiftFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'permissions'>('accounts');
 
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -89,7 +93,8 @@ export default function UsersManagement() {
   } | null>(null);
 
   const isMasterAdmin =
-    currentUser?.email === 'daneshlou05@gmail.com';
+    currentUser?.email === 'daneshlou05@gmail.com' ||
+    currentUser?.role === 'Super Admin';
 
   const isSuperOrMaster =
     currentUser?.role === 'Super Admin' || isMasterAdmin;
@@ -100,12 +105,22 @@ export default function UsersManagement() {
       'Radiographer',
       'Radiologist',
       'Administrator',
+      'BEMZ',
+      'Private Hospital Admin',
+      'Public Hospital Radiographer',
+      'Private Hospital Radiographer',
+      'Equipment Marketplace',
       'Super Admin',
     ]
     : [
       'Medical Officer',
       'Radiographer',
       'Radiologist',
+      'BEMZ',
+      'Private Hospital Admin',
+      'Public Hospital Radiographer',
+      'Private Hospital Radiographer',
+      'Administrator',
     ];
 
   // =========================================================
@@ -650,31 +665,65 @@ export default function UsersManagement() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {activeTab === 'accounts' && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              className="btn-secondary text-xs flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export Directory
+            </button>
 
-          <button
-            onClick={handleExport}
-            className="btn-secondary text-sm flex items-center gap-1.5"
-          >
-            <Download className="w-4 h-4" />
-            Export Registry
-          </button>
-
-          <button
-            onClick={openCreate}
-            className="btn-primary text-sm flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            Create New Account
-          </button>
-
-        </div>
+            <button
+              onClick={openCreate}
+              className="btn-primary text-xs flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Create New Account
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Top Workspace Tab Switcher */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('accounts')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'accounts'
+              ? 'bg-[#0F4C42] text-white shadow-xs'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>Staff Accounts Directory ({filteredAccounts.length})</span>
+        </button>
 
-      {/* =====================================================
-          ROLE STATISTICS
-      ====================================================== */}
+        {isSuperOrMaster && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('permissions')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'permissions'
+                ? 'bg-[#0F4C42] text-white shadow-xs'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Role Sidebar &amp; Access Control (RBAC)</span>
+          </button>
+        )}
+      </div>
+
+      {activeTab === 'permissions' ? (
+        <RoleNavigationManager />
+      ) : (
+        <>
+          {/* =====================================================
+              ROLE STATISTICS
+          ====================================================== */}
 
       <div
         className={`grid grid-cols-2 sm:grid-cols-3 ${isSuperOrMaster
@@ -989,29 +1038,45 @@ export default function UsersManagement() {
               All Roles
             </option>
 
-            <option value="Radiographer">
-              Radiographer ({radiographerCount})
-            </option>
-
             <option value="Medical Officer">
               Medical Officer ({moCount})
+            </option>
+
+            <option value="Radiographer">
+              Radiographer ({radiographerCount})
             </option>
 
             <option value="Radiologist">
               Radiologist ({radiologistCount})
             </option>
 
-            {isSuperOrMaster && (
-              <>
-                <option value="Administrator">
-                  Administrator ({adminCount})
-                </option>
+            <option value="BEMZ">
+              BEMS Officer
+            </option>
 
-                <option value="Super Admin">
-                  Super Admin ({superAdminCount})
-                </option>
-              </>
-            )}
+            <option value="Private Hospital Admin">
+              Private Hospital Admin
+            </option>
+
+            <option value="Public Hospital Radiographer">
+              Public Hospital Radiographer
+            </option>
+
+            <option value="Private Hospital Radiographer">
+              Private Hospital Radiographer
+            </option>
+
+            <option value="Equipment Marketplace">
+              Equipment Marketplace
+            </option>
+
+            <option value="Administrator">
+              Administrator ({adminCount})
+            </option>
+
+            <option value="Super Admin">
+              Super Admin ({superAdminCount})
+            </option>
 
           </select>
 
@@ -1267,8 +1332,19 @@ export default function UsersManagement() {
                       <div className="flex items-center justify-end gap-1">
 
                         {!account.isDeleted ? (
-
                           <>
+                            {isSuperOrMaster && account.id !== currentUser?.id && (
+                              <button
+                                onClick={() => {
+                                  impersonateUser(account.id, account);
+                                  toast.success(`Switched account view to ${account.name} (${account.role})`);
+                                }}
+                                className="p-1.5 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded transition-colors"
+                                title={`Switch view to this account: ${account.name}`}
+                              >
+                                <UserCheck className="w-3.5 h-3.5" />
+                              </button>
+                            )}
 
                             <button
                               onClick={() =>
@@ -1391,6 +1467,8 @@ export default function UsersManagement() {
         </div>
 
       </div>
+        </>
+      )}
 
 
       {/* =====================================================

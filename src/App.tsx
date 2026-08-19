@@ -55,6 +55,13 @@ const PatientReportView = safeLazy(() => import('./pages/shared/PatientReportVie
 const MedicalEquipmentPage = safeLazy(() => import('./pages/marketplace/MedicalEquipmentPage'));
 const NonMedicalEquipmentPage = safeLazy(() => import('./pages/marketplace/NonMedicalEquipmentPage'));
 const MarketplaceCatalogue = safeLazy(() => import('./pages/marketplace/MarketplaceCatalogue'));
+const EquipmentManagementPage = safeLazy(() => import('./pages/marketplace/EquipmentManagementPage'));
+const OrdersManagementPage = safeLazy(() => import('./pages/marketplace/OrdersManagementPage'));
+
+// BEMS & External Imaging Pages
+const BemsDashboard = safeLazy(() => import('./pages/bemz/BemsDashboard'));
+const PrivateHospitalAdminDashboard = safeLazy(() => import('./pages/external/PrivateHospitalAdminDashboard'));
+const ExternalRadiographerWorkspace = safeLazy(() => import('./pages/external/ExternalRadiographerWorkspace'));
 
 // Medical Officer & Shared Operational Pages
 const MoOnboarding = safeLazy(() => import('./pages/mo/Onboarding'));
@@ -124,7 +131,7 @@ function AppRoutes() {
         <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoNewCaseRegistration /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Radiologist', 'Administrator']}><MoDepartmentReports /></ProtectedRoute>} />
         <Route path="/requests" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'Super Admin']}><RoleRouter moPage={MoPatientRequests} defaultPage={PatientRequestsReview} /></ProtectedRoute>} />
-        <Route path="/scheduling" element={<ProtectedRoute allowedRoles={['Administrator']}><Scheduling /></ProtectedRoute>} />
+        <Route path="/scheduling" element={<Navigate to="/ai-scheduler" replace />} />
 
         {/* Radiographer routes */}
         <Route path="/scan-queue" element={<ProtectedRoute allowedRoles={['Radiographer']}><ScanQueue /></ProtectedRoute>} />
@@ -140,7 +147,12 @@ function AppRoutes() {
         <Route path="/credentials" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
 
         {/* Track Status route */}
-        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoTrackStatus /></ProtectedRoute>} />
+        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'BEMZ']}><MoTrackStatus /></ProtectedRoute>} />
+
+        {/* BEMS & External Hospital Routes */}
+        <Route path="/bems" element={<ProtectedRoute allowedRoles={['BEMZ', 'Administrator', 'Super Admin']}><BemsDashboard /></ProtectedRoute>} />
+        <Route path="/private-admin" element={<ProtectedRoute allowedRoles={['Private Hospital Admin', 'Administrator', 'Super Admin']}><PrivateHospitalAdminDashboard /></ProtectedRoute>} />
+        <Route path="/external-radiographer" element={<ProtectedRoute allowedRoles={['Public Hospital Radiographer', 'Private Hospital Radiographer', 'Radiographer', 'Administrator', 'Super Admin']}><ExternalRadiographerWorkspace /></ProtectedRoute>} />
 
         {/* Administrator routes (full CRUD access) */}
         <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />
@@ -157,6 +169,8 @@ function AppRoutes() {
         <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><MarketplaceCatalogue /></ProtectedRoute>} />
         <Route path="/marketplace/medical" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><MedicalEquipmentPage /></ProtectedRoute>} />
         <Route path="/marketplace/non-medical" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><NonMedicalEquipmentPage /></ProtectedRoute>} />
+        <Route path="/marketplace/manage-items" element={<ProtectedRoute allowedRoles={['Super Admin']}><EquipmentManagementPage /></ProtectedRoute>} />
+        <Route path="/marketplace/orders" element={<ProtectedRoute allowedRoles={['Super Admin']}><OrdersManagementPage /></ProtectedRoute>} />
         <Route path="/medical-equipment" element={<Navigate to="/marketplace/medical" replace />} />
         <Route path="/non-medical-equipment" element={<Navigate to="/marketplace/non-medical" replace />} />
       </Route>

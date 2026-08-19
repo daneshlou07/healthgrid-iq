@@ -16,6 +16,7 @@ import { apiClient } from '../services/apiClient';
 import {
   getUsers, getCases, getPatients, getClinics, getReports,
   getPatientRequests, getAuditLogs, getMobilePacsVans,
+  getExternalReferrals, createExternalReferral, updateExternalReferral,
 } from '../services/dataService';
 import {
   mockUsers, mockClinics, mockPatients, mockCases, mockReports,
@@ -26,14 +27,21 @@ import { useAuth } from './AuthContext';
 import type {
   User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, MobilePacsVan, Comment,
   EquipmentItem, QuotationRequest, QuotationItem, MarketplaceCartItem, QuotationNegotiationMessage,
-  RfqDraftItem, EquipmentAvailability,
+  RfqDraftItem, EquipmentAvailability, QuotationStatus,
+  ExternalImagingRequest, MachineIssueReason, ExternalFacilityType, UserRole,
 } from '../types';
+import {
+  RoleNavigationConfig,
+  loadRoleNavConfig,
+  saveRoleNavConfig,
+  DEFAULT_ROLE_NAV_CONFIG,
+} from '../services/permissionService';
 
 // --- LocalStorage Persistence Layer ---
 const STORAGE_KEY = 'healthgrid_data';
 // Bump this version whenever seed data changes (e.g. new demo images or system roles).
 // Any cached data from a previous version will be discarded and reloaded from mock.
-const STORAGE_VERSION = '11'; // v11: Equipment Marketplace Phase 1 Catalogue & user-scoped RFQ draft
+const STORAGE_VERSION = '12'; // v12: Clinical & BEMS External Imaging Workflow
 const USE_DEMO_STORAGE = isDemoMode();
 
 interface PersistedData {
@@ -45,6 +53,7 @@ interface PersistedData {
   patientRequests: PatientRequest[];
   auditLogs: AuditLog[];
   equipment: MobilePacsVan[];
+  externalReferrals?: ExternalImagingRequest[];
   lastUpdated: string;
 }
 
@@ -158,11 +167,16 @@ interface DataContextValue {
   quotationRequests: QuotationRequest[];
   marketplaceCart: MarketplaceCartItem[];
   rfqDraft: RfqDraftItem[];
+  addEquipmentItem: (item: Omit<EquipmentItem, 'id'>) => EquipmentItem;
+  updateEquipmentItem: (id: string, updates: Partial<EquipmentItem>) => void;
+  deleteEquipmentItem: (id: string) => void;
+  updateEquipmentAvailability: (equipmentId: string, availability: EquipmentAvailability) => void;
+  updateQuotationStatus: (id: string, status: QuotationStatus, adminRemarks?: string) => void;
+  deleteQuotationRequest: (id: string) => void;
   addToRfqDraft: (item: Omit<RfqDraftItem, 'id'>) => void;
   updateRfqDraftItem: (id: string, updates: Partial<RfqDraftItem>) => void;
   removeFromRfqDraft: (id: string) => void;
   clearRfqDraft: () => void;
-  updateEquipmentAvailability: (equipmentId: string, availability: EquipmentAvailability) => void;
   addToCart: (item: Omit<MarketplaceCartItem, 'id'>) => void;
   updateCartItem: (id: string, updates: Partial<MarketplaceCartItem>) => void;
   removeFromCart: (id: string) => void;
@@ -218,6 +232,22 @@ interface DataContextValue {
   softDelete: (type: TrashItem['type'], id: string, deletedBy: string) => void;
   restoreFromTrash: (trashItemId: string) => void;
   permanentDelete: (trashItemId: string) => void;
+
+  // BEMS & External Imaging Workflow Methods
+  externalReferrals: ExternalImagingRequest[];
+  addExternalReferral: (req: Omit<ExternalImagingRequest, 'id'>) => Promise<ExternalImagingRequest>;
+  editExternalReferral: (id: string, updates: Partial<ExternalImagingRequest>) => Promise<void>;
+  reportMachineUnavailable: (caseId: string, payload: { reason: MachineIssueReason; notes?: string; user: User }) => Promise<ExternalImagingRequest>;
+  bemsAssignFacility: (referralId: string, payload: { facilityType: ExternalFacilityType; facilityId: string; facilityName: string; radiographerId?: string; radiographerName?: string; hospitalAdminId?: string; hospitalAdminName?: string; bemsOfficer: User; bemsNotes?: string }) => Promise<void>;
+  hospitalAdminAssignRadiographer: (referralId: string, payload: { radiographerId: string; radiographerName: string; adminUser: User; notes?: string }) => Promise<void>;
+  externalUploadScans: (referralId: string, payload: { imageKeys: string[]; technicalFactors?: any; radiographerFindings?: string; radiographerImpression?: string; routedToRole?: 'Medical Officer' | 'Radiologist'; uploadedBy: User }) => Promise<void>;
+  submitFinalMoReport: (caseId: string, reportPayload: { findings: string; impression: string; suggestions?: string; isCriticalFinding?: boolean; criticalFindingNote?: string; moUser: User }) => Promise<void>;
+
+  // Dynamic RBAC Navigation Permissions
+  roleNavigationConfig: RoleNavigationConfig;
+  updateRoleNavigation: (role: UserRole, enabledKeys: string[]) => void;
+  resetRoleNavigation: (role?: UserRole) => void;
+
   // Scoped local-state helpers — preferred over raw setters for individual item changes
   updateUserLocally: (id: string, updates: Partial<User>) => void;
   updateEquipmentLocally: (id: string, updates: Partial<MobilePacsVan>) => void;
@@ -248,6 +278,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [patientRequests, setPatientRequests] = useState<PatientRequest[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [equipment, setEquipment] = useState<MobilePacsVan[]>([]);
+  const [externalReferrals, setExternalReferrals] = useState<ExternalImagingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<CaseComment[]>([]);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
@@ -283,18 +314,56 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const [rfqDraft, setRfqDraft] = useState<RfqDraftItem[]>(() => loadScopedRfqDraft(currentUser));
 
-  useEffect(() => {
-    setRfqDraft(loadScopedRfqDraft(currentUser));
-  }, [currentUser?.id, currentUser?.deploymentLocationId, loadScopedRfqDraft]);
+  const [roleNavigationConfig, setRoleNavigationConfig] = useState<RoleNavigationConfig>(() => loadRoleNavConfig());
+
+  const updateRoleNavigation = useCallback((role: UserRole, enabledKeys: string[]) => {
+    setRoleNavigationConfig((prev) => {
+      const updated = {
+        ...prev,
+        [role]: enabledKeys,
+      };
+      saveRoleNavConfig(updated);
+      try {
+        const bc = new BroadcastChannel('healthgrid_sync');
+        bc.postMessage({ type: 'DATA_UPDATED', timestamp: Date.now() });
+        bc.close();
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const resetRoleNavigation = useCallback((role?: UserRole) => {
+    setRoleNavigationConfig((prev) => {
+      let updated: RoleNavigationConfig;
+      if (role) {
+        updated = {
+          ...prev,
+          [role]: DEFAULT_ROLE_NAV_CONFIG[role],
+        };
+      } else {
+        updated = { ...DEFAULT_ROLE_NAV_CONFIG };
+      }
+      saveRoleNavConfig(updated);
+      try {
+        const bc = new BroadcastChannel('healthgrid_sync');
+        bc.postMessage({ type: 'DATA_UPDATED', timestamp: Date.now() });
+        bc.close();
+      } catch {}
+      return updated;
+    });
+  }, []);
 
   const initialized = useRef(false);
 
-  // Helper to merge live items with current state by ID
+  // Helper to merge live items with current state by ID (preserving deep properties)
   const mergeItems = <T extends { id: string }>(current: T[], incoming: T[]): T[] => {
     if (!incoming || incoming.length === 0) return current;
     const map = new Map<string, T>();
     current.forEach((item) => map.set(item.id, item));
-    incoming.forEach((item) => map.set(item.id, item));
+    incoming.forEach((item) => {
+      const existing = map.get(item.id);
+      map.set(item.id, existing ? { ...existing, ...item } : item);
+    });
     return Array.from(map.values());
   };
 
@@ -313,28 +382,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     let initRequests: PatientRequest[] = [];
     let initLogs: AuditLog[] = [];
     let initEquipment: MobilePacsVan[] = [];
+    let initReferrals: ExternalImagingRequest[] = [];
 
-    if (isConfigured || !persisted) {
+    if (isConfigured) {
       try {
-        const [u, c, p, cl, r, pr, eq, al] = await Promise.all([
+        const [u, c, p, cl, r, pr, eq, al, ref] = await Promise.all([
           getUsers(), getCases(), getPatients(), getClinics(),
           getReports(), getPatientRequests(), getMobilePacsVans(),
           getAuditLogs().catch(() => []),
+          getExternalReferrals().catch(() => []),
         ]);
         initUsers = u; initCases = c; initPatients = p; initClinics = cl;
         initReports = r; initRequests = pr; initEquipment = eq; initLogs = al;
+        initReferrals = ref;
       } catch (e) {
         console.warn('Firestore initial loading error:', e);
       }
-    } else if (persisted) {
-      initUsers = persisted.users || [];
-      initCases = persisted.cases || [];
-      initPatients = persisted.patients || [];
-      initClinics = persisted.clinics || [];
-      initReports = persisted.reports || [];
-      initRequests = persisted.patientRequests || [];
-      initLogs = persisted.auditLogs || [];
-      initEquipment = persisted.equipment || [];
+    }
+
+    const localPersisted = loadFromStorage();
+    if (localPersisted) {
+      if (localPersisted.users?.length) initUsers = mergeItems(initUsers, localPersisted.users);
+      if (localPersisted.cases?.length) initCases = mergeItems(initCases, localPersisted.cases);
+      if (localPersisted.patients?.length) initPatients = mergeItems(initPatients, localPersisted.patients);
+      if (localPersisted.clinics?.length) initClinics = mergeItems(initClinics, localPersisted.clinics);
+      if (localPersisted.reports?.length) initReports = mergeItems(initReports, localPersisted.reports);
+      if (localPersisted.patientRequests?.length) initRequests = mergeItems(initRequests, localPersisted.patientRequests);
+      if (localPersisted.auditLogs?.length) initLogs = mergeItems(initLogs, localPersisted.auditLogs);
+      if (localPersisted.equipment?.length) initEquipment = mergeItems(initEquipment, localPersisted.equipment);
+      if (localPersisted.externalReferrals?.length) initReferrals = mergeItems(initReferrals, localPersisted.externalReferrals);
     }
 
     setUsers(initUsers);
@@ -345,6 +421,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setPatientRequests(initRequests);
     setAuditLogs(initLogs);
     setEquipment(initEquipment);
+    setExternalReferrals(initReferrals);
 
     setComments(loadComments());
     setRecentItems(loadRecent());
@@ -467,6 +544,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       )
     );
 
+    unsubscribers.push(
+      onSnapshot(
+        query(collection(db, 'external_referrals'), orderBy('submittedAt', 'desc')),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as ExternalImagingRequest));
+            setExternalReferrals((prev) => mergeItems(prev, items));
+          }
+        },
+        (error) => console.warn('External referrals listener warning:', error)
+      )
+    );
+
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
@@ -476,7 +566,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!initialized.current) return;
     const timer = setTimeout(() => {
-      saveToStorage({ users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment });
+      saveToStorage({ users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment, externalReferrals });
       // Broadcast to other tabs
       try {
         const bc = new BroadcastChannel('healthgrid_sync');
@@ -485,7 +575,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       } catch {}
     }, 300);
     return () => clearTimeout(timer);
-  }, [users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment]);
+  }, [users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment, externalReferrals]);
 
   // Listen for updates from other tabs — trigger a full reload instead of re-reading
   // potentially stale localStorage, since the Firestore listeners are the source of truth.
@@ -495,19 +585,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       bc = new BroadcastChannel('healthgrid_sync');
       bc.onmessage = (event) => {
         if (event.data?.type === 'DATA_UPDATED') {
-          // Only reload from localStorage when Firebase is not configured (demo mode).
-          // In live mode the onSnapshot listeners already deliver the latest data.
-          if (!isFirebaseConfigured()) {
-            const persisted = loadFromStorage();
-            if (persisted) {
-              setUsers(persisted.users);
-              setCases(persisted.cases);
-              setPatients(persisted.patients);
-              setClinics(persisted.clinics);
-              setReports(persisted.reports);
-              setPatientRequests(persisted.patientRequests);
-              setAuditLogs(persisted.auditLogs);
-              setEquipment(persisted.equipment);
+          setRoleNavigationConfig(loadRoleNavConfig());
+          const persisted = loadFromStorage();
+          if (persisted) {
+            if (persisted.users?.length) setUsers(persisted.users);
+            if (persisted.cases?.length) setCases(persisted.cases);
+            if (persisted.patients?.length) setPatients(persisted.patients);
+            if (persisted.clinics?.length) setClinics(persisted.clinics);
+            if (persisted.reports?.length) setReports(persisted.reports);
+            if (persisted.patientRequests?.length) setPatientRequests(persisted.patientRequests);
+            if (persisted.auditLogs?.length) setAuditLogs(persisted.auditLogs);
+            if (persisted.equipment?.length) setEquipment(persisted.equipment);
+            if (persisted.externalReferrals?.length) {
+              setExternalReferrals(persisted.externalReferrals);
             }
           }
         }
@@ -662,6 +752,296 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.warn('[editPatientRequest] Firestore write warning:', e);
       }
     }
+  };
+
+  // ── BEMS & External Imaging Referral Methods ─────────────────────────────
+  const addExternalReferral = async (req: Omit<ExternalImagingRequest, 'id'>): Promise<ExternalImagingRequest> => {
+    const id = `bems-ref-${Date.now()}`;
+    const data = clean({ ...req, id, submittedAt: req.submittedAt || new Date().toISOString() }) as ExternalImagingRequest;
+    setExternalReferrals((prev) => [data, ...prev]);
+    const db = getFirestoreDb();
+    if (db) {
+      try {
+        await setDoc(doc(db, 'external_referrals', id), data);
+      } catch (e) {
+        console.warn('[addExternalReferral] Firestore write warning:', e);
+      }
+    }
+    return data;
+  };
+
+  const editExternalReferral = async (id: string, updates: Partial<ExternalImagingRequest>) => {
+    const data = clean(updates);
+    setExternalReferrals((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
+    const db = getFirestoreDb();
+    if (db) {
+      try {
+        await updateDoc(doc(db, 'external_referrals', id), data as any);
+      } catch (e) {
+        console.warn('[editExternalReferral] Firestore write warning:', e);
+      }
+    }
+  };
+
+  const reportMachineUnavailable = async (
+    caseId: string,
+    payload: { reason: MachineIssueReason; notes?: string; user: User }
+  ): Promise<ExternalImagingRequest> => {
+    const targetCase = cases.find((c) => c.id === caseId);
+    if (!targetCase) throw new Error('Case not found');
+
+    const nowIso = new Date().toISOString();
+    const refData: Omit<ExternalImagingRequest, 'id'> = {
+      caseId: targetCase.id,
+      caseNumber: targetCase.caseNumber,
+      patientId: targetCase.patientId,
+      patientName: targetCase.patientName,
+      originatingClinicId: targetCase.clinicId,
+      originatingClinicName: targetCase.clinicName,
+      requestingRadiographerId: payload.user.id,
+      requestingRadiographerName: payload.user.name,
+      machineIssueReason: payload.reason,
+      machineIssueDetails: payload.notes,
+      submittedAt: nowIso,
+      status: 'PENDING_BEMZ',
+      modality: targetCase.modality || targetCase.scanType,
+      urgency: targetCase.severity === 'Critical' ? 'Emergency' : targetCase.severity === 'Severe' ? 'Urgent' : 'Routine',
+    };
+
+    const createdReferral = await addExternalReferral(refData);
+
+    await editCase(targetCase.id, {
+      status: 'EXTERNAL_REFERRAL_PENDING',
+      externalReferralId: createdReferral.id,
+      externalReferral: createdReferral,
+      machineIssue: {
+        reason: payload.reason,
+        reportedAt: nowIso,
+        notes: payload.notes,
+        reportedById: payload.user.id,
+        reportedByName: payload.user.name,
+      },
+    });
+
+    await addAuditLog({
+      userId: payload.user.id,
+      userName: payload.user.name,
+      userRole: payload.user.role,
+      action: 'MACHINE_UNAVAILABLE_REPORTED',
+      target: `cases/${targetCase.id}`,
+      details: `Machine reported unavailable (${payload.reason}). External referral dispatched to BEMS (Ref: ${createdReferral.id}).`,
+      timestamp: nowIso,
+    });
+
+    return createdReferral;
+  };
+
+  const bemsAssignFacility = async (
+    referralId: string,
+    payload: {
+      facilityType: ExternalFacilityType;
+      facilityId: string;
+      facilityName: string;
+      radiographerId?: string;
+      radiographerName?: string;
+      hospitalAdminId?: string;
+      hospitalAdminName?: string;
+      bemsOfficer: User;
+      bemsNotes?: string;
+    }
+  ): Promise<void> => {
+    const nowIso = new Date().toISOString();
+    const isPublic = payload.facilityType === 'PUBLIC_HOSPITAL';
+
+    const updates: Partial<ExternalImagingRequest> = {
+      facilityType: payload.facilityType,
+      assignedFacilityId: payload.facilityId,
+      assignedFacilityName: payload.facilityName,
+      assignedRadiographerId: payload.radiographerId,
+      assignedRadiographerName: payload.radiographerName,
+      assignedHospitalAdminId: payload.hospitalAdminId,
+      assignedHospitalAdminName: payload.hospitalAdminName,
+      bemzOfficerId: payload.bemsOfficer.id,
+      bemzOfficerName: payload.bemsOfficer.name,
+      bemzNotes: payload.bemsNotes,
+      bemzProcessedAt: nowIso,
+      status: isPublic ? 'EXTERNAL_RADIOGRAPHER_ASSIGNED' : 'PRIVATE_ADMIN_REVIEW',
+    };
+
+    await editExternalReferral(referralId, updates);
+
+    const ref = externalReferrals.find((r) => r.id === referralId);
+    const targetCaseId = ref?.caseId;
+
+    if (targetCaseId) {
+      await editCase(targetCaseId, {
+        status: isPublic ? 'EXTERNAL_RADIOGRAPHER_ASSIGNED' : 'PRIVATE_HOSPITAL_ADMIN_REVIEW',
+        externalFacilityType: isPublic ? 'Public Hospital' : 'Private Hospital',
+        externalFacilityName: payload.facilityName,
+        externalRadiographerId: payload.radiographerId,
+        externalRadiographerName: payload.radiographerName,
+        externalAdminId: payload.hospitalAdminId,
+        externalAdminName: payload.hospitalAdminName,
+      });
+
+      await addAuditLog({
+        userId: payload.bemsOfficer.id,
+        userName: payload.bemsOfficer.name,
+        userRole: payload.bemsOfficer.role,
+        action: isPublic ? 'BEMS_ROUTED_PUBLIC_HOSPITAL' : 'BEMS_ROUTED_PRIVATE_HOSPITAL',
+        target: `cases/${targetCaseId}`,
+        details: `BEMS assigned external facility: ${payload.facilityName} (${isPublic ? `Direct Radiographer: ${payload.radiographerName}` : `Hospital Admin: ${payload.hospitalAdminName}`}).`,
+        timestamp: nowIso,
+      });
+    }
+  };
+
+  const hospitalAdminAssignRadiographer = async (
+    referralId: string,
+    payload: {
+      radiographerId: string;
+      radiographerName: string;
+      adminUser: User;
+      notes?: string;
+    }
+  ): Promise<void> => {
+    const nowIso = new Date().toISOString();
+    await editExternalReferral(referralId, {
+      assignedRadiographerId: payload.radiographerId,
+      assignedRadiographerName: payload.radiographerName,
+      status: 'EXTERNAL_RADIOGRAPHER_ASSIGNED',
+    });
+
+    const ref = externalReferrals.find((r) => r.id === referralId);
+    if (ref?.caseId) {
+      await editCase(ref.caseId, {
+        status: 'EXTERNAL_RADIOGRAPHER_ASSIGNED',
+        externalRadiographerId: payload.radiographerId,
+        externalRadiographerName: payload.radiographerName,
+      });
+
+      await addAuditLog({
+        userId: payload.adminUser.id,
+        userName: payload.adminUser.name,
+        userRole: payload.adminUser.role,
+        action: 'PRIVATE_HOSPITAL_RADIOGRAPHER_ASSIGNED',
+        target: `cases/${ref.caseId}`,
+        details: `Private Hospital Admin ${payload.adminUser.name} assigned Radiographer ${payload.radiographerName}.`,
+        timestamp: nowIso,
+      });
+    }
+  };
+
+  const externalUploadScans = async (
+    referralId: string,
+    payload: {
+      imageKeys: string[];
+      technicalFactors?: any;
+      radiographerFindings?: string;
+      radiographerImpression?: string;
+      routedToRole?: 'Medical Officer' | 'Radiologist';
+      uploadedBy: User;
+    }
+  ): Promise<void> => {
+    const nowIso = new Date().toISOString();
+    await editExternalReferral(referralId, {
+      externalImageKeys: payload.imageKeys,
+      status: 'SCANNED',
+      scannedAt: nowIso,
+      scanNotes: payload.technicalFactors?.komen || '',
+    });
+
+    const ref = externalReferrals.find((r) => r.id === referralId);
+    if (ref?.caseId) {
+      const existingCase = cases.find((c) => c.id === ref.caseId);
+      const existingImages = existingCase?.images || [];
+      const combinedImages = [...existingImages, ...payload.imageKeys];
+
+      await editCase(ref.caseId, {
+        status: 'IMAGES_AVAILABLE',
+        images: combinedImages,
+        scannedAt: nowIso,
+        radiographerFindings: payload.radiographerFindings,
+        radiographerImpression: payload.radiographerImpression,
+        routedToRole: payload.routedToRole || 'Medical Officer',
+        ...(payload.technicalFactors || {}),
+      });
+
+      await addAuditLog({
+        userId: payload.uploadedBy.id,
+        userName: payload.uploadedBy.name,
+        userRole: payload.uploadedBy.role,
+        action: 'EXTERNAL_IMAGES_UPLOADED',
+        target: `cases/${ref.caseId}`,
+        details: `External Radiographer ${payload.uploadedBy.name} uploaded ${payload.imageKeys.length} imaging scan(s). Case returned to Initial MO clinical review.`,
+        timestamp: nowIso,
+      });
+    }
+  };
+
+  const submitFinalMoReport = async (
+    caseId: string,
+    payload: {
+      findings: string;
+      impression: string;
+      suggestions?: string;
+      isCriticalFinding?: boolean;
+      criticalFindingNote?: string;
+      moUser: User;
+    }
+  ): Promise<void> => {
+    const nowIso = new Date().toISOString();
+    const targetCase = cases.find((c) => c.id === caseId);
+    if (!targetCase) throw new Error('Case not found');
+
+    // Create or update finalized report
+    const existingReport = reports.find((r) => r.caseId === caseId);
+    if (existingReport) {
+      await editReport(existingReport.id, {
+        findings: payload.findings,
+        impression: payload.impression,
+        suggestions: payload.suggestions,
+        isCriticalFinding: payload.isCriticalFinding,
+        criticalFindingNote: payload.criticalFindingNote,
+        status: 'Verified / Signed Off',
+        signedAt: nowIso,
+        signedByRole: 'Medical Officer',
+      });
+    } else {
+      await addReport({
+        caseId: targetCase.id,
+        caseNumber: targetCase.caseNumber,
+        patientName: targetCase.patientName,
+        radiologistId: payload.moUser.id,
+        radiologistName: payload.moUser.name,
+        signedByRole: 'Medical Officer',
+        findings: payload.findings,
+        impression: payload.impression,
+        suggestions: payload.suggestions,
+        isCriticalFinding: payload.isCriticalFinding,
+        criticalFindingNote: payload.criticalFindingNote,
+        status: 'Verified / Signed Off',
+        createdAt: nowIso,
+        signedAt: nowIso,
+        imageKeys: targetCase.images || [],
+      });
+    }
+
+    await editCase(targetCase.id, {
+      status: 'COMPLETED',
+      finalizedAt: nowIso,
+      reportedAt: targetCase.reportedAt || nowIso,
+    });
+
+    await addAuditLog({
+      userId: payload.moUser.id,
+      userName: payload.moUser.name,
+      userRole: payload.moUser.role,
+      action: 'FINAL_REPORT_APPROVED_BY_INITIAL_MO',
+      target: `cases/${targetCase.id}`,
+      details: `Initial Medical Officer Dr. ${payload.moUser.name} finalized and approved clinical report. Case marked COMPLETED.`,
+      timestamp: nowIso,
+    });
   };
 
   const addAuditLog = async (log: Omit<AuditLog, 'id'>) => {
@@ -877,10 +1257,65 @@ export function DataProvider({ children }: { children: ReactNode }) {
     saveScopedRfqDraft([], currentUser);
   };
 
+  const addEquipmentItem = (itemData: Omit<EquipmentItem, 'id'>): EquipmentItem => {
+    const newId = `EQ-${itemData.category === 'MEDICAL' ? 'MED' : 'NON'}-${Date.now().toString().slice(-4)}`;
+    const newItem: EquipmentItem = {
+      ...itemData,
+      id: newId,
+    };
+    setEquipmentCatalog((prev) => {
+      const next = [newItem, ...prev];
+      saveMarketplaceCatalog(next);
+      return next;
+    });
+    return newItem;
+  };
+
+  const updateEquipmentItem = (id: string, updates: Partial<EquipmentItem>) => {
+    setEquipmentCatalog((prev) => {
+      const next = prev.map((item) => (item.id === id ? { ...item, ...updates } : item));
+      saveMarketplaceCatalog(next);
+      return next;
+    });
+  };
+
+  const deleteEquipmentItem = (id: string) => {
+    setEquipmentCatalog((prev) => {
+      const next = prev.filter((item) => item.id !== id);
+      saveMarketplaceCatalog(next);
+      return next;
+    });
+  };
+
   const updateEquipmentAvailability = (equipmentId: string, availability: EquipmentAvailability) => {
     setEquipmentCatalog((prev) => {
       const next = prev.map((eq) => (eq.id === equipmentId ? { ...eq, availability } : eq));
       saveMarketplaceCatalog(next);
+      return next;
+    });
+  };
+
+  const updateQuotationStatus = (id: string, status: QuotationStatus, adminRemarks?: string) => {
+    const now = new Date().toISOString();
+    setQuotationRequests((prev) => {
+      const next = prev.map((q) => {
+        if (q.id !== id) return q;
+        return {
+          ...q,
+          status,
+          ...(adminRemarks ? { adminRemarks } : {}),
+          updatedAt: now,
+        };
+      });
+      saveQuotations(next);
+      return next;
+    });
+  };
+
+  const deleteQuotationRequest = (id: string) => {
+    setQuotationRequests((prev) => {
+      const next = prev.filter((q) => q.id !== id);
+      saveQuotations(next);
       return next;
     });
   };
@@ -1056,15 +1491,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment, loading,
+      users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment, externalReferrals, loading,
       comments, recentItems, trash,
       equipmentCatalog, quotationRequests, marketplaceCart,
+      addEquipmentItem, updateEquipmentItem, deleteEquipmentItem,
+      updateQuotationStatus, deleteQuotationRequest,
       rfqDraft, addToRfqDraft, updateRfqDraftItem, removeFromRfqDraft, clearRfqDraft, updateEquipmentAvailability,
       addToCart, updateCartItem, removeFromCart, clearCart,
       submitQuotationRequest, issueAdminQuotation, submitQuotationNegotiation,
       respondToQuotation, addCustomEquipmentRequest,
       addCase, editCase, addPatient, editPatient, addReport, editReport,
       addPatientRequest, editPatientRequest, addAuditLog,
+      addExternalReferral, editExternalReferral, reportMachineUnavailable,
+      bemsAssignFacility, hospitalAdminAssignRadiographer, externalUploadScans, submitFinalMoReport,
+      roleNavigationConfig, updateRoleNavigation, resetRoleNavigation,
       addComment, getCommentsForCase, addRecentItem,
       softDelete, restoreFromTrash, permanentDelete,
       updateUserLocally, updateEquipmentLocally, updateClinicLocally,

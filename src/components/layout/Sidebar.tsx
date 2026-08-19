@@ -36,6 +36,10 @@ import {
   ClipboardPenLine,
   ShieldCheck,
   Stethoscope,
+  Package,
+  ShoppingBag,
+  Wrench,
+  GitBranch,
 } from 'lucide-react';
 
 interface NavItem {
@@ -57,13 +61,17 @@ interface SidebarProps {
 function getNavGroups(
   role: UserRole,
   pendingRequests: number,
+  pendingOrders: number,
+  pendingBems: number,
   t: (en: string, ms: string) => string
 ): NavGroup[] {
   switch (role) {
     case 'Radiographer':
+    case 'Public Hospital Radiographer':
+    case 'Private Hospital Radiographer':
       return [
         {
-          title: t('MAIN', 'UTAMA'),
+          title: t('CLINICAL RADIOGRAPHY', 'RADIOGRAFI KLINIKAL'),
           items: [
             {
               label: t('Dashboard', 'Papan Pemuka'),
@@ -71,19 +79,24 @@ function getNavGroups(
               icon: <House className="w-[18px] h-[18px]" />,
             },
             {
-              label: t('My Schedule', 'Jadual Saya'),
+              label: t('Scan Queue & Upload', 'Giliran & Muat Naik Imbasan'),
+              path: '/scan-queue',
+              icon: <Upload className="w-[18px] h-[18px]" />,
+            },
+            {
+              label: t('Daily Worklist & Schedule', 'Senarai Tugas Harian & Jadual'),
               path: '/schedule',
               icon: <Calendar className="w-[18px] h-[18px]" />,
             },
             {
-              label: t('Scan Queue', 'Giliran Imbasan'),
-              path: '/scan-queue',
-              icon: <ClipboardList className="w-[18px] h-[18px]" />,
+              label: t('All Medical Cases', 'Semua Kes Perubatan'),
+              path: '/cases',
+              icon: <FolderOpen className="w-[18px] h-[18px]" />,
             },
             {
-              label: t('Upload Scans', 'Muat Naik Imbasan'),
-              path: '/upload',
-              icon: <Upload className="w-[18px] h-[18px]" />,
+              label: t('Track Case Status', 'Jejak Status Kes'),
+              path: '/track-status',
+              icon: <ArrowRightLeft className="w-[18px] h-[18px]" />,
             },
             {
               label: t('My Credentials', 'Kelayakan Saya'),
@@ -105,19 +118,9 @@ function getNavGroups(
               icon: <House className="w-[18px] h-[18px]" />,
             },
             {
-              label: t('Review Queue', 'Giliran Semakan'),
-              path: '/review-queue',
-              icon: <Eye className="w-[18px] h-[18px]" />,
-            },
-            {
-              label: t('Reporting Workspace', 'Ruang Kerja Laporan'),
+              label: t('Diagnostic Hub & Reports', 'Hab Diagnostik & Laporan'),
               path: '/reporting',
               icon: <FileText className="w-[18px] h-[18px]" />,
-            },
-            {
-              label: t('Department Reports', 'Laporan Jabatan'),
-              path: '/reports',
-              icon: <FolderOpen className="w-[18px] h-[18px]" />,
             },
             {
               label: t('Specialist Credentials', 'Kelayakan Pakar'),
@@ -217,32 +220,12 @@ function getNavGroups(
           items: [
             {
               label: t(
-                'Imaging Reports',
-                'Laporan Pengimejan'
-              ),
-              path: '/reports',
-              icon: (
-                <FileImage className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Diagnostic Review Queue',
-                'Giliran Semakan Diagnostik'
-              ),
-              path: '/review-queue',
-              icon: (
-                <Eye className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Clinical Reporting',
-                'Pelaporan Klinikal'
+                'Diagnostic Hub & Reports',
+                'Hab Diagnostik & Laporan'
               ),
               path: '/reporting',
               icon: (
-                <ClipboardPenLine className="w-[18px] h-[18px]" />
+                <FileText className="w-[18px] h-[18px]" />
               ),
             },
           ],
@@ -267,24 +250,64 @@ function getNavGroups(
         },
       ];
 
-    case 'Equipment Marketplace':
+    case 'BEMZ':
       return [
         {
-          title: t('EQUIPMENT MARKETPLACE', 'PASARAN PERALATAN'),
+          title: t('BEMS OPERATIONS', 'OPERASI BEMS'),
           items: [
             {
-              label: t('Medical Equipment', 'Peralatan Perubatan'),
-              path: '/marketplace/medical',
-              icon: <Stethoscope className="w-[18px] h-[18px]" />,
+              label: t('Dashboard', 'Papan Pemuka'),
+              path: '/dashboard',
+              icon: <House className="w-[18px] h-[18px]" />,
             },
             {
-              label: t('Non-Medical Equipment', 'Peralatan Bukan Perubatan'),
-              path: '/marketplace/non-medical',
-              icon: <Building2 className="w-[18px] h-[18px]" />,
+              label: t('BEMS Referral Portal', 'Portal Rujukan BEMS'),
+              path: '/bems',
+              icon: <Wrench className="w-[18px] h-[18px]" />,
+              badge: pendingBems,
+            },
+            {
+              label: t('All Medical Cases', 'Semua Kes Perubatan'),
+              path: '/cases',
+              icon: <FolderOpen className="w-[18px] h-[18px]" />,
+            },
+            {
+              label: t('Track Case Status', 'Jejak Status Kes'),
+              path: '/track-status',
+              icon: <ArrowRightLeft className="w-[18px] h-[18px]" />,
             },
           ],
         },
       ];
+
+    case 'Private Hospital Admin':
+      return [
+        {
+          title: t('HOSPITAL REFERRALS', 'RUJUKAN HOSPITAL'),
+          items: [
+            {
+              label: t('Dashboard', 'Papan Pemuka'),
+              path: '/dashboard',
+              icon: <House className="w-[18px] h-[18px]" />,
+            },
+            {
+              label: t('External Referrals Intake', 'Pengambilan Rujukan Luar'),
+              path: '/private-admin',
+              icon: <Building2 className="w-[18px] h-[18px]" />,
+            },
+            {
+              label: t('Track Status', 'Jejak Status'),
+              path: '/track-status',
+              icon: <ArrowRightLeft className="w-[18px] h-[18px]" />,
+            },
+          ],
+        },
+      ];
+
+
+
+    case 'Equipment Marketplace':
+      return [];
 
     case 'Administrator':
       return [
@@ -314,16 +337,7 @@ function getNavGroups(
                 <Building2 className="w-[18px] h-[18px]" />
               ),
             },
-            {
-              label: t(
-                'Resource Scheduling',
-                'Penjadualan Sumber'
-              ),
-              path: '/scheduling',
-              icon: (
-                <Calendar className="w-[18px] h-[18px]" />
-              ),
-            },
+
             {
               label: t(
                 'AI Scheduler',
@@ -364,6 +378,37 @@ function getNavGroups(
                 <Truck className="w-[18px] h-[18px]" />
               ),
               badge: pendingRequests,
+            },
+            {
+              label: t(
+                'BEMS Referral Portal',
+                'Portal Rujukan BEMS'
+              ),
+              path: '/bems',
+              icon: (
+                <Wrench className="w-[18px] h-[18px]" />
+              ),
+              badge: pendingBems,
+            },
+            {
+              label: t(
+                'Private Hospital Referrals',
+                'Rujukan Hospital Swasta'
+              ),
+              path: '/private-admin',
+              icon: (
+                <Building2 className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'External Radiographer Hub',
+                'Hab Juruxray Luar'
+              ),
+              path: '/external-radiographer',
+              icon: (
+                <ClipboardList className="w-[18px] h-[18px]" />
+              ),
             },
           ],
         },
@@ -445,16 +490,7 @@ function getNavGroups(
                 <Building2 className="w-[18px] h-[18px]" />
               ),
             },
-            {
-              label: t(
-                'Resource Scheduling',
-                'Penjadualan Sumber'
-              ),
-              path: '/scheduling',
-              icon: (
-                <Calendar className="w-[18px] h-[18px]" />
-              ),
-            },
+
             {
               label: t(
                 'AI Scheduler',
@@ -496,6 +532,37 @@ function getNavGroups(
               ),
               badge: pendingRequests,
             },
+            {
+              label: t(
+                'BEMS Referral Portal',
+                'Portal Rujukan BEMS'
+              ),
+              path: '/bems',
+              icon: (
+                <Wrench className="w-[18px] h-[18px]" />
+              ),
+              badge: pendingBems,
+            },
+            {
+              label: t(
+                'Private Hospital Referrals',
+                'Rujukan Hospital Swasta'
+              ),
+              path: '/private-admin',
+              icon: (
+                <Building2 className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'External Radiographer Hub',
+                'Hab Juruxray Luar'
+              ),
+              path: '/external-radiographer',
+              icon: (
+                <ClipboardList className="w-[18px] h-[18px]" />
+              ),
+            },
           ],
         },
         {
@@ -522,6 +589,37 @@ function getNavGroups(
               path: '/marketplace/non-medical',
               icon: (
                 <Building2 className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Orders & Quotations',
+                'Pesanan & Sebut Harga'
+              ),
+              path: '/marketplace/orders',
+              icon: (
+                <ClipboardList className="w-[18px] h-[18px]" />
+              ),
+              badge: pendingOrders,
+            },
+            {
+              label: t(
+                'Equipment Management',
+                'Pengurusan Peralatan'
+              ),
+              path: '/marketplace/manage-items',
+              icon: (
+                <Package className="w-[18px] h-[18px]" />
+              ),
+            },
+            {
+              label: t(
+                'Browse All Equipment',
+                'Lihat Semua Peralatan'
+              ),
+              path: '/marketplace',
+              icon: (
+                <ShoppingBag className="w-[18px] h-[18px]" />
               ),
             },
           ],
@@ -585,7 +683,7 @@ export default function Sidebar({
   onClose,
 }: SidebarProps) {
   const { currentUser } = useAuth();
-  const { patientRequests } = useData();
+  const { patientRequests, quotationRequests, externalReferrals, cases, roleNavigationConfig } = useData();
   const { t } = useLanguage();
   const location = useLocation();
 
@@ -599,11 +697,76 @@ export default function Sidebar({
       (r) => r.status === 'Pending'
     ).length;
 
-  const groups = getNavGroups(
+  const pendingOrders =
+    quotationRequests.filter(
+      (q) => q.status === 'SUBMITTED'
+    ).length;
+
+  const pendingBems =
+    externalReferrals.filter(
+      (r) => r.status === 'PENDING_BEMZ' || r.status === 'BEMZ_REVIEWING'
+    ).length +
+    cases.filter(
+      (c) =>
+        (c.status === 'EXTERNAL_REFERRAL_PENDING' ||
+          c.status === 'MACHINE_UNAVAILABLE' ||
+          c.status === 'BEMZ_REVIEW' ||
+          Boolean(c.machineIssue)) &&
+        !externalReferrals.some((r) => r.caseId === c.id || r.id === c.externalReferralId)
+    ).length;
+
+  const rawGroups = getNavGroups(
     currentUser.role,
     pendingRequests,
+    pendingOrders,
+    pendingBems,
     t
   );
+
+  // Map route paths to RBAC module identifiers
+  const pathToKeyMap: Record<string, string> = {
+    '/dashboard': 'dashboard',
+    '/scan-queue': 'scan_queue',
+    '/schedule': 'schedule',
+    '/reporting': 'reporting',
+    '/patients': 'patients',
+    '/patients/register': 'register_patient',
+    '/cases/new': 'new_case',
+    '/cases': 'cases',
+    '/requests': 'patient_requests',
+    '/bems': 'bems',
+    '/private-admin': 'private_admin',
+    '/ai-scheduler': 'ai_scheduler',
+    '/fleet': 'fleet',
+    '/clinics': 'clinics',
+    '/users': 'users',
+    '/audit-logs': 'audit_logs',
+    '/analytics': 'analytics',
+    '/tech-stack': 'tech_stack',
+    '/track-status': 'track_status',
+    '/onboarding': 'credentials',
+  };
+
+  const allowedKeys = roleNavigationConfig?.[currentUser.role];
+
+  // Dynamically filter items according to configured role permissions
+  const groups = React.useMemo(() => {
+    // If Super Admin, always show everything
+    if (currentUser.role === 'Super Admin' || !allowedKeys) {
+      return rawGroups;
+    }
+
+    return rawGroups
+      .map((g) => ({
+        ...g,
+        items: g.items.filter((item) => {
+          const key = pathToKeyMap[item.path];
+          if (!key) return true;
+          return allowedKeys.includes(key);
+        }),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [rawGroups, allowedKeys, currentUser.role]);
 
   return (
     <aside
