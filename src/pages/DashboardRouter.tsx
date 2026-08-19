@@ -8,7 +8,6 @@ import AdminDashboard from './admin/AdminDashboard';
 import BemsDashboard from './bemz/BemsDashboard';
 import PrivateHospitalAdminDashboard from './external/PrivateHospitalAdminDashboard';
 import ExternalRadiographerWorkspace from './external/ExternalRadiographerWorkspace';
-import ImpersonationBanner from '../components/common/ImpersonationBanner';
 
 export default function DashboardRouter() {
   const { currentUser } = useAuth();
@@ -39,7 +38,6 @@ export default function DashboardRouter() {
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-[#F4F5F7]">
-      <ImpersonationBanner />
       <div className="flex-1 min-h-0 flex flex-col">
         {renderDashboard()}
       </div>
