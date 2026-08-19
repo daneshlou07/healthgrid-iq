@@ -25,6 +25,7 @@ interface MarketplaceHeaderProps {
 export default function MarketplaceHeader({
   onOpenDraftDrawer,
 }: MarketplaceHeaderProps) {
+  const navigate = useNavigate();
   const { currentUser, logout, updateCurrentUser, isMasterAdmin } = useAuth();
   const { rfqDraft, quotationRequests } = useData();
   const toast = useToast();
