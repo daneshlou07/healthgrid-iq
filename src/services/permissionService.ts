@@ -290,6 +290,9 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
     'reporting',
     'credentials',
   ],
+  'BEMS Officer': [
+    'dashboard',
+  ],
   'BEMZ': [
     'dashboard',
   ],
@@ -386,7 +389,7 @@ export function loadRoleNavConfig(): RoleNavigationConfig {
             filtered.splice(dIdx + 1, 0, 'reporting');
           }
         }
-        if (role === 'BEMZ' || role === 'BEMS') {
+        if (role === 'BEMS Officer' || role === 'BEMZ' || role === 'BEMS') {
           merged[role as UserRole] = ['dashboard'];
           continue;
         }

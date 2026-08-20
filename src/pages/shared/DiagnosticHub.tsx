@@ -162,7 +162,8 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
   const tabFromUrl = searchParams.get('tab');
 
   const { currentUser } = useAuth();
-  const { cases, reports, addReport, editCase, addAuditLog } = useData();
+  const { cases, reports, addReport, editCase, addAuditLog, getScopedCases } = useData();
+  const scopedCases = getScopedCases ? getScopedCases() : cases;
   const toast = useToast();
 
   const isRadiologist = currentUser?.role === 'Radiologist';
@@ -197,14 +198,18 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
 
   // Ready cases for review
   const readyCases = useMemo(() => {
-    return cases.filter(
+    return scopedCases.filter(
       (c) =>
         c.status === 'IMAGES_AVAILABLE' ||
         c.status === 'SCANNED' ||
         c.status === 'RADIOLOGIST_REVIEW' ||
-        c.status === 'MO_REVIEW'
+        c.status === 'MO_REVIEW' ||
+        c.status === 'REPORT_SUBMITTED' ||
+        c.status === 'FINALIZED' ||
+        c.status === 'COMPLETED' ||
+        (c.images && c.images.length > 0)
     );
-  }, [cases]);
+  }, [scopedCases]);
 
   // MO primary review queue
   const moReviewCases = useMemo(() => {

@@ -19,13 +19,13 @@ import {
   getExternalReferrals, createExternalReferral, updateExternalReferral,
 } from '../services/dataService';
 import {
-  mockUsers, mockClinics, mockPatients, mockCases, mockReports,
+  mockUsers, mockClinics, mockOrganizations, mockPatients, mockCases, mockReports,
   mockPatientRequests, mockMobilePacsVans,
 } from '../services/mockData';
 import { mockEquipmentCatalog, mockInitialQuotations } from '../services/mockMarketplaceData';
 import { useAuth } from './AuthContext';
 import type {
-  User, Case, Patient, Clinic, Report, PatientRequest, AuditLog, MobilePacsVan, Comment,
+  User, Case, Patient, Clinic, HealthcareOrganization, HealthcareCenter, Report, PatientRequest, AuditLog, MobilePacsVan, Comment,
   EquipmentItem, QuotationRequest, QuotationItem, MarketplaceCartItem, QuotationNegotiationMessage,
   RfqDraftItem, EquipmentAvailability, QuotationStatus,
   ExternalImagingRequest, MachineIssueReason, ExternalFacilityType, UserRole,
@@ -41,14 +41,71 @@ import {
 const STORAGE_KEY = 'healthgrid_data';
 // Bump this version whenever seed data changes (e.g. new demo images or system roles).
 // Any cached data from a previous version will be discarded and reloaded from mock.
-const STORAGE_VERSION = '13'; // v13: Removed deprecated Radiology Department
+const STORAGE_VERSION = '14'; // v14: Multi-organization and healthcare center foundation model
 const USE_DEMO_STORAGE = isDemoMode();
+
+// ---------------------------------------------------------------------------
+// Multi-Organization Scoped Case Access Isolation
+// ---------------------------------------------------------------------------
+export function getScopedCasesForUser(user: User | null, allCases: Case[]): Case[] {
+  if (!user) return [];
+
+  // 1. Platform Governance & Central System Officers (Super Admin, BEMS Officer, BEMS/BEMZ)
+  if (user.role === 'Super Admin' || user.role === 'BEMS Officer' || user.role === 'BEMS' || user.role === 'BEMZ') {
+    return allCases;
+  }
+
+  const userCenterId = user.healthcareCenterId || user.deploymentLocationId;
+  if (!userCenterId) return [];
+
+  // 2. Medical Officers & Administrators: Strict originating healthcare center ownership isolation
+  if (
+    user.role === 'Medical Officer' ||
+    user.role === 'Administrator' ||
+    user.role === 'Public Hospital Admin' ||
+    user.role === 'Private Hospital Admin'
+  ) {
+    return allCases.filter((c) => {
+      const caseCenterId = c.originatingCenterId || c.clinicId;
+      return caseCenterId === userCenterId;
+    });
+  }
+
+  // 3. Radiographers: Local healthcare center cases + explicitly assigned/referred external cases
+  if (
+    user.role === 'Radiographer' ||
+    user.role === 'Public Hospital Radiographer' ||
+    user.role === 'Private Hospital Radiographer'
+  ) {
+    return allCases.filter((c) => {
+      const caseCenterId = c.originatingCenterId || c.clinicId;
+      const isLocalCenter = caseCenterId === userCenterId;
+      const isDirectlyAssigned = c.radiographerId === user.id || c.externalRadiographerId === user.id;
+      const isReferredToCenter = c.externalFacilityId === userCenterId;
+      return isLocalCenter || isDirectlyAssigned || isReferredToCenter;
+    });
+  }
+
+  // 4. Radiologists: Local center cases + explicitly assigned or escalated specialist reviews
+  if (user.role === 'Radiologist') {
+    return allCases.filter((c) => {
+      const caseCenterId = c.originatingCenterId || c.clinicId;
+      const isLocalCenter = caseCenterId === userCenterId;
+      const isAssignedRadiologist = c.radiologistId === user.id;
+      const isEscalatedOrSecondOpinion = (c as any).isEscalated || (c as any).routedToRole === 'Radiologist' || (c as any).secondOpinionRequested;
+      return isLocalCenter || isAssignedRadiologist || isEscalatedOrSecondOpinion;
+    });
+  }
+
+  return allCases.filter((c) => (c.originatingCenterId || c.clinicId) === userCenterId);
+}
 
 interface PersistedData {
   users: User[];
   cases: Case[];
   patients: Patient[];
   clinics: Clinic[];
+  organizations?: HealthcareOrganization[];
   reports: Report[];
   patientRequests: PatientRequest[];
   auditLogs: AuditLog[];
@@ -149,6 +206,9 @@ function saveTrash(items: TrashItem[]) { if (!USE_DEMO_STORAGE) return; try { lo
 
 // --- Context Interface ---
 interface DataContextValue {
+  organizations: HealthcareOrganization[];
+  healthcareCenters: HealthcareCenter[];
+  getScopedCases: (customUser?: User | null) => Case[];
   users: User[];
   cases: Case[];
   patients: Patient[];
@@ -271,6 +331,7 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const [organizations, setOrganizations] = useState<HealthcareOrganization[]>(() => mockOrganizations);
   const [users, setUsers] = useState<User[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -285,11 +346,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [trash, setTrash] = useState<TrashItem[]>([]);
 
-  // Marketplace State
+  // Marketplace & Auth State
   const { currentUser } = useAuth();
   const [equipmentCatalog, setEquipmentCatalog] = useState<EquipmentItem[]>(() => loadMarketplaceCatalog());
   const [quotationRequests, setQuotationRequests] = useState<QuotationRequest[]>(() => loadQuotations());
   const [marketplaceCart, setMarketplaceCart] = useState<MarketplaceCartItem[]>(() => loadCart());
+
+  const healthcareCenters = clinics;
+
+  const getScopedCases = useCallback((customUser?: User | null): Case[] => {
+    const targetUser = customUser !== undefined ? customUser : currentUser;
+    return getScopedCasesForUser(targetUser, cases);
+  }, [currentUser, cases]);
 
   // Scoped RFQ Draft storage per authenticated Healthcare Center Admin / User
   const getRfqDraftStorageKey = useCallback((user: User | null) => {
@@ -662,7 +730,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addCase = async (c: Omit<Case, 'id'>): Promise<Case> => {
     const id = `case-${Date.now()}`;
-    const data = clean({ ...c, id, createdAt: new Date().toISOString() }) as Case;
+    const userCenterId = currentUser?.healthcareCenterId || currentUser?.deploymentLocationId;
+    const originatingCenterId = c.originatingCenterId || c.clinicId || userCenterId || 'clinic-001';
+    const center = clinics.find((cl) => cl.id === originatingCenterId);
+    const originatingCenterName = c.originatingCenterName || c.clinicName || center?.name || 'Klinik Kesihatan Bestari Jaya';
+    const originatingOrganizationId = c.originatingOrganizationId || center?.organizationId || 'org-moh-selangor';
+
+    const data = clean({
+      ...c,
+      id,
+      originatingCenterId,
+      originatingCenterName,
+      originatingOrganizationId,
+      clinicId: originatingCenterId,
+      clinicName: originatingCenterName,
+      createdAt: c.createdAt || new Date().toISOString(),
+    }) as Case;
     setCases((prev) => [...prev, data]);
     const db = getFirestoreDb();
     if (db) {
@@ -1544,6 +1627,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
+      organizations, healthcareCenters, getScopedCases,
       users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment, externalReferrals, loading,
       comments, recentItems, trash,
       equipmentCatalog, quotationRequests, marketplaceCart,

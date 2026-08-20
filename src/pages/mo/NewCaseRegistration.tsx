@@ -330,6 +330,10 @@ export default function NewCaseRegistration() {
       )
     ).join(', ');
 
+    const centerId = preferredClinicId || currentUser.healthcareCenterId || currentUser.deploymentLocationId || 'clinic-001';
+    const center = clinics.find((c) => c.id === centerId);
+    const resolvedCenterName = center?.name || preferredClinic?.name || 'Klinik Kesihatan Bestari Jaya';
+
     try {
       await addCase({
         caseNumber,
@@ -339,8 +343,13 @@ export default function NewCaseRegistration() {
         disiplin: resolvedDisiplin || undefined,
         registeredById: currentUser.id,
         registeredByName: currentUser.name,
-        clinicId: preferredClinicId || undefined,
-        clinicName: preferredClinic?.name || undefined,
+        initialMoId: currentUser.id,
+        initialMoName: currentUser.name,
+        originatingCenterId: centerId,
+        originatingCenterName: resolvedCenterName,
+        originatingOrganizationId: center?.organizationId || 'org-moh-selangor',
+        clinicId: centerId,
+        clinicName: resolvedCenterName,
         scanType: fullScanType,
         modality,
         requestedExaminations,

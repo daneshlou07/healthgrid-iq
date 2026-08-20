@@ -2,18 +2,20 @@
 // All timestamp fields use ISO 8601 strings (e.g. "2026-07-27T14:00:00Z").
 
 export type UserRole = 
-  | 'Medical Officer' 
-  | 'Radiographer' 
-  | 'Radiologist' 
-  | 'Administrator' 
-  | 'Super Admin' 
-  | 'Equipment Marketplace'
-  | 'BEMZ'
+  | 'Super Admin'
+  | 'BEMS Officer'
+  | 'Administrator'
+  | 'Medical Officer'
+  | 'Radiographer'
+  | 'Radiologist'
+  // Transitional legacy aliases for backward compatibility during Phase 1
   | 'BEMS'
+  | 'BEMZ'
   | 'Public Hospital Admin'
   | 'Public Hospital Radiographer'
   | 'Private Hospital Admin'
-  | 'Private Hospital Radiographer';
+  | 'Private Hospital Radiographer'
+  | 'Equipment Marketplace';
 
 export type CaseStatus = 
   // ── Normal Workflow Statuses ──────────────────────────────────────────────
@@ -60,6 +62,43 @@ export type Gender = 'Male' | 'Female' | 'Other';
 export type NotificationType = 'info' | 'success' | 'warning' | 'error';
 
 // ---------------------------------------------------------------------------
+// 4.0 Organization & Healthcare Center Entities
+// ---------------------------------------------------------------------------
+export type HealthcareOrganizationType = 
+  | 'Klinik Kesihatan' 
+  | 'Public Hospital' 
+  | 'Private Hospital';
+
+export interface HealthcareOrganization {
+  id: string; // e.g. "org-moh-selangor", "org-kpj-group", "org-sunway-group"
+  name: string; // e.g. "Kementerian Kesihatan Malaysia (Selangor)", "KPJ Healthcare Berhad"
+  type: HealthcareOrganizationType;
+  status: EntityStatus;
+  createdAt: string;
+}
+
+export interface HealthcareCenter {
+  id: string; // e.g. "clinic-001", "clinic-002", "clinic-005"
+  organizationId?: string; // Links to HealthcareOrganization.id
+  organizationType?: HealthcareOrganizationType; // Source of truth for facility classification
+  name: string; // e.g. "Klinik Kesihatan Bestari Jaya", "KPJ Damansara Specialist Hospital"
+  address: string;
+  latitude: number;
+  longitude: number;
+  phone: string;
+  fax?: string;
+  email: string;
+  operatingHours?: string;
+  status: EntityStatus;
+  googlePlaceId?: string;
+  supportedModalities?: string[];
+  maxDailyCapacity?: number;
+}
+
+/** @deprecated Transitional backward-compatibility alias for HealthcareCenter */
+export type Clinic = HealthcareCenter;
+
+// ---------------------------------------------------------------------------
 // 4.1 User Entity
 // ---------------------------------------------------------------------------
 export interface User {
@@ -72,34 +111,26 @@ export interface User {
   status: EntityStatus;
   /** ISO 8601 timestamp */
   createdAt: string;
+  
+  /** 
+   * Primary organizational affiliation (Source of Truth). 
+   * Undefined for platform-level roles (Super Admin, BEMS Officer).
+   */
+  healthcareCenterId?: string;
+
+  /** @deprecated Transitional backward-compatibility alias for healthcareCenterId. */
+  deploymentLocationId?: string;
+
   shift?: string;
   shiftStatus?: 'ACTIVE' | 'COMPLETED' | 'STANDBY';
   shiftCompletedAt?: string;
   leaveStatus?: LeaveStatus;
-  deploymentLocationId?: string;
   mobilePacsAssignment?: string;
   supportedModalities?: string[];
   profilePicture?: string;
   mmcNumber?: string;
   qualification?: string;
   phone?: string;
-}
-
-// ---------------------------------------------------------------------------
-// 4.2 Clinic Entity
-// ---------------------------------------------------------------------------
-export interface Clinic {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  phone: string;
-  fax?: string;
-  email: string;
-  operatingHours?: string;
-  status: EntityStatus;
-  googlePlaceId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,7 +209,13 @@ export interface Case {
   radiographerName?: string;
   radiologistId?: string;
   radiologistName?: string;
+  /** Originating Healthcare Center ID (Source of Truth for Case Ownership). Links to HealthcareCenter.id */
+  originatingCenterId?: string;
+  originatingCenterName?: string;
+  originatingOrganizationId?: string;
+  /** @deprecated Transitional backward-compatibility alias for originatingCenterId */
   clinicId?: string;
+  /** @deprecated Transitional backward-compatibility alias for originatingCenterName */
   clinicName?: string;
   scanType: string;
   modality?: string;
@@ -340,6 +377,7 @@ export interface Case {
     reportedByName?: string;
   };
   externalFacilityType?: 'Public Hospital' | 'Private Hospital';
+  externalFacilityId?: string;
   externalFacilityName?: string;
   externalRadiographerId?: string;
   externalRadiographerName?: string;

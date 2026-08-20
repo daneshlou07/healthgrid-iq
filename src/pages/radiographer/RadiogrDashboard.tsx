@@ -8,43 +8,33 @@ import { Link } from 'react-router-dom';
 
 export default function RadiogrDashboard() {
   const { currentUser } = useAuth();
-  const { cases } = useData();
+  const { cases, getScopedCases } = useData();
 
   const myCases = React.useMemo(() => {
     if (!currentUser) return [];
+    const centerId = currentUser.healthcareCenterId || currentUser.deploymentLocationId;
+    const scoped = getScopedCases ? getScopedCases() : cases;
 
-    if (currentUser.role === 'Public Hospital Radiographer') {
-      return cases.filter(
+    if (currentUser.role === 'Public Hospital Radiographer' || currentUser.role === 'Private Hospital Radiographer') {
+      return scoped.filter(
         (c) =>
           c.externalRadiographerId === currentUser.id ||
           c.radiographerId === currentUser.id ||
           (c.externalReferral && c.externalReferral.assignedRadiographerId === currentUser.id) ||
-          ((c.externalFacilityType === 'Public Hospital' || c.externalReferral?.facilityType === 'PUBLIC_HOSPITAL') &&
-            ['EXTERNAL_RADIOGRAPHER_ASSIGNED', 'SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status))
+          c.externalFacilityId === centerId ||
+          (c.originatingCenterId || c.clinicId) === centerId
       );
     }
 
-    if (currentUser.role === 'Private Hospital Radiographer') {
-      return cases.filter(
-        (c) =>
-          c.externalRadiographerId === currentUser.id ||
-          c.radiographerId === currentUser.id ||
-          (c.externalReferral && c.externalReferral.assignedRadiographerId === currentUser.id) ||
-          ((c.externalFacilityType === 'Private Hospital' || c.externalReferral?.facilityType === 'PRIVATE_HOSPITAL') &&
-            c.externalRadiographerId === currentUser.id &&
-            ['EXTERNAL_RADIOGRAPHER_ASSIGNED', 'SCANNED', 'IMAGES_AVAILABLE', 'COMPLETED', 'FINALIZED'].includes(c.status))
-      );
-    }
-
-    return cases.filter(
+    return scoped.filter(
       (c) =>
-        (c.radiographerId === currentUser.id ||
-          c.registeredById === currentUser.id ||
-          (c.clinicId === currentUser.deploymentLocationId && !c.externalFacilityType)) &&
-        c.externalFacilityType !== 'Private Hospital' &&
-        c.externalFacilityType !== 'Public Hospital'
+        c.radiographerId === currentUser.id ||
+        c.externalRadiographerId === currentUser.id ||
+        c.registeredById === currentUser.id ||
+        (c.originatingCenterId || c.clinicId) === centerId ||
+        c.externalFacilityId === centerId
     );
-  }, [cases, currentUser]);
+  }, [cases, currentUser, getScopedCases]);
   const scheduled = myCases.filter(
     (c) => c.status === 'SCHEDULED' || c.status === 'READY_FOR_SCAN' || c.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED'
   );

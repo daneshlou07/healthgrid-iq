@@ -12,14 +12,15 @@ import { Link } from 'react-router-dom';
 
 export default function RadiologistDashboard() {
   const { currentUser } = useAuth();
-  const { cases, reports } = useData();
+  const { cases, reports, getScopedCases } = useData();
+  const scopedCases = getScopedCases ? getScopedCases() : cases;
 
   // --------------------------------------------------
   // REPORT DATA
   // --------------------------------------------------
 
   // Cases that have completed imaging/scanning
-  const scannedCases = cases.filter(
+  const scannedCases = scopedCases.filter(
     (c) => c.status === 'SCANNED'
   );
 

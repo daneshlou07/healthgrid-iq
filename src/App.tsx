@@ -59,7 +59,7 @@ const EquipmentManagementPage = safeLazy(() => import('./pages/marketplace/Equip
 const OrdersManagementPage = safeLazy(() => import('./pages/marketplace/OrdersManagementPage'));
 
 // BEMS & External Imaging Pages
-const BemsDashboard = safeLazy(() => import('./pages/bemz/BemsDashboard'));
+const BemsDashboard = safeLazy(() => import('./pages/bems/BemsDashboard'));
 const PublicHospitalAdminDashboard = safeLazy(() => import('./pages/external/PublicHospitalAdminDashboard'));
 const PrivateHospitalAdminDashboard = safeLazy(() => import('./pages/external/PrivateHospitalAdminDashboard'));
 const ExternalRadiographerWorkspace = safeLazy(() => import('./pages/external/ExternalRadiographerWorkspace'));

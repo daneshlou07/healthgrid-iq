@@ -214,7 +214,8 @@ interface HeaderProps {
 export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
   const { currentUser, logout } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll } = useNotifications();
-  const { cases } = useData();
+  const { cases, editCase, addAuditLog, getScopedCases } = useData();
+  const scopedCases = getScopedCases ? getScopedCases() : cases;
   const { open: openSearch } = useSearchPalette();
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
@@ -239,11 +240,8 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
     return () => window.removeEventListener('healthgrid:mascot-visibility' as any, handleVisibilityEvent);
   }, []);
 
-  const criticalCases = cases.filter((c: Case) => c.isCriticalFinding && c.status !== 'FINALIZED' && !c.criticalFindingAcknowledged);
+  const criticalCases = scopedCases.filter((c: Case) => c.isCriticalFinding && c.status !== 'FINALIZED' && !c.criticalFindingAcknowledged);
   const [showCriticalModal, setShowCriticalModal] = useState(false);
-  const { editCase, addAuditLog } = useData();
-
-
 
   const handleAcknowledgeCritical = async (c: Case) => {
     if (!currentUser) return;

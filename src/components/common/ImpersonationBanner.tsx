@@ -8,12 +8,13 @@ import { Shield, ArrowLeft, UserCheck } from 'lucide-react';
 const ROLE_HIERARCHY_RANK: Record<string, number> = {
   'Super Admin': 1,
   'Master Admin': 1,
-  'Administrator': 2,
-  'Medical Officer': 3,
-  'Radiologist': 4,
-  'Radiographer': 5,
-  'BEMZ': 6,
-  'BEMS': 6,
+  'BEMS Officer': 2,
+  'BEMZ': 2,
+  'BEMS': 2,
+  'Administrator': 3,
+  'Medical Officer': 4,
+  'Radiologist': 5,
+  'Radiographer': 6,
   'Public Hospital Admin': 7,
   'Public Hospital Radiographer': 8,
   'Private Hospital Admin': 9,
@@ -23,7 +24,7 @@ const ROLE_HIERARCHY_RANK: Record<string, number> = {
 
 export default function ImpersonationBanner() {
   const { currentUser, originalAdminUser, isMasterAdmin, impersonateUser, stopImpersonating } = useAuth();
-  const { users, trash } = useData();
+  const { users, clinics, trash } = useData();
 
   // Combine live users, exclude deleted/trash accounts, deduplicate, and sort by hierarchy rank
   const allAvailableUsers = useMemo(() => {
@@ -111,11 +112,16 @@ export default function ImpersonationBanner() {
             className="px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-[12px] text-slate-100 cursor-pointer focus:outline-none focus:border-emerald-500 max-w-[320px] truncate"
           >
             <option value="" disabled>-- Select User to Impersonate --</option>
-            {allAvailableUsers.map((user) => (
-              <option key={user.id} value={user.id}>
-                [{user.email === 'daneshlou05@gmail.com' ? 'Master Admin' : user.role}] {user.name} ({user.email})
-              </option>
-            ))}
+            {allAvailableUsers.map((user) => {
+              const centerId = user.healthcareCenterId || user.deploymentLocationId;
+              const facility = centerId ? clinics.find((c) => c.id === centerId) : null;
+              const facilitySuffix = facility ? ` — ${facility.name}` : '';
+              return (
+                <option key={user.id} value={user.id}>
+                  [{user.email === 'daneshlou05@gmail.com' ? 'Master Admin' : user.role}] {user.name}{facilitySuffix} ({user.email})
+                </option>
+              );
+            })}
           </select>
         </div>
 

@@ -83,7 +83,8 @@ type SortOrder = "newest" | "oldest" | "severity" | "slaBreach";
 type DateFilter = "all" | "today" | "7days" | "30days";
 
 export default function TrackStatus() {
-  const { cases } = useData();
+  const { cases, getScopedCases } = useData();
+  const scopedCases = getScopedCases ? getScopedCases() : cases;
 
   const [search, setSearch] = useState("");
 
@@ -100,7 +101,7 @@ export default function TrackStatus() {
 
     const todayStr = now.toISOString().split("T")[0];
 
-    return cases
+    return scopedCases
       .filter((c) => {
         const searchLower = search.toLowerCase().trim();
 

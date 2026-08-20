@@ -16,6 +16,7 @@ import { getFirestoreDb, isFirebaseConfigured } from './firebase';
 import {
   mockUsers,
   mockClinics,
+  mockOrganizations,
   mockPatients,
   mockCases,
   mockReports,
@@ -28,6 +29,7 @@ import {
 import type {
   User,
   Clinic,
+  HealthcareOrganization,
   Patient,
   Case,
   Report,
@@ -48,6 +50,14 @@ function useMock(): boolean {
 // Generate unique ID
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// ==================== ORGANIZATIONS ====================
+export async function getOrganizations(): Promise<HealthcareOrganization[]> {
+  if (useMock()) return [...mockOrganizations];
+  const db = getFirestoreDb()!;
+  const snapshot = await getDocs(collection(db, 'organizations'));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as HealthcareOrganization));
 }
 
 // ==================== USERS ====================

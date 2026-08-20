@@ -64,7 +64,8 @@ function getAvatarColor(name: string): string {
 }
 
 export default function AllCases() {
-  const { cases } = useData();
+  const { cases, getScopedCases } = useData();
+  const scopedCases = getScopedCases ? getScopedCases() : cases;
   const toast = useToast();
 
   const [activeTab, setActiveTab] = useState('All Cases');
@@ -74,7 +75,7 @@ export default function AllCases() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const filtered = cases.filter((c) => {
+  const filtered = scopedCases.filter((c) => {
     const allowedStatuses = STATUS_GROUPS[activeTab];
 
     const statusMatch =
@@ -101,8 +102,8 @@ export default function AllCases() {
 
     counts[tab] =
       statuses === null
-        ? cases.length
-        : cases.filter((c) => statuses.includes(c.status)).length;
+        ? scopedCases.length
+        : scopedCases.filter((c) => statuses.includes(c.status)).length;
   });
 
   const totalItems = filtered.length;

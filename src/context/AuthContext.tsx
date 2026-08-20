@@ -189,7 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name === cleanId ||
         emailPrefix === cleanId ||
         // BEMS aliases
-        ((cleanId === 'bems' || cleanId === 'bemz' || cleanId === 'khairul') && (u.role === 'BEMZ' || u.id === 'bemz-001')) ||
+        ((cleanId === 'bems' || cleanId === 'bemz' || cleanId === 'khairul') && (u.role === 'BEMS Officer' || u.role === 'BEMZ' || u.id === 'bemz-001')) ||
         // Public Hospital Admin aliases
         ((cleanId === 'publicadmin' || cleanId === 'pubadmin' || cleanId === 'hkladmin' || cleanId === 'hkl' || cleanId === 'public.admin') && (u.role === 'Public Hospital Admin' || u.id === 'pub-admin-001')) ||
         // Private Hospital Admin aliases

@@ -10,16 +10,18 @@ import { openWazeNavigation, openGoogleMapsNavigation, shareNavigationToWhatsApp
 
 export default function DepartmentDashboard() {
   const { currentUser, updateCurrentUser } = useAuth();
-  const { cases, clinics, updateUserLocally } = useData();
+  const { cases, clinics, getScopedCases, updateUserLocally } = useData();
+  const scopedCases = getScopedCases ? getScopedCases() : cases;
   const [showEndShiftModal, setShowEndShiftModal] = useState(false);
 
-  const pending = cases.filter((c) => c.status === 'CREATED');
-  const scheduled = cases.filter((c) => c.status === 'SCHEDULED');
-  const scanned = cases.filter((c) => c.status === 'SCANNED');
-  const finalized = cases.filter((c) => c.status === 'FINALIZED');
-  const recentCases = [...cases].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
+  const pending = scopedCases.filter((c) => c.status === 'CREATED');
+  const scheduled = scopedCases.filter((c) => c.status === 'SCHEDULED');
+  const scanned = scopedCases.filter((c) => c.status === 'SCANNED');
+  const finalized = scopedCases.filter((c) => c.status === 'FINALIZED');
+  const recentCases = [...scopedCases].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
 
-  const assignedClinic = clinics.find((c) => c.id === currentUser?.deploymentLocationId);
+  const centerId = currentUser?.healthcareCenterId || currentUser?.deploymentLocationId;
+  const assignedClinic = clinics.find((c) => c.id === centerId);
   const isShiftCompleted = currentUser?.shiftStatus === 'COMPLETED';
 
   const handleCompleteShift = () => {
@@ -49,7 +51,7 @@ export default function DepartmentDashboard() {
   };
 
   // Cases that are CREATED (no scheduling) or SCHEDULED but with no radiographer assigned
-  const unassigned = cases.filter((c) => (c.status === 'CREATED') || (c.status === 'SCHEDULED' && !c.radiographerId));
+  const unassigned = scopedCases.filter((c) => (c.status === 'CREATED') || (c.status === 'SCHEDULED' && !c.radiographerId));
 
   // Overdue: CREATED cases older than 24h without scheduling
   const now = new Date();

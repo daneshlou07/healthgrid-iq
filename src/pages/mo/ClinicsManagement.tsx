@@ -110,10 +110,17 @@ export default function ClinicsManagement() {
       toast.success(`${form.name} updated`);
     } else {
       const newClinic: Clinic = {
-        id: `clinic-${Date.now()}`, name: form.name, address: form.address,
-        phone: form.phone, fax: form.fax, email: form.email,
+        id: `clinic-${Date.now()}`,
+        organizationId: 'org-moh-selangor',
+        organizationType: 'Klinik Kesihatan',
+        name: form.name,
+        address: form.address,
+        phone: form.phone,
+        fax: form.fax,
+        email: form.email,
         operatingHours: form.operatingHours,
-        latitude: parseFloat(form.latitude) || 3.0, longitude: parseFloat(form.longitude) || 101.5,
+        latitude: parseFloat(form.latitude) || 3.0,
+        longitude: parseFloat(form.longitude) || 101.5,
         status: 'active',
       };
       setClinics((prev) => [...prev, newClinic]);
