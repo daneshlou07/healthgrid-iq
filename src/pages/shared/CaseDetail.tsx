@@ -463,52 +463,6 @@ export default function CaseDetail() {
             </div>
           )}
 
-          {/* Personnel */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="section-title">Assigned Personnel</h2>
-              {['Administrator', 'Medical Officer', 'Radiology Department'].includes(currentUser?.role || '') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReassignRadId(caseItem.radiographerId || '');
-                    setReassignRadlogistId(caseItem.radiologistId || '');
-                    setShowReassignModal(true);
-                  }}
-                  className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold border border-purple-200 transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>Reassign Staff</span>
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <PersonnelCard label="Registered by" name={getCaseRegistrar(caseItem)} icon={<User className="w-4 h-4" />} />
-              <PersonnelCard
-                label="Radiographer"
-                name={caseItem.radiographerName || 'Not Assigned'}
-                icon={<User className="w-4 h-4" />}
-                canReassign={['Administrator', 'Medical Officer', 'Radiology Department'].includes(currentUser?.role || '')}
-                onReassign={() => {
-                  setReassignRadId(caseItem.radiographerId || '');
-                  setReassignRadlogistId(caseItem.radiologistId || '');
-                  setShowReassignModal(true);
-                }}
-              />
-              <PersonnelCard
-                label="Radiologist"
-                name={caseItem.radiologistName || 'Not Assigned'}
-                icon={<User className="w-4 h-4" />}
-                canReassign={['Administrator', 'Medical Officer', 'Radiology Department'].includes(currentUser?.role || '')}
-                onReassign={() => {
-                  setReassignRadId(caseItem.radiographerId || '');
-                  setReassignRadlogistId(caseItem.radiologistId || '');
-                  setShowReassignModal(true);
-                }}
-              />
-            </div>
-          </div>
-
           {/* Report (if exists) */}
           {report && (
             <div className="card">
@@ -884,38 +838,6 @@ export default function CaseDetail() {
           defaultTab="report"
           onClose={() => setShowReportModal(false)}
         />
-      )}
-    </div>
-  );
-}
-
-function PersonnelCard({
-  label,
-  name,
-  icon,
-  canReassign = false,
-  onReassign,
-}: {
-  label: string;
-  name: string;
-  icon: React.ReactNode;
-  canReassign?: boolean;
-  onReassign?: () => void;
-}) {
-  return (
-    <div className="p-3 bg-surface-100 rounded-lg border border-surface-200 flex items-center justify-between">
-      <div>
-        <div className="flex items-center gap-2 mb-1 text-surface-500">{icon}<span className="text-[10px] uppercase font-semibold">{label}</span></div>
-        <p className="text-sm font-medium text-surface-800">{name}</p>
-      </div>
-      {canReassign && onReassign && (
-        <button
-          type="button"
-          onClick={onReassign}
-          className="text-[11px] text-purple-700 hover:text-purple-900 font-bold bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded transition-colors"
-        >
-          Reassign
-        </button>
       )}
     </div>
   );
