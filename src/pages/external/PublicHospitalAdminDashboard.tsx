@@ -59,7 +59,6 @@ export default function PublicHospitalAdminDashboard() {
   const pendingAssignment = useMemo(() => {
     return publicHospitalReferrals.filter(
       (r) =>
-        r.status === 'EXTERNAL_REFERRAL_PENDING' ||
         r.status === 'BEMZ_REVIEWING' ||
         r.status === 'PENDING_BEMZ' ||
         (r.status === 'PRIVATE_ADMIN_REVIEW' && !r.assignedRadiographerId) ||
@@ -82,7 +81,7 @@ export default function PublicHospitalAdminDashboard() {
   const filteredReferrals = useMemo(() => {
     return publicHospitalReferrals.filter((r) => {
       if (statusFilter === 'pending') {
-        if (r.status !== 'EXTERNAL_REFERRAL_PENDING' && r.assignedRadiographerId) return false;
+        if (r.assignedRadiographerId) return false;
       } else if (statusFilter === 'scanning') {
         if (r.status !== 'EXTERNAL_RADIOGRAPHER_ASSIGNED' && r.status !== 'SCANNING') return false;
       } else if (statusFilter === 'completed') {
@@ -318,7 +317,7 @@ export default function PublicHospitalAdminDashboard() {
                       {req.caseNumber}
                     </Link>
                     <div className="text-[10px] text-slate-400">
-                      Dispatched: {new Date(req.createdAt).toLocaleDateString()}
+                      Dispatched: {req.submittedAt ? new Date(req.submittedAt).toLocaleDateString() : 'Recent'}
                     </div>
                   </td>
                   <td className="py-3 px-3">
