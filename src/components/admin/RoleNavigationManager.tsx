@@ -151,14 +151,6 @@ export default function RoleNavigationManager() {
   const [hasChanges, setHasChanges] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-  // Sync draft if external config updates
-  React.useEffect(() => {
-    setLocalDraft((prev) => ({
-      ...prev,
-      ...roleNavigationConfig,
-    }));
-  }, [roleNavigationConfig]);
-
   const activeKeys = useMemo(() => {
     return localDraft[selectedRole] || [];
   }, [localDraft, selectedRole]);
@@ -170,20 +162,18 @@ export default function RoleNavigationManager() {
   }, [activeKeys]);
 
   const toggleModule = (moduleId: string) => {
-    setLocalDraft((prev) => {
-      const currentList = prev[selectedRole] || [];
+    const currentList = localDraft[selectedRole] || [];
+    const updatedList = currentList.includes(moduleId)
+      ? currentList.filter((id) => id !== moduleId)
+      : [...currentList, moduleId];
 
-      const updatedList = currentList.includes(moduleId)
-        ? currentList.filter((id) => id !== moduleId)
-        : [...currentList, moduleId];
+    setLocalDraft((prev) => ({
+      ...prev,
+      [selectedRole]: updatedList,
+    }));
 
-      setHasChanges(true);
-
-      return {
-        ...prev,
-        [selectedRole]: updatedList,
-      };
-    });
+    updateRoleNavigation(selectedRole, updatedList);
+    setHasChanges(false);
   };
 
   const moveModule = (index: number, direction: 'up' | 'down') => {
@@ -199,7 +189,9 @@ export default function RoleNavigationManager() {
       ...prev,
       [selectedRole]: next,
     }));
-    setHasChanges(true);
+
+    updateRoleNavigation(selectedRole, next);
+    setHasChanges(false);
   };
 
   const handleDragStart = (index: number) => {
@@ -224,26 +216,32 @@ export default function RoleNavigationManager() {
       ...prev,
       [selectedRole]: next,
     }));
-    setHasChanges(true);
+
+    updateRoleNavigation(selectedRole, next);
+    setHasChanges(false);
     setDraggedIndex(null);
   };
 
   const handleSelectAllForRole = () => {
+    const all = ALL_NAV_MODULES.map((m) => m.id);
     setLocalDraft((prev) => ({
       ...prev,
-      [selectedRole]: ALL_NAV_MODULES.map((m) => m.id),
+      [selectedRole]: all,
     }));
 
-    setHasChanges(true);
+    updateRoleNavigation(selectedRole, all);
+    setHasChanges(false);
   };
 
   const handleDeselectAllForRole = () => {
+    const minimal = ['dashboard'];
     setLocalDraft((prev) => ({
       ...prev,
-      [selectedRole]: ['dashboard'],
+      [selectedRole]: minimal,
     }));
 
-    setHasChanges(true);
+    updateRoleNavigation(selectedRole, minimal);
+    setHasChanges(false);
   };
 
   const handleSave = async () => {
