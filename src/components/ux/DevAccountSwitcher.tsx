@@ -19,7 +19,7 @@ const DEMO_RADIOGRAPHERS = [
 ];
 
 
-const OTHER_ROLES = ['Super Admin', 'Administrator', 'Equipment Marketplace', 'Radiology Department', 'Radiologist'] as const;
+const OTHER_ROLES = ['Super Admin', 'Administrator', 'Equipment Marketplace', 'Radiologist'] as const;
 
 export default function DevAccountSwitcher() {
   const { currentUser, loginAsUser } = useAuth();
