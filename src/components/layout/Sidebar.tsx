@@ -824,7 +824,7 @@ function getCategoryTitle(category: string, role: UserRole, t: (en: string, ms: 
 export default function Sidebar({
   onClose,
 }: SidebarProps) {
-  const { currentUser, isMasterAdmin } = useAuth();
+  const { currentUser, isMasterAdmin, originalAdminUser } = useAuth();
   const { patientRequests, quotationRequests, externalReferrals, cases, roleNavigationConfig } = useData();
   const { t } = useLanguage();
   const location = useLocation();
@@ -857,8 +857,10 @@ export default function Sidebar({
         !externalReferrals.some((r) => r.caseId === c.id || r.id === c.externalReferralId)
     ).length;
 
-  // Master Admin always uses Super Admin RBAC config — only Super Admin RBAC changes affect them
-  const effectiveRole: UserRole = isMasterAdmin ? 'Super Admin' : currentUser.role;
+  // Master Admin uses Super Admin RBAC only when NOT impersonating another user.
+  // When impersonating, always show the impersonated user's real role/RBAC.
+  const isActuallyMasterAdmin = isMasterAdmin && !originalAdminUser;
+  const effectiveRole: UserRole = isActuallyMasterAdmin ? 'Super Admin' : currentUser.role;
 
   const rawGroups = getNavGroups(
     effectiveRole,
