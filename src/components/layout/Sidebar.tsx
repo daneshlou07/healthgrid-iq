@@ -824,7 +824,7 @@ function getCategoryTitle(category: string, role: UserRole, t: (en: string, ms: 
 export default function Sidebar({
   onClose,
 }: SidebarProps) {
-  const { currentUser, isMasterAdmin, originalAdminUser } = useAuth();
+  const { currentUser } = useAuth();
   const { patientRequests, quotationRequests, externalReferrals, cases, roleNavigationConfig } = useData();
   const { t } = useLanguage();
   const location = useLocation();
@@ -857,10 +857,11 @@ export default function Sidebar({
         !externalReferrals.some((r) => r.caseId === c.id || r.id === c.externalReferralId)
     ).length;
 
-  // Master Admin uses Super Admin RBAC only when NOT impersonating another user.
-  // When impersonating, always show the impersonated user's real role/RBAC.
-  const isActuallyMasterAdmin = isMasterAdmin && !originalAdminUser;
-  const effectiveRole: UserRole = isActuallyMasterAdmin ? 'Super Admin' : currentUser.role;
+  // Super Admin RBAC override applies ONLY when the master admin email is the
+  // currently active user. When switched to another account via DevAccountSwitcher
+  // or impersonation, always use that account's own role/RBAC config.
+  const isViewingAsMasterAdmin = currentUser.email === 'daneshlou05@gmail.com';
+  const effectiveRole: UserRole = isViewingAsMasterAdmin ? 'Super Admin' : currentUser.role;
 
   const rawGroups = getNavGroups(
     effectiveRole,
