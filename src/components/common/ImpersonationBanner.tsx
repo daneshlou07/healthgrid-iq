@@ -36,6 +36,14 @@ export default function ImpersonationBanner() {
 
     const map = new Map<string, User>();
     (users || []).forEach((u) => {
+      // Exclude deprecated Radiology Department role or accounts
+      if (
+        u.role === ('Radiology Department' as any) ||
+        u.id === 'dept-001' ||
+        (u.email || '').toLowerCase() === 'nurul.aisyah@healthgrid.my'
+      ) {
+        return;
+      }
       const emailKey = (u.email || u.id).toLowerCase();
       if (!deletedUserIds.has(u.id) && !deletedEmails.has(emailKey)) {
         map.set(emailKey, u);

@@ -41,7 +41,7 @@ import {
 const STORAGE_KEY = 'healthgrid_data';
 // Bump this version whenever seed data changes (e.g. new demo images or system roles).
 // Any cached data from a previous version will be discarded and reloaded from mock.
-const STORAGE_VERSION = '12'; // v12: Clinical & BEMS External Imaging Workflow
+const STORAGE_VERSION = '13'; // v13: Removed deprecated Radiology Department
 const USE_DEMO_STORAGE = isDemoMode();
 
 interface PersistedData {
@@ -419,7 +419,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       loadedTrash.filter((t) => t.type === 'user' && t.data).map((t) => t.data.id)
     );
 
-    setUsers(initUsers.filter((u) => !deletedUserIds.has(u.id)));
+    const isInvalidUser = (u: User) =>
+      u.role === ('Radiology Department' as any) ||
+      u.id === 'dept-001' ||
+      (u.email || '').toLowerCase() === 'nurul.aisyah@healthgrid.my';
+
+    setUsers(initUsers.filter((u) => !deletedUserIds.has(u.id) && !isInvalidUser(u)));
     setCases(initCases);
     setPatients(initPatients);
     setClinics(initClinics);
@@ -451,7 +456,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         collection(db, 'users'),
         (snapshot) => {
           if (!snapshot.empty) {
-            const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+            const items = snapshot.docs
+              .map((d) => ({ id: d.id, ...d.data() } as User))
+              .filter(
+                (u) =>
+                  u.role !== ('Radiology Department' as any) &&
+                  u.id !== 'dept-001' &&
+                  (u.email || '').toLowerCase() !== 'nurul.aisyah@healthgrid.my'
+              );
             setUsers((prev) => mergeItems(prev, items));
           }
         },

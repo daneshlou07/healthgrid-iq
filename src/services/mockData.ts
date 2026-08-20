@@ -1134,9 +1134,9 @@ export const mockPatientRequests: PatientRequest[] = [];
 export const mockAuditLogs: AuditLog[] = [
   {
     id: 'audit-001',
-    userId: 'dept-001',
-    userName: 'Nurul Aisyah',
-    userRole: 'Radiology Department',
+    userId: 'admin-001',
+    userName: 'Noraishah Daud',
+    userRole: 'Administrator',
     action: 'PATIENT_REGISTER',
     target: 'patients/patient-003',
     details: 'Registered new patient: Raj Kumar a/l Subramaniam (MRN-2025-0003)',
@@ -1144,9 +1144,9 @@ export const mockAuditLogs: AuditLog[] = [
   },
   {
     id: 'audit-002',
-    userId: 'dept-001',
-    userName: 'Nurul Aisyah',
-    userRole: 'Radiology Department',
+    userId: 'admin-001',
+    userName: 'Noraishah Daud',
+    userRole: 'Administrator',
     action: 'CASE_CREATED',
     target: 'cases/case-003',
     details: 'Created imaging case HG-2026-0003 for Raj Kumar - Lumbar Spine CT',
@@ -1154,9 +1154,9 @@ export const mockAuditLogs: AuditLog[] = [
   },
   {
     id: 'audit-003',
-    userId: 'dept-001',
-    userName: 'Nurul Aisyah',
-    userRole: 'Radiology Department',
+    userId: 'admin-001',
+    userName: 'Noraishah Daud',
+    userRole: 'Administrator',
     action: 'CASE_SCHEDULED',
     target: 'cases/case-003',
     details: 'Scheduled case HG-2026-0003 for 2026-07-12 at Klinik Kesihatan Bangi',

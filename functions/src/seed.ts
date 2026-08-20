@@ -63,16 +63,6 @@ const mockUsers = [
     leaveStatus: 'Active',
   },
   {
-    id: 'dept-001',
-    name: 'Nurul Aisyah',
-    email: 'nurul.aisyah@healthgrid.my',
-    role: 'Radiology Department',
-    status: 'active',
-    createdAt: '2025-02-10T08:00:00Z',
-    shift: 'Day',
-    leaveStatus: 'Active',
-  },
-  {
     id: 'admin-001',
     name: 'Raj Kumar',
     email: 'raj.kumar@healthgrid.my',
