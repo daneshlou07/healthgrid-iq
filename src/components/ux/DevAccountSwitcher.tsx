@@ -13,13 +13,9 @@ import { useData } from '../../context/DataContext';
 import { Users, ChevronDown, ChevronUp, UserCheck, Radio } from 'lucide-react';
 
 const DEMO_RADIOGRAPHERS = [
-  { id: 'rad-001', name: 'Ahmad Razak',       clinic: 'Putrajaya'       },
-  { id: 'rad-002', name: 'Lim Mei Ling',      clinic: 'Cyberjaya'       },
-  { id: 'rad-003', name: 'Kumaran Pillai',    clinic: 'Bangi'           },
-  { id: 'rad-006', name: 'Zainal Abidin',     clinic: 'Tanjong Karang'  },
-  { id: 'rad-008', name: 'Syed Farid Hassan', clinic: 'Ijok'            },
-  { id: 'rad-009', name: 'Tan Li Wen',        clinic: 'Bestari Jaya'    },
-  { id: 'rad-010', name: 'Anis Farhanah',     clinic: 'Bukit Cherakah'  },
+  { id: 'rad-001', name: 'Ahmad Razak',       clinic: 'Klinik Kesihatan Bestari Jaya' },
+  { id: 'rad-002', name: 'Zainal Abidin',     clinic: 'Hospital Tanjong Karang' },
+  { id: 'rad-003', name: 'Syed Farid Hassan', clinic: 'Klinik Kesihatan Ijok' },
 ];
 
 
