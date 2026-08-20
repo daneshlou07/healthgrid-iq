@@ -77,9 +77,11 @@ const DEFAULT_NOTIFICATIONS: Notification[] = [
 function loadNotifications(): Notification[] {
   try {
     const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
-    if (!raw) return DEFAULT_NOTIFICATIONS;
+    // No key at all → first ever load, show defaults
+    if (raw === null) return DEFAULT_NOTIFICATIONS;
     const parsed = JSON.parse(raw) as Notification[];
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    // Key exists but is empty array → user explicitly cleared, respect that
+    if (Array.isArray(parsed)) return parsed;
     return DEFAULT_NOTIFICATIONS;
   } catch {
     return DEFAULT_NOTIFICATIONS;
