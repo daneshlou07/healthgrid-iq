@@ -824,7 +824,7 @@ function getCategoryTitle(category: string, role: UserRole, t: (en: string, ms: 
 export default function Sidebar({
   onClose,
 }: SidebarProps) {
-  const { currentUser } = useAuth();
+  const { currentUser, isMasterAdmin } = useAuth();
   const { patientRequests, quotationRequests, externalReferrals, cases, roleNavigationConfig } = useData();
   const { t } = useLanguage();
   const location = useLocation();
@@ -857,15 +857,18 @@ export default function Sidebar({
         !externalReferrals.some((r) => r.caseId === c.id || r.id === c.externalReferralId)
     ).length;
 
+  // Master Admin always uses Super Admin RBAC config — only Super Admin RBAC changes affect them
+  const effectiveRole: UserRole = isMasterAdmin ? 'Super Admin' : currentUser.role;
+
   const rawGroups = getNavGroups(
-    currentUser.role,
+    effectiveRole,
     pendingRequests,
     pendingOrders,
     pendingBems,
     t
   );
 
-  const activeKeys = roleNavigationConfig?.[currentUser.role] || DEFAULT_ROLE_NAV_CONFIG[currentUser.role] || [];
+  const activeKeys = roleNavigationConfig?.[effectiveRole] || DEFAULT_ROLE_NAV_CONFIG[effectiveRole] || [];
 
   // Dynamically build and group navigation items according to configured role permissions & sequence
   const groups = React.useMemo(() => {
@@ -911,7 +914,7 @@ export default function Sidebar({
 
       if (itemsInCat.length > 0) {
         grouped.push({
-          title: getCategoryTitle(cat, currentUser.role, t),
+          title: getCategoryTitle(cat, effectiveRole, t),
           items: itemsInCat,
         });
       }
@@ -929,7 +932,7 @@ export default function Sidebar({
     }
 
     return grouped.length > 0 ? grouped : rawGroups;
-  }, [activeKeys, currentUser.role, pendingRequests, pendingOrders, pendingBems, t, rawGroups]);
+  }, [activeKeys, effectiveRole, pendingRequests, pendingOrders, pendingBems, t, rawGroups]);
 
   return (
     <aside
