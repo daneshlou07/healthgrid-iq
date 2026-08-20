@@ -138,11 +138,10 @@ export default function StatusBadge({ status, timestamp, showTimeInline = false 
   const formattedTime = formatTime(timestamp);
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs ${getClass()}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+    <span className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs ${getClass()}`}>
       <span>{formatStatusLabel(status)}</span>
       {showTimeInline && formattedTime && (
-        <span className="opacity-75 font-mono text-[10px] pl-1 border-l border-current/20">
+        <span className="opacity-75 font-mono text-[10px] pl-1.5 ml-1 border-l border-current/20">
           {formattedTime}
         </span>
       )}

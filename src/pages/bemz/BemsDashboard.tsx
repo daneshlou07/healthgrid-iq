@@ -41,12 +41,23 @@ export default function BemsDashboard() {
   const [bemsNotes, setBemsNotes] = useState('');
   const [assigning, setAssigning] = useState(false);
 
-  // Filter public radiographers & private admins from dynamic users list
+  // Filter public radiographers, public admins & private admins from dynamic users list
+  const [publicRoutingMode, setPublicRoutingMode] = useState<'admin' | 'direct'>('direct');
+  const [selectedPublicAdminId, setSelectedPublicAdminId] = useState('');
+
   const publicRadiographers = useMemo(() => {
     return users.filter(
       (u) =>
         u.role === 'Public Hospital Radiographer' ||
-        (u.role === 'Radiographer' && u.deploymentLocationId?.includes('hosp'))
+        (u.role === 'Radiographer' && (u.deploymentLocationId?.includes('hosp') || u.specialty?.includes('Public')))
+    );
+  }, [users]);
+
+  const publicHospitalAdmins = useMemo(() => {
+    return users.filter(
+      (u) =>
+        u.role === 'Public Hospital Admin' ||
+        (u.role === 'Administrator' && (u.specialty?.includes('Public') || u.name.includes('Public') || u.name.includes('HKL')))
     );
   }, [users]);
 
@@ -152,9 +163,11 @@ export default function BemsDashboard() {
   const openAssignModal = (ref: ExternalImagingRequest) => {
     setSelectedReferral(ref);
     setTargetFacilityType('PUBLIC_HOSPITAL');
-    setSelectedFacilityName('Public Hospital');
+    setSelectedFacilityName('Hospital Kuala Lumpur (HKL)');
     setSelectedPublicRadId(publicRadiographers[0]?.id || '');
+    setSelectedPublicAdminId(publicHospitalAdmins[0]?.id || '');
     setSelectedPrivAdminId(privateHospitalAdmins[0]?.id || '');
+    setPublicRoutingMode('direct');
     setBemsNotes('');
   };
 
@@ -165,25 +178,32 @@ export default function BemsDashboard() {
     setAssigning(true);
     try {
       const isPublic = targetFacilityType === 'PUBLIC_HOSPITAL';
-      const assignedRad = publicRadiographers.find((u) => u.id === selectedPublicRadId);
-      const assignedAdmin = privateHospitalAdmins.find((u) => u.id === selectedPrivAdminId);
+      const isPublicDirect = isPublic && publicRoutingMode === 'direct';
+      const assignedPublicRad = publicRadiographers.find((u) => u.id === selectedPublicRadId);
+      const assignedPublicAdmin = publicHospitalAdmins.find((u) => u.id === selectedPublicAdminId);
+      const assignedPrivAdmin = privateHospitalAdmins.find((u) => u.id === selectedPrivAdminId);
+
+      const assignedRadiographer = isPublicDirect ? assignedPublicRad : undefined;
+      const assignedAdmin = isPublic
+        ? (!isPublicDirect ? assignedPublicAdmin : undefined)
+        : assignedPrivAdmin;
 
       await bemsAssignFacility(selectedReferral.id, {
         facilityType: targetFacilityType,
         facilityId: `fac-${Date.now()}`,
         facilityName: selectedFacilityName.trim() || (isPublic ? 'Public Hospital' : 'Private Hospital'),
-        radiographerId: isPublic ? assignedRad?.id : undefined,
-        radiographerName: isPublic ? assignedRad?.name : undefined,
-        hospitalAdminId: !isPublic ? assignedAdmin?.id : undefined,
-        hospitalAdminName: !isPublic ? assignedAdmin?.name : undefined,
+        radiographerId: assignedRadiographer?.id,
+        radiographerName: assignedRadiographer?.name,
+        hospitalAdminId: assignedAdmin?.id,
+        hospitalAdminName: assignedAdmin?.name,
         bemsOfficer: currentUser,
         bemsNotes: bemsNotes.trim(),
       });
 
       toast.success(
-        isPublic
-          ? `Directly assigned to Public Hospital Radiographer: ${assignedRad?.name || 'Assigned'}`
-          : `Referral routed to Private Hospital Admin: ${assignedAdmin?.name || 'Assigned'}`
+        isPublicDirect
+          ? `Directly assigned to Public Hospital Radiographer: ${assignedPublicRad?.name || 'Assigned'}`
+          : `Referral routed to Hospital Admin: ${assignedAdmin?.name || 'Assigned'}`
       );
       setSelectedReferral(null);
     } catch (err: any) {
@@ -538,27 +558,82 @@ export default function BemsDashboard() {
               />
             </div>
 
-            {/* If Public Hospital: Assign Radiographer Directly */}
+            {/* If Public Hospital: Choose Direct Radiographer or Hospital Admin */}
             {targetFacilityType === 'PUBLIC_HOSPITAL' && (
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700">
-                  Select Public Hospital Radiographer <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={selectedPublicRadId}
-                  onChange={(e) => setSelectedPublicRadId(e.target.value)}
-                  className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F4C42]"
-                  required
-                >
-                  {publicRadiographers.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} ({r.email})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-slate-500">
-                  Public hospital radiographers receive the case directly in their scanning workspace.
-                </p>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Public Hospital Routing Method
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPublicRoutingMode('direct')}
+                      className={`p-2.5 rounded-lg border text-left text-xs font-semibold transition-all ${
+                        publicRoutingMode === 'direct'
+                          ? 'bg-[#EFF6F3] border-[#0F4C42] text-[#0F4C42] ring-1 ring-[#0F4C42]'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      Direct to Radiographer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPublicRoutingMode('admin')}
+                      className={`p-2.5 rounded-lg border text-left text-xs font-semibold transition-all ${
+                        publicRoutingMode === 'admin'
+                          ? 'bg-[#EFF6F3] border-[#0F4C42] text-[#0F4C42] ring-1 ring-[#0F4C42]'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      Route to Hospital Admin
+                    </button>
+                  </div>
+                </div>
+
+                {publicRoutingMode === 'direct' ? (
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Select Public Hospital Radiographer <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedPublicRadId}
+                      onChange={(e) => setSelectedPublicRadId(e.target.value)}
+                      className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F4C42]"
+                      required
+                    >
+                      {publicRadiographers.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name} ({r.email})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-500">
+                      Public hospital radiographers receive the case directly in their scanning workspace.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Select Public Hospital Admin <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedPublicAdminId}
+                      onChange={(e) => setSelectedPublicAdminId(e.target.value)}
+                      className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F4C42]"
+                      required
+                    >
+                      {publicHospitalAdmins.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({a.email})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-500">
+                      The public hospital admin will review this referral and assign their available staff.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

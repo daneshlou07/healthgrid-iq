@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useNotifications } from '../../context/NotificationContext';
 import {
   getRadioSchedulesByClinic,
   getRadioScheduleProfiles,
+  buildLiveRadioSchedules,
 } from '../../services/dataService';
 import { getRoute, findNearestClinic, geocodeAddress } from '../../services/routingService';
 import {
@@ -92,14 +93,24 @@ async function cachedGeocode(address: string): Promise<{ lat: number; lon: numbe
 
 export default function AISchedulerMap() {
   const { currentUser } = useAuth();
-  const { cases: allCases, clinics: allClinics, patients: allPatients, editCase, addAuditLog } = useData();
+  const { cases: allCases, clinics: allClinics, patients: allPatients, users, trash, editCase, addAuditLog } = useData();
   const { addNotification } = useNotifications();
 
   const cases = allCases.filter((c) => c.status === 'CREATED');
   const clinics = allClinics.filter((c) => c.status === 'active');
   const patients = allPatients;
-  const [scheduleProfiles, setScheduleProfiles] = useState<RadioScheduleProfile[]>([]);
 
+  // Build live schedule profiles synchronized with User Management
+  const deletedUserIds = useMemo(
+    () => new Set((trash || []).filter((t) => t.type === 'user' && t.data).map((t) => t.data.id)),
+    [trash]
+  );
+
+  const allScheduleProfiles = useMemo(() => {
+    return buildLiveRadioSchedules(users, allClinics, deletedUserIds);
+  }, [users, allClinics, deletedUserIds]);
+
+  const [scheduleProfiles, setScheduleProfiles] = useState<RadioScheduleProfile[]>([]);
   const [step, setStep] = useState<Step>('select-case');
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -118,6 +129,16 @@ export default function AISchedulerMap() {
   const [showBulkReview, setShowBulkReview] = useState(false);
   // Progress state for the two heavy phases
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; phase: string } | null>(null);
+
+  // Keep scheduleProfiles synchronized when users/radiographers are created or deleted
+  useEffect(() => {
+    if (selectedClinicId) {
+      const filtered = allScheduleProfiles.filter((s) => s.deployedClinicId === selectedClinicId);
+      setScheduleProfiles(filtered.length > 0 ? filtered : allScheduleProfiles);
+    } else {
+      setScheduleProfiles(allScheduleProfiles);
+    }
+  }, [allScheduleProfiles, selectedClinicId]);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -270,9 +291,8 @@ export default function AISchedulerMap() {
 
   const handleClinicChange = async (clinicId: string) => {
     setSelectedClinicId(clinicId); setSelectedRadiographerId(null); setRecommendedRadiographerId(null); setAppointmentTime('');
-    let profiles = await getRadioSchedulesByClinic(clinicId);
-    const allProfiles = await getRadioScheduleProfiles();
-    if (profiles.length === 0) profiles = allProfiles;
+    let profiles = allScheduleProfiles.filter((s) => s.deployedClinicId === clinicId);
+    if (profiles.length === 0) profiles = allScheduleProfiles;
     setScheduleProfiles(profiles);
     if (selectedPatient) {
       let patLat = selectedPatient.latitude;
@@ -295,9 +315,8 @@ export default function AISchedulerMap() {
 
   const handleProceedToAssignment = async () => {
     if (!selectedClinicId || !selectedCase) return;
-    let profiles = await getRadioSchedulesByClinic(selectedClinicId);
-    const allProfiles = await getRadioScheduleProfiles();
-    if (profiles.length === 0) profiles = allProfiles;
+    let profiles = allScheduleProfiles.filter((s) => s.deployedClinicId === selectedClinicId);
+    if (profiles.length === 0) profiles = allScheduleProfiles;
     setScheduleProfiles(profiles);
     const modality = extractModality(selectedCase.scanType);
     const bestId = recommendBestRadiographer(profiles, modality, cases);
@@ -376,8 +395,8 @@ export default function AISchedulerMap() {
     setBulkProgress({ done: 0, total: cases.length, phase: 'Geocoding patients' });
 
     // ── Step 1: fetch all radiographer profiles ONCE (not per case) ────────────
-    const [allProfiles, clinicProfileMap] = await (async () => {
-      const all = await getRadioScheduleProfiles();
+    const [allProfiles, clinicProfileMap] = (() => {
+      const all = allScheduleProfiles;
       const byClinic = new Map<string, RadioScheduleProfile[]>();
       for (const p of all) {
         const existing = byClinic.get(p.deployedClinicId) ?? [];

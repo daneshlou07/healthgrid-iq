@@ -259,6 +259,19 @@ export const mockUsers: User[] = [
     deploymentLocationId: 'clinic-001',
   },
   {
+    id: 'pub-admin-001',
+    name: 'Public Hospital Admin',
+    email: 'public.admin@healthgrid.my',
+    password: 'Password123!',
+    role: 'Public Hospital Admin',
+    status: 'active',
+    specialty: 'Public Hospital Administration & Clinical Intake',
+    createdAt: '2025-06-01T08:00:00Z',
+    shift: 'Day',
+    leaveStatus: 'Active',
+    deploymentLocationId: 'clinic-002',
+  },
+  {
     id: 'priv-admin-001',
     name: 'Private Hospital Admin',
     email: 'private.admin@healthgrid.my',
@@ -1219,7 +1232,7 @@ export const mockMobilePacsVans: MobilePacsVan[] = [
 
 // Radiographer schedule profiles for AI Scheduler
 // Generates realistic schedule data for the next 7 days
-function generateScheduleSlots(bookedSlots: { date: string; time: string; caseId: string }[] = []): import('../types').RadioScheduleSlot[] {
+export function generateScheduleSlots(bookedSlots: { date: string; time: string; caseId: string }[] = []): import('../types').RadioScheduleSlot[] {
   const slots: import('../types').RadioScheduleSlot[] = [];
   const today = new Date();
   for (let d = 0; d < 14; d++) {

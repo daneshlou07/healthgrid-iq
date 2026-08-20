@@ -208,10 +208,7 @@ export default function PatientRegistration() {
   const radiographersByClinic = useMemo(() => {
     const map: Record<string, number> = {};
     (users || []).forEach((u) => {
-      const isRad =
-        u.role === 'Radiographer' ||
-        u.role === 'Public Hospital Radiographer' ||
-        u.role === 'Private Hospital Radiographer';
+      const isRad = u.role === 'Radiographer';
       if (isRad && u.status === 'active' && u.deploymentLocationId && u.leaveStatus !== 'On Leave') {
         map[u.deploymentLocationId] = (map[u.deploymentLocationId] || 0) + 1;
       }

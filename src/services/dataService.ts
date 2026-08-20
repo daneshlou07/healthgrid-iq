@@ -23,6 +23,7 @@ import {
   mockAuditLogs,
   mockMobilePacsVans,
   mockRadioSchedules,
+  generateScheduleSlots,
 } from './mockData';
 import type {
   User,
@@ -57,17 +58,13 @@ export async function getUsers(): Promise<User[]> {
       const snapshot = await getDocs(collection(db, 'users'));
       const existingUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
       
-      // Ensure all standard hospital role accounts exist in Firestore
-      const missingUsers = mockUsers.filter((mu) => !existingUsers.some((eu) => eu.id === mu.id || eu.email === mu.email));
-      if (missingUsers.length > 0) {
-        for (const u of missingUsers) {
-          await setDoc(doc(db, 'users', u.id), u, { merge: true });
-        }
-        return [...existingUsers, ...missingUsers];
-      }
-
       if (existingUsers.length > 0) {
         return existingUsers;
+      }
+
+      // Initial seeding only when Firestore collection is completely empty
+      for (const u of mockUsers) {
+        await setDoc(doc(db, 'users', u.id), u, { merge: true });
       }
       return [...mockUsers];
     } catch (e) {
@@ -436,7 +433,62 @@ export async function updateMobilePacsVan(id: string, updates: Partial<MobilePac
 }
 
 // ==================== RADIOGRAPHER SCHEDULES ====================
-export async function getRadioSchedules(): Promise<RadioScheduleProfile[]> {
+export function buildLiveRadioSchedules(
+  usersList: User[],
+  clinicsList: Clinic[],
+  deletedUserIds: Set<string> = new Set()
+): RadioScheduleProfile[] {
+  const activeRadiographers = (usersList || []).filter(
+    (u) =>
+      u.role === 'Radiographer' &&
+      u.status === 'active' &&
+      !deletedUserIds.has(u.id)
+  );
+
+  return activeRadiographers.map((rad) => {
+    const existing = mockRadioSchedules.find((p) => p.userId === rad.id);
+    const assignedClinic = clinicsList.find(
+      (c) => c.id === rad.deploymentLocationId
+    ) || clinicsList[0];
+
+    if (existing) {
+      return {
+        ...existing,
+        userName: rad.name,
+        deployedClinicId: rad.deploymentLocationId || existing.deployedClinicId,
+        deployedClinicName: assignedClinic?.name || existing.deployedClinicName,
+        supportedModalities: rad.supportedModalities && rad.supportedModalities.length > 0
+          ? rad.supportedModalities
+          : existing.supportedModalities,
+        shift: rad.shift ? `${rad.shift} (08:00–17:00)` : existing.shift,
+      };
+    }
+
+    return {
+      userId: rad.id,
+      userName: rad.name,
+      deployedClinicId: rad.deploymentLocationId || assignedClinic?.id || 'clinic-001',
+      deployedClinicName: assignedClinic?.name || 'Primary Care Healthcare Clinic',
+      supportedModalities: rad.supportedModalities && rad.supportedModalities.length > 0
+        ? rad.supportedModalities
+        : ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
+      currentCaseload: 0,
+      maxDailyCaseload: 8,
+      leaveStatus: 'Active',
+      shift: rad.shift ? `${rad.shift} (08:00–17:00)` : 'Day (08:00–17:00)',
+      schedule: generateScheduleSlots(),
+    };
+  });
+}
+
+export async function getRadioSchedules(
+  customUsers?: User[],
+  customClinics?: Clinic[],
+  deletedIds?: Set<string>
+): Promise<RadioScheduleProfile[]> {
+  if (customUsers && customClinics) {
+    return buildLiveRadioSchedules(customUsers, customClinics, deletedIds);
+  }
   if (useMock()) return [...mockRadioSchedules];
   const db = getFirestoreDb();
   if (!db) return [...mockRadioSchedules];
@@ -450,13 +502,22 @@ export async function getRadioSchedules(): Promise<RadioScheduleProfile[]> {
   }
 }
 
-export async function getRadioSchedulesByClinic(clinicId: string): Promise<RadioScheduleProfile[]> {
-  const all = await getRadioSchedules();
+export async function getRadioSchedulesByClinic(
+  clinicId: string,
+  customUsers?: User[],
+  customClinics?: Clinic[],
+  deletedIds?: Set<string>
+): Promise<RadioScheduleProfile[]> {
+  const all = await getRadioSchedules(customUsers, customClinics, deletedIds);
   return all.filter((s) => s.deployedClinicId === clinicId);
 }
 
-export async function getRadioScheduleProfiles(): Promise<RadioScheduleProfile[]> {
-  return getRadioSchedules();
+export async function getRadioScheduleProfiles(
+  customUsers?: User[],
+  customClinics?: Clinic[],
+  deletedIds?: Set<string>
+): Promise<RadioScheduleProfile[]> {
+  return getRadioSchedules(customUsers, customClinics, deletedIds);
 }
 
 // ==================== BEMS & EXTERNAL IMAGING REFERRALS ====================

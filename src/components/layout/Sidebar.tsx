@@ -253,6 +253,30 @@ function getNavGroups(
         },
       ];
 
+    case 'Public Hospital Admin':
+      return [
+        {
+          title: t('PUBLIC HOSPITAL REFERRALS', 'RUJUKAN HOSPITAL AWAM'),
+          items: [
+            {
+              label: t('Dashboard', 'Papan Pemuka'),
+              path: '/dashboard',
+              icon: <House className="w-[18px] h-[18px]" />,
+            },
+            {
+              label: t('Public Referrals Intake', 'Pengambilan Rujukan Awam'),
+              path: '/public-admin',
+              icon: <Building2 className="w-[18px] h-[18px]" />,
+            },
+            {
+              label: t('Track Status', 'Jejak Status'),
+              path: '/track-status',
+              icon: <ArrowRightLeft className="w-[18px] h-[18px]" />,
+            },
+          ],
+        },
+      ];
+
     case 'Private Hospital Admin':
       return [
         {

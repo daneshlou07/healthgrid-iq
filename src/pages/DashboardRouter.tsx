@@ -6,6 +6,7 @@ import RadiologistDashboard from './radiologist/RadiologistDashboard';
 import MoDashboard from './mo/DepartmentDashboard';
 import AdminDashboard from './admin/AdminDashboard';
 import BemsDashboard from './bemz/BemsDashboard';
+import PublicHospitalAdminDashboard from './external/PublicHospitalAdminDashboard';
 import PrivateHospitalAdminDashboard from './external/PrivateHospitalAdminDashboard';
 import ExternalRadiographerWorkspace from './external/ExternalRadiographerWorkspace';
 
@@ -24,6 +25,8 @@ export default function DashboardRouter() {
         return <MoDashboard />;
       case 'BEMZ':
         return <BemsDashboard />;
+      case 'Public Hospital Admin':
+        return <PublicHospitalAdminDashboard />;
       case 'Private Hospital Admin':
         return <PrivateHospitalAdminDashboard />;
       case 'Equipment Marketplace':

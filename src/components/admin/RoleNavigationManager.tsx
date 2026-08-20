@@ -54,6 +54,7 @@ const MANAGED_ROLES: UserRole[] = [
   'Private Hospital Radiographer',
   'Radiologist',
   'BEMZ',
+  'Public Hospital Admin',
   'Private Hospital Admin',
   'Administrator',
   'Super Admin',

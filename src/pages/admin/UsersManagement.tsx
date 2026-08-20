@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
@@ -32,6 +32,7 @@ const ROLES: UserRole[] = [
   'Administrator',
   'Super Admin',
   'BEMS',
+  'Public Hospital Admin',
   'Private Hospital Admin',
   'Public Hospital Radiographer',
   'Private Hospital Radiographer',
@@ -110,6 +111,7 @@ export default function UsersManagement() {
       'Radiologist',
       'Administrator',
       'BEMS',
+      'Public Hospital Admin',
       'Private Hospital Admin',
       'Public Hospital Radiographer',
       'Private Hospital Radiographer',
@@ -121,6 +123,7 @@ export default function UsersManagement() {
       'Radiographer',
       'Radiologist',
       'BEMS',
+      'Public Hospital Admin',
       'Private Hospital Admin',
       'Public Hospital Radiographer',
       'Private Hospital Radiographer',
@@ -131,27 +134,46 @@ export default function UsersManagement() {
   // ACCOUNT REGISTRY
   // =========================================================
 
-  const activeAndInactiveAccounts: TrackedAccount[] =
-    users.map((u) => ({
-      ...u,
-      isDeleted: false,
-    }));
+  const deletedAccounts: TrackedAccount[] = useMemo(() => {
+    const seen = new Set<string>();
+    const list: TrackedAccount[] = [];
+    (trash || [])
+      .filter((item) => item.type === 'user' && item.data)
+      .forEach((item) => {
+        const uid = item.data.id || item.data.email;
+        if (!seen.has(uid)) {
+          seen.add(uid);
+          list.push({
+            ...item.data,
+            isDeleted: true,
+            deletedAt: item.deletedAt,
+            deletedBy: item.deletedBy,
+            trashItemId: item.id,
+            status: 'inactive' as const,
+          });
+        }
+      });
+    return list;
+  }, [trash]);
 
-  const deletedAccounts: TrackedAccount[] = trash
-    .filter((item) => item.type === 'user' && item.data)
-    .map((item) => ({
-      ...item.data,
-      isDeleted: true,
-      deletedAt: item.deletedAt,
-      deletedBy: item.deletedBy,
-      trashItemId: item.id,
-      status: 'inactive' as const,
-    }));
+  const deletedUserIds = useMemo(
+    () => new Set(deletedAccounts.map((a) => a.id)),
+    [deletedAccounts]
+  );
 
-  const allAccounts: TrackedAccount[] = [
+  const activeAndInactiveAccounts: TrackedAccount[] = useMemo(() => {
+    return (users || [])
+      .filter((u) => !deletedUserIds.has(u.id))
+      .map((u) => ({
+        ...u,
+        isDeleted: false,
+      }));
+  }, [users, deletedUserIds]);
+
+  const allAccounts: TrackedAccount[] = useMemo(() => [
     ...activeAndInactiveAccounts,
     ...deletedAccounts,
-  ];
+  ], [activeAndInactiveAccounts, deletedAccounts]);
 
   // =========================================================
   // VISIBILITY / PERMISSIONS
@@ -185,25 +207,13 @@ export default function UsersManagement() {
 
   const filteredAccounts = visibleAccounts.filter((u) => {
     // Status
-    if (
-      statusFilter === 'active' &&
-      (u.isDeleted || u.status !== 'active')
-    ) {
-      return false;
-    }
-
-    if (
-      statusFilter === 'inactive' &&
-      (u.isDeleted || u.status !== 'inactive')
-    ) {
-      return false;
-    }
-
-    if (
-      statusFilter === 'deleted' &&
-      !u.isDeleted
-    ) {
-      return false;
+    if (statusFilter === 'deleted') {
+      if (!u.isDeleted) return false;
+    } else {
+      // By default in 'all', 'active', 'inactive' tabs: NEVER show deleted / archived accounts
+      if (u.isDeleted) return false;
+      if (statusFilter === 'active' && u.status !== 'active') return false;
+      if (statusFilter === 'inactive' && u.status !== 'inactive') return false;
     }
 
     // Role
@@ -270,7 +280,7 @@ export default function UsersManagement() {
       if (statusFilter === 'active') return !u.isDeleted && u.status === 'active';
       if (statusFilter === 'inactive') return !u.isDeleted && u.status === 'inactive';
       if (statusFilter === 'deleted') return u.isDeleted;
-      return true; // 'all'
+      return !u.isDeleted; // 'all' active directory
     });
   }, [visibleAccounts, statusFilter]);
 
@@ -958,6 +968,40 @@ export default function UsersManagement() {
                 </button>
 
 
+                {/* Public Hospital Admin */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRoleFilter(
+                      roleFilter === 'Public Hospital Admin'
+                        ? 'all'
+                        : 'Public Hospital Admin'
+                    )
+                  }
+                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Public Hospital Admin'
+                    ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                >
+
+                  <div className="w-9 h-9 shrink-0 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-surface-600 truncate">
+                      Public Hospital Admin
+                    </p>
+
+                    <p className="text-lg font-bold text-teal-800">
+                      {countForRole('Public Hospital Admin')}
+                    </p>
+                  </div>
+
+                </button>
+
+
                 {/* Private Hospital Admin */}
 
                 <button
@@ -1243,6 +1287,10 @@ export default function UsersManagement() {
                     BEMS Officer ({countForRole('BEMS')})
                   </option>
 
+                  <option value="Public Hospital Admin">
+                    Public Hospital Admin ({countForRole('Public Hospital Admin')})
+                  </option>
+
                   <option value="Private Hospital Admin">
                     Private Hospital Admin ({countForRole('Private Hospital Admin')})
                   </option>
@@ -1288,6 +1336,27 @@ export default function UsersManagement() {
                     Night
                   </option>
 
+                </select>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) =>
+                    setStatusFilter(e.target.value as AccountStatusFilter)
+                  }
+                  className="select-field !w-full text-xs py-2.5 focus:outline-none focus:ring-[#0F4C42]/15 focus:border-[#0F4C42]"
+                >
+                  <option value="all">
+                    Active Directory ({activeAndInactiveAccounts.length})
+                  </option>
+                  <option value="active">
+                    Active Accounts Only
+                  </option>
+                  <option value="inactive">
+                    Inactive Accounts Only
+                  </option>
+                  <option value="deleted">
+                    Archived / Deleted ({deletedAccounts.length})
+                  </option>
                 </select>
 
 

@@ -10,6 +10,7 @@ export type UserRole =
   | 'Equipment Marketplace'
   | 'BEMZ'
   | 'BEMS'
+  | 'Public Hospital Admin'
   | 'Public Hospital Radiographer'
   | 'Private Hospital Admin'
   | 'Private Hospital Radiographer';

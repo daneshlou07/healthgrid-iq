@@ -414,7 +414,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (localPersisted.externalReferrals?.length) initReferrals = mergeItems(initReferrals, localPersisted.externalReferrals);
     }
 
-    setUsers(initUsers);
+    const loadedTrash = loadTrash();
+    const deletedUserIds = new Set(
+      loadedTrash.filter((t) => t.type === 'user' && t.data).map((t) => t.data.id)
+    );
+
+    setUsers(initUsers.filter((u) => !deletedUserIds.has(u.id)));
     setCases(initCases);
     setPatients(initPatients);
     setClinics(initClinics);
@@ -426,7 +431,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     setComments(loadComments());
     setRecentItems(loadRecent());
-    setTrash(loadTrash());
+    setTrash(loadedTrash);
     setLoading(false);
     initialized.current = true;
   }, []);
@@ -865,6 +870,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   ): Promise<void> => {
     const nowIso = new Date().toISOString();
     const isPublic = payload.facilityType === 'PUBLIC_HOSPITAL';
+    const hasRadiographer = Boolean(payload.radiographerId);
 
     const updates: Partial<ExternalImagingRequest> = {
       facilityType: payload.facilityType,
@@ -878,7 +884,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       bemzOfficerName: payload.bemsOfficer.name,
       bemzNotes: payload.bemsNotes,
       bemzProcessedAt: nowIso,
-      status: isPublic ? 'EXTERNAL_RADIOGRAPHER_ASSIGNED' : 'PRIVATE_ADMIN_REVIEW',
+      status: hasRadiographer ? 'EXTERNAL_RADIOGRAPHER_ASSIGNED' : 'PRIVATE_ADMIN_REVIEW',
     };
 
     await editExternalReferral(referralId, updates);
@@ -888,7 +894,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     if (targetCaseId) {
       await editCase(targetCaseId, {
-        status: isPublic ? 'EXTERNAL_RADIOGRAPHER_ASSIGNED' : 'PRIVATE_HOSPITAL_ADMIN_REVIEW',
+        status: hasRadiographer ? 'EXTERNAL_RADIOGRAPHER_ASSIGNED' : 'PRIVATE_HOSPITAL_ADMIN_REVIEW',
         externalFacilityType: isPublic ? 'Public Hospital' : 'Private Hospital',
         externalFacilityName: payload.facilityName,
         externalRadiographerId: payload.radiographerId,
@@ -903,7 +909,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         userRole: payload.bemsOfficer.role,
         action: isPublic ? 'BEMS_ROUTED_PUBLIC_HOSPITAL' : 'BEMS_ROUTED_PRIVATE_HOSPITAL',
         target: `cases/${targetCaseId}`,
-        details: `BEMS assigned external facility: ${payload.facilityName} (${isPublic ? `Direct Radiographer: ${payload.radiographerName}` : `Hospital Admin: ${payload.hospitalAdminName}`}).`,
+        details: `BEMS assigned external facility: ${payload.facilityName} (${hasRadiographer ? `Direct Radiographer: ${payload.radiographerName}` : `Hospital Admin: ${payload.hospitalAdminName}`}).`,
         timestamp: nowIso,
       });
     }
@@ -937,9 +943,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         userId: payload.adminUser.id,
         userName: payload.adminUser.name,
         userRole: payload.adminUser.role,
-        action: 'PRIVATE_HOSPITAL_RADIOGRAPHER_ASSIGNED',
+        action: payload.adminUser.role === 'Public Hospital Admin' ? 'PUBLIC_HOSPITAL_RADIOGRAPHER_ASSIGNED' : 'PRIVATE_HOSPITAL_RADIOGRAPHER_ASSIGNED',
         target: `cases/${ref.caseId}`,
-        details: `Private Hospital Admin ${payload.adminUser.name} assigned Radiographer ${payload.radiographerName}.`,
+        details: `${payload.adminUser.role} ${payload.adminUser.name} assigned Radiographer ${payload.radiographerName}.`,
         timestamp: nowIso,
       });
     }
@@ -1150,16 +1156,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const softDelete = (type: TrashItem['type'], id: string, deletedBy: string) => {
     let data: any = null;
     switch (type) {
-      case 'user': data = users.find((u) => u.id === id); setUsers((prev) => prev.filter((u) => u.id !== id)); break;
-      case 'clinic': data = clinics.find((c) => c.id === id); setClinics((prev) => prev.filter((c) => c.id !== id)); break;
-      case 'equipment': data = equipment.find((e) => e.id === id); setEquipment((prev) => prev.filter((e) => e.id !== id)); break;
-      case 'patient': data = patients.find((p) => p.id === id); setPatients((prev) => prev.filter((p) => p.id !== id)); break;
-      case 'case': data = cases.find((c) => c.id === id); setCases((prev) => prev.filter((c) => c.id !== id)); break;
-      case 'patientRequest': data = patientRequests.find((r) => r.id === id); setPatientRequests((prev) => prev.filter((r) => r.id !== id)); break;
+      case 'user':
+        data = users.find((u) => u.id === id) || mockUsers.find((u) => u.id === id);
+        setUsers((prev) => prev.filter((u) => u.id !== id));
+        break;
+      case 'clinic':
+        data = clinics.find((c) => c.id === id) || mockClinics.find((c) => c.id === id);
+        setClinics((prev) => prev.filter((c) => c.id !== id));
+        break;
+      case 'equipment':
+        data = equipment.find((e) => e.id === id) || mockMobilePacsVans.find((e) => e.id === id);
+        setEquipment((prev) => prev.filter((e) => e.id !== id));
+        break;
+      case 'patient':
+        data = patients.find((p) => p.id === id) || mockPatients.find((p) => p.id === id);
+        setPatients((prev) => prev.filter((p) => p.id !== id));
+        break;
+      case 'case':
+        data = cases.find((c) => c.id === id) || mockCases.find((c) => c.id === id);
+        setCases((prev) => prev.filter((c) => c.id !== id));
+        break;
+      case 'patientRequest':
+        data = patientRequests.find((r) => r.id === id) || mockPatientRequests.find((r) => r.id === id);
+        setPatientRequests((prev) => prev.filter((r) => r.id !== id));
+        break;
     }
     if (data) {
       const trashItem: TrashItem = { id: `trash-${Date.now()}`, type, data, deletedAt: new Date().toISOString(), deletedBy };
-      setTrash((prev) => { const next = [trashItem, ...prev]; saveTrash(next); return next; });
+      setTrash((prev) => {
+        const next = [trashItem, ...prev.filter((t) => !(t.type === type && t.data?.id === id))];
+        saveTrash(next);
+        return next;
+      });
       if (isFirebaseConfigured()) {
         const db = getFirestoreDb();
         if (db) {

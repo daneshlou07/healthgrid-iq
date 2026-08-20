@@ -60,6 +60,7 @@ const OrdersManagementPage = safeLazy(() => import('./pages/marketplace/OrdersMa
 
 // BEMS & External Imaging Pages
 const BemsDashboard = safeLazy(() => import('./pages/bemz/BemsDashboard'));
+const PublicHospitalAdminDashboard = safeLazy(() => import('./pages/external/PublicHospitalAdminDashboard'));
 const PrivateHospitalAdminDashboard = safeLazy(() => import('./pages/external/PrivateHospitalAdminDashboard'));
 const ExternalRadiographerWorkspace = safeLazy(() => import('./pages/external/ExternalRadiographerWorkspace'));
 
@@ -147,12 +148,13 @@ function AppRoutes() {
         <Route path="/credentials" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
 
         {/* Track Status route */}
-        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'BEMZ']}><MoTrackStatus /></ProtectedRoute>} />
+        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'BEMZ', 'Public Hospital Admin', 'Private Hospital Admin']}><MoTrackStatus /></ProtectedRoute>} />
 
         {/* BEMS & External Hospital Routes */}
         <Route path="/bems" element={<ProtectedRoute allowedRoles={['BEMZ', 'Administrator', 'Super Admin']}><BemsDashboard /></ProtectedRoute>} />
+        <Route path="/public-admin" element={<ProtectedRoute allowedRoles={['Public Hospital Admin', 'Administrator', 'Super Admin']}><PublicHospitalAdminDashboard /></ProtectedRoute>} />
         <Route path="/private-admin" element={<ProtectedRoute allowedRoles={['Private Hospital Admin', 'Administrator', 'Super Admin']}><PrivateHospitalAdminDashboard /></ProtectedRoute>} />
-        <Route path="/external-radiographer" element={<ProtectedRoute allowedRoles={['Public Hospital Radiographer', 'Private Hospital Radiographer', 'Radiographer', 'Administrator', 'Super Admin']}><ExternalRadiographerWorkspace /></ProtectedRoute>} />
+        <Route path="/external-radiographer" element={<ProtectedRoute allowedRoles={['Public Hospital Radiographer', 'Private Hospital Radiographer', 'Radiographer', 'Administrator', 'Super Admin', 'Public Hospital Admin', 'Private Hospital Admin']}><ExternalRadiographerWorkspace /></ProtectedRoute>} />
 
         {/* Administrator routes (full CRUD access) */}
         <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />
