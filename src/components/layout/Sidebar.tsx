@@ -5,6 +5,8 @@ import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
 import type { UserRole } from '../../types';
 
+import { ALL_NAV_MODULES, DEFAULT_ROLE_NAV_CONFIG } from '../../services/permissionService';
+
 import {
   House,
   Users,
@@ -17,6 +19,9 @@ import {
   Eye,
   Calendar,
   Building2,
+  Building,
+  Sparkles,
+  SlidersHorizontal,
   CheckSquare,
   Truck,
   ScrollText,
@@ -676,6 +681,146 @@ function getNavGroups(
   }
 }
 
+function getModuleIcon(iconName: string) {
+  const props = { className: 'w-[18px] h-[18px]' };
+  switch (iconName) {
+    case 'House':
+      return <House {...props} />;
+    case 'Users':
+      return <Users {...props} />;
+    case 'UserPlus':
+      return <UserPlus {...props} />;
+    case 'FilePlus2':
+      return <FilePlus2 {...props} />;
+    case 'FolderOpen':
+      return <FolderOpen {...props} />;
+    case 'FileText':
+      return <FileText {...props} />;
+    case 'ClipboardList':
+      return <ClipboardList {...props} />;
+    case 'ArrowRightLeft':
+      return <ArrowRightLeft {...props} />;
+    case 'Calendar':
+      return <Calendar {...props} />;
+    case 'Upload':
+      return <Upload {...props} />;
+    case 'ShieldCheck':
+      return <ShieldCheck {...props} />;
+    case 'Wrench':
+      return <Wrench {...props} />;
+    case 'Building2':
+      return <Building2 {...props} />;
+    case 'Building':
+      return <Building {...props} />;
+    case 'Sparkles':
+      return <Sparkles {...props} />;
+    case 'Truck':
+      return <Truck {...props} />;
+    case 'UserCheck':
+      return <UserCheck {...props} />;
+    case 'ScrollText':
+      return <ScrollText {...props} />;
+    case 'BarChart3':
+      return <BarChart3 {...props} />;
+    case 'Trash2':
+      return <Trash2 {...props} />;
+    case 'Package':
+      return <Package {...props} />;
+    case 'SlidersHorizontal':
+      return <SlidersHorizontal {...props} />;
+    case 'ShoppingBag':
+      return <ShoppingBag {...props} />;
+    default:
+      return <House {...props} />;
+  }
+}
+
+function getLocalizedModuleLabel(id: string, defaultLabel: string, t: (en: string, ms: string) => string): string {
+  switch (id) {
+    case 'dashboard':
+      return t('Dashboard', 'Papan Pemuka');
+    case 'patients':
+      return t('Patient Management', 'Pengurusan Pesakit');
+    case 'register_patient':
+      return t('Register New Patient', 'Daftar Pesakit Baru');
+    case 'new_case':
+      return t('New Case Registration', 'Pendaftaran Kes Baru');
+    case 'cases':
+      return t('All Cases Overview', 'Gambaran Keseluruhan Kes');
+    case 'reporting':
+      return t('Diagnostic Hub & Reports', 'Hab Diagnostik & Laporan');
+    case 'patient_requests':
+      return t('Transfer Requests', 'Permohonan Pemindahan');
+    case 'track_status':
+      return t('Track Case Status', 'Jejak Status Kes');
+    case 'scan_queue':
+      return t('My Cases', 'Senarai Tugas Saya');
+    case 'upload_scans':
+      return t('Upload Scans', 'Muat Naik Imbasan');
+    case 'credentials':
+      return t('My Credentials & License', 'Kelayakan & Lesen Saya');
+    case 'bems':
+      return t('BEMS Referral Portal', 'Portal Rujukan BEMS');
+    case 'public_admin':
+      return t('Public Hospital Referrals', 'Rujukan Hospital Awam');
+    case 'private_admin':
+      return t('Private Hospital Referrals', 'Rujukan Hospital Swasta');
+    case 'external_radiographer':
+      return t('External Radiographer Hub', 'Hab Juruxray Luar');
+    case 'ai_scheduler':
+      return t('AI Scheduler', 'Penjadual AI');
+    case 'fleet':
+      return t('Mobile Fleet Management', 'Pengurusan Armada');
+    case 'clinics':
+      return t('Clinic Management', 'Pengurusan Klinik');
+    case 'users':
+      return t('User Management', 'Pengurusan Pengguna');
+    case 'announcements':
+      return t('System Broadcasts', 'Siaran Sistem');
+    case 'analytics':
+      return t('Operations Analytics', 'Analitik Operasi');
+    case 'audit_logs':
+      return t('Audit Logs', 'Log Audit');
+    case 'recycle_bin':
+      return t('Trash / Recycle Bin', 'Tong Sampah / Tong Kitar Semula');
+    case 'tech_stack':
+      return t('Technology Stack', 'Timbunan Teknologi');
+    case 'marketplace_medical':
+      return t('Medical Equipment', 'Peralatan Perubatan');
+    case 'marketplace_non_medical':
+      return t('Non-Medical Equipment', 'Peralatan Bukan Perubatan');
+    case 'marketplace_orders':
+      return t('Orders & Quotations', 'Pesanan & Sebut Harga');
+    case 'marketplace_manage':
+      return t('Equipment Management', 'Pengurusan Peralatan');
+    case 'marketplace_all':
+      return t('Browse All Equipment', 'Lihat Semua Peralatan');
+    default:
+      return defaultLabel;
+  }
+}
+
+function getCategoryTitle(category: string, role: UserRole, t: (en: string, ms: string) => string): string {
+  switch (category) {
+    case 'Clinical Core':
+      return role === 'Administrator' || role === 'Super Admin'
+        ? t('MANAGEMENT', 'PENGURUSAN')
+        : t('CLINICAL CARE', 'PENJAGAAN KLINIKAL');
+    case 'Imaging & Technical':
+      return role.includes('Radiographer')
+        ? t('CLINICAL RADIOGRAPHY', 'RADIOGRAFI KLINIKAL')
+        : t('IMAGING & TECHNICAL', 'PENGIMEJAN & TEKNIKAL');
+    case 'Operations & Fleet':
+      return t('OPERATIONS & FLEET', 'OPERASI & LOGISTIK');
+    case 'Equipment Marketplace':
+      return t('EQUIPMENT MARKETPLACE', 'PASARAN PERALATAN');
+    case 'Administration & Governance':
+      return t('SYSTEM', 'SISTEM');
+    default:
+      return category.toUpperCase();
+  }
+}
+
 export default function Sidebar({
   onClose,
 }: SidebarProps) {
@@ -720,74 +865,71 @@ export default function Sidebar({
     t
   );
 
-  // Map route paths to RBAC module identifiers
-  const pathToKeyMap: Record<string, string> = {
-    '/dashboard': 'dashboard',
-    '/scan-queue': 'scan_queue',
-    '/upload': 'upload_scans',
-    '/schedule': 'schedule',
-    '/reporting': 'reporting',
-    '/review-queue': 'reporting',
-    '/patients': 'patients',
-    '/patients/register': 'register_patient',
-    '/cases/new': 'new_case',
-    '/cases': 'cases',
-    '/requests': 'patient_requests',
-    '/bems': 'bems',
-    '/private-admin': 'private_admin',
-    '/external-radiographer': 'external_radiographer',
-    '/ai-scheduler': 'ai_scheduler',
-    '/fleet': 'fleet',
-    '/clinics': 'clinics',
-    '/users': 'users',
-    '/reports': 'reports',
-    '/recycle-bin': 'recycle_bin',
-    '/audit-logs': 'audit_logs',
-    '/analytics': 'analytics',
-    '/tech-stack': 'tech_stack',
-    '/track-status': 'track_status',
-    '/onboarding': 'credentials',
-    '/marketplace/medical': 'marketplace_medical',
-    '/marketplace/non-medical': 'marketplace_non_medical',
-    '/marketplace/orders': 'marketplace_orders',
-    '/marketplace/manage-items': 'marketplace_manage',
-    '/marketplace': 'marketplace_all',
-  };
+  const activeKeys = roleNavigationConfig?.[currentUser.role] || DEFAULT_ROLE_NAV_CONFIG[currentUser.role] || [];
 
-  const allowedKeys = roleNavigationConfig?.[currentUser.role];
-
-  // Dynamically filter and sort items according to configured role permissions & custom order
+  // Dynamically build and group navigation items according to configured role permissions & sequence
   const groups = React.useMemo(() => {
-    if (!allowedKeys || allowedKeys.length === 0) {
+    if (!activeKeys || activeKeys.length === 0) {
       return rawGroups;
     }
 
-    return rawGroups
-      .map((g) => {
-        const filtered = g.items.filter((item) => {
-          const key = pathToKeyMap[item.path];
-          if (!key) return true;
-          return allowedKeys.includes(key);
-        });
+    const allItems: (NavItem & { category: string; order: number })[] = [];
 
-        const sorted = [...filtered].sort((a, b) => {
-          const keyA = pathToKeyMap[a.path];
-          const keyB = pathToKeyMap[b.path];
-          const idxA = keyA ? allowedKeys.indexOf(keyA) : 999;
-          const idxB = keyB ? allowedKeys.indexOf(keyB) : 999;
-          if (idxA === -1 && idxB === -1) return 0;
-          if (idxA === -1) return 1;
-          if (idxB === -1) return -1;
-          return idxA - idxB;
-        });
+    activeKeys.forEach((key, index) => {
+      const moduleDef = ALL_NAV_MODULES.find((m) => m.id === key);
+      if (!moduleDef) return;
 
-        return {
-          ...g,
-          items: sorted,
-        };
-      })
-      .filter((g) => g.items.length > 0);
-  }, [rawGroups, allowedKeys]);
+      let badge: number | undefined;
+      if (key === 'patient_requests') badge = pendingRequests;
+      else if (key === 'bems') badge = pendingBems;
+      else if (key === 'marketplace_orders') badge = pendingOrders;
+
+      allItems.push({
+        label: getLocalizedModuleLabel(moduleDef.id, moduleDef.label, t),
+        path: moduleDef.defaultPath,
+        icon: getModuleIcon(moduleDef.iconName),
+        badge,
+        category: moduleDef.category,
+        order: index,
+      });
+    });
+
+    const categoryOrder = [
+      'Clinical Core',
+      'Imaging & Technical',
+      'Operations & Fleet',
+      'Equipment Marketplace',
+      'Administration & Governance',
+    ];
+
+    const grouped: NavGroup[] = [];
+
+    categoryOrder.forEach((cat) => {
+      const itemsInCat = allItems
+        .filter((item) => item.category === cat)
+        .sort((a, b) => a.order - b.order);
+
+      if (itemsInCat.length > 0) {
+        grouped.push({
+          title: getCategoryTitle(cat, currentUser.role, t),
+          items: itemsInCat,
+        });
+      }
+    });
+
+    const otherItems = allItems
+      .filter((item) => !categoryOrder.includes(item.category))
+      .sort((a, b) => a.order - b.order);
+
+    if (otherItems.length > 0) {
+      grouped.push({
+        title: t('ADDITIONAL MODULES', 'MODUL TAMBAHAN'),
+        items: otherItems,
+      });
+    }
+
+    return grouped.length > 0 ? grouped : rawGroups;
+  }, [activeKeys, currentUser.role, pendingRequests, pendingOrders, pendingBems, t, rawGroups]);
 
   return (
     <aside
