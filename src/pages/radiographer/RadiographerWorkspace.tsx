@@ -252,9 +252,9 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
       const bSev = severityOrder[b.severity || 'Mild'] || 0;
       if (aSev !== bSev) return bSev - aSev;
 
-      // Appointment time
-      const aTime = a.officeMasaAppointment || '';
-      const bTime = b.officeMasaAppointment || '';
+      // Appointment time (from scheduledAt ISO timestamp)
+      const aTime = a.scheduledAt || '';
+      const bTime = b.scheduledAt || '';
       if (aTime && bTime) return aTime.localeCompare(bTime);
 
       // Latest case first fallback
@@ -733,9 +733,16 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
 
               <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
                 {HOURLY_SLOTS.map((slot) => {
-                  const slotCases = filteredQueueCases.filter(
-                    (c) => c.officeMasaAppointment?.toLowerCase().includes(slot.toLowerCase().slice(0, 5))
-                  );
+                  const slotCases = filteredQueueCases.filter((c) => {
+                    if (!c.scheduledAt) return false;
+                    const d = new Date(c.scheduledAt);
+                    if (isNaN(d.getTime())) return false;
+                    const h = d.getHours();
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    const h12 = h % 12 === 0 ? 12 : h % 12;
+                    const slotLabel = `${String(h12).padStart(2, '0')}:00 ${ampm}`;
+                    return slotLabel === slot;
+                  });
 
                   return (
                     <div key={slot} className="min-h-[150px] bg-white p-3">
