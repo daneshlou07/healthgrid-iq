@@ -386,24 +386,7 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
 
   return (
     <>
-      <header className="h-16 bg-[#FAFCFB] border-b border-[#D8E5E1] flex items-center px-3 sm:px-4 md:px-6 gap-2 sm:gap-3 shrink-0">
-        {/* Mobile / Desktop Sidebar Toggle Button */}
-        {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className="p-2 -ml-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/20"
-            title={sidebarOpen ? 'Collapse Navigation' : 'Open Navigation'}
-            aria-label="Toggle navigation menu"
-          >
-            {sidebarOpen ? (
-              <PanelLeftClose className="w-5 h-5 text-[#0F4C42]" />
-            ) : (
-              <PanelLeft className="w-5 h-5 text-slate-600" />
-            )}
-          </button>
-        )}
-
+      <header className="h-16 bg-[#FAFCFB] border-b border-[#D8E5E1] flex items-center px-4 md:px-6 gap-3 shrink-0">
         <div className="flex-1 max-w-xl min-w-0">
           <button
             onClick={openSearch}

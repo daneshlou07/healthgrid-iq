@@ -509,77 +509,150 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
 
   return (
     <div className="space-y-6">
-      {/* ── UNIFIED HEADER & TOP METRICS ───────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
+      {/* =====================================================
+          HEADER & ACTIONS
+      ====================================================== */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="page-title">Diagnostic Review &amp; Reporting Hub</h1>
-          <p className="page-subtitle">
+          <h1 className="text-2xl font-bold text-surface-900 tracking-tight">
+            Diagnostic Review &amp; Reporting Hub
+          </h1>
+          <p className="text-sm text-surface-500 mt-0.5">
             Triage incoming medical scans, author diagnostic reports with AI Copilot, and manage finalized report archives.
           </p>
         </div>
-
-        {/* 3-Tab Main Switcher */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('queue');
-              setSearchParams({});
-            }}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${activeTab === 'queue' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Review Queue ({isRadiologist ? radiologistReviewCases.length : moReviewCases.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('reporting')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${activeTab === 'reporting' ? 'bg-[#0F4C42] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Clinical Reporting Desk</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('reports');
-              setSearchParams({});
-            }}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all ${activeTab === 'reports' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Finalized Reports Archive ({reports.length})</span>
-          </button>
-        </div>
       </div>
 
-      {/* ── TOP STATS BAR ──────────────────────────────────────────────── */}
+      {/* =====================================================
+          TABS: REVIEW QUEUE VS REPORTING DESK VS ARCHIVE
+      ====================================================== */}
+      <div className="flex border-b border-surface-200 gap-6 overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('queue');
+            setSearchParams({});
+          }}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'queue'
+              ? 'border-[#0F4C42] text-[#0F4C42]'
+              : 'border-transparent text-surface-500 hover:text-surface-800'
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          Review Queue ({isRadiologist ? radiologistReviewCases.length : moReviewCases.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('reporting')}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'reporting'
+              ? 'border-[#0F4C42] text-[#0F4C42]'
+              : 'border-transparent text-surface-500 hover:text-surface-800'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Clinical Reporting Desk {selectedCase ? `(Case #${selectedCase.caseNumber})` : ''}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('reports');
+            setSearchParams({});
+          }}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'reports'
+              ? 'border-[#0F4C42] text-[#0F4C42]'
+              : 'border-transparent text-surface-500 hover:text-surface-800'
+          }`}
+        >
+          <Printer className="w-4 h-4" />
+          Finalized Reports Archive ({reports.length})
+        </button>
+      </div>
+
+      {/* =====================================================
+          TOP QUICK METRIC CARDS
+      ====================================================== */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="card p-3 bg-white border border-slate-200">
-          <span className="text-[11px] text-amber-700 font-medium block">Awaiting Primary Review</span>
-          <span className="text-xl font-bold text-amber-900 mt-0.5 block">
-            {isRadiologist ? radiologistReviewCases.length : moReviewCases.length}
-          </span>
-        </div>
+        {/* Awaiting Primary Review */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('queue');
+            setQueueSubTab('awaiting');
+          }}
+          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+            activeTab === 'queue' && queueSubTab === 'awaiting'
+              ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          <div className="w-9 h-9 shrink-0 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <Clock className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-surface-600 truncate">Awaiting Review</p>
+            <p className="text-lg font-bold text-amber-700">
+              {isRadiologist ? radiologistReviewCases.length : moReviewCases.length}
+            </p>
+          </div>
+        </button>
 
-        <div className="card p-3 bg-white border border-slate-200">
-          <span className="text-[11px] text-purple-700 font-medium block">Teleradiology Escalations</span>
-          <span className="text-xl font-bold text-purple-900 mt-0.5 block">{teleradiologyCases.length}</span>
-        </div>
+        {/* Teleradiology Escalations */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('queue');
+            setQueueSubTab('teleradiology');
+          }}
+          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+            activeTab === 'queue' && queueSubTab === 'teleradiology'
+              ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          <div className="w-9 h-9 shrink-0 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+            <Send className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-surface-600 truncate">Escalations</p>
+            <p className="text-lg font-bold text-purple-700">{teleradiologyCases.length}</p>
+          </div>
+        </button>
 
-        <div className="card p-3 bg-white border border-slate-200">
-          <span className="text-[11px] text-emerald-700 font-medium block">Signed Diagnostic Reports</span>
-          <span className="text-xl font-bold text-emerald-900 mt-0.5 block">{reports.length}</span>
-        </div>
+        {/* Signed Diagnostic Reports */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('reports');
+          }}
+          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+            activeTab === 'reports'
+              ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <FileCheck2 className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-surface-600 truncate">Signed Reports</p>
+            <p className="text-lg font-bold text-emerald-700">{reports.length}</p>
+          </div>
+        </button>
 
-        <div className="card p-3 bg-white border border-slate-200">
-          <span className="text-[11px] text-slate-500 font-medium block">Total Scans in PACS</span>
-          <span className="text-xl font-bold text-slate-800 mt-0.5 block">{cases.filter((c) => c.images?.length).length}</span>
+        {/* Total PACS Scans */}
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left">
+          <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
+            <ImageIcon className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-surface-600 truncate">Total PACS Scans</p>
+            <p className="text-lg font-bold text-sky-700">{cases.filter((c) => c.images?.length).length}</p>
+          </div>
         </div>
       </div>
 
