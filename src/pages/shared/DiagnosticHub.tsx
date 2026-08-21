@@ -189,8 +189,11 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
     return 'queue';
   });
 
-  // ── TAB 1: QUEUE STATE ───────────────────────────────────────────────────
+  // ── TAB 1: QUEUE STATE & FILTERS ─────────────────────────────────────────
   const [queueSubTab, setQueueSubTab] = useState<'awaiting' | 'teleradiology' | 'finalized'>('awaiting');
+  const [queueSearch, setQueueSearch] = useState('');
+  const [queueModalityFilter, setQueueModalityFilter] = useState('all');
+  const [queueSeverityFilter, setQueueSeverityFilter] = useState('all');
 
   // ── TAB 2: REPORTING DESK STATE ──────────────────────────────────────────
   const [selectedCaseId, setSelectedCaseId] = useState<string>(caseIdFromUrl || '');
@@ -507,6 +510,30 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
         ? teleradiologyCases
         : finalizedCases;
 
+  const filteredQueueCases = useMemo(() => {
+    return activeQueueCases.filter((c) => {
+      if (queueSearch) {
+        const q = queueSearch.toLowerCase().trim();
+        const match =
+          c.caseNumber?.toLowerCase().includes(q) ||
+          c.patientName?.toLowerCase().includes(q) ||
+          c.patientId?.toLowerCase().includes(q) ||
+          c.modality?.toLowerCase().includes(q) ||
+          c.scanType?.toLowerCase().includes(q) ||
+          c.bodyRegion?.toLowerCase().includes(q) ||
+          c.notes?.toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      if (queueModalityFilter !== 'all' && c.modality !== queueModalityFilter) {
+        return false;
+      }
+      if (queueSeverityFilter !== 'all' && c.severity !== queueSeverityFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [activeQueueCases, queueSearch, queueModalityFilter, queueSeverityFilter]);
+
   return (
     <div className="space-y-6">
       {/* =====================================================
@@ -659,45 +686,114 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
       {/* ── TAB 1: DIAGNOSTIC REVIEW QUEUE (TRIAGE) ────────────────────── */}
       {activeTab === 'queue' && (
         <div className="space-y-4">
-          {!isRadiologist && (
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-              <button
-                type="button"
-                onClick={() => setQueueSubTab('awaiting')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${queueSubTab === 'awaiting'
-                  ? 'bg-[#0F4C42] text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                Awaiting MO Review ({moReviewCases.length})
-              </button>
+          {/* =====================================================
+              QUEUE FILTER BAR (USER MANAGEMENT STYLE)
+          ====================================================== */}
+          <div className="card p-4 space-y-3 bg-white border border-slate-200">
+            {/* Soft Status Pills */}
+            {!isRadiologist && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setQueueSubTab('awaiting')}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                      queueSubTab === 'awaiting'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'text-surface-600 hover:bg-surface-100'
+                    }`}
+                  >
+                    Awaiting MO Review ({moReviewCases.length})
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setQueueSubTab('teleradiology')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${queueSubTab === 'teleradiology'
-                  ? 'bg-[#0F4C42] text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                Teleradiology Escalations ({teleradiologyCases.length})
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setQueueSubTab('teleradiology')}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                      queueSubTab === 'teleradiology'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'text-surface-600 hover:bg-surface-100'
+                    }`}
+                  >
+                    Teleradiology Escalations ({teleradiologyCases.length})
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setQueueSubTab('finalized')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${queueSubTab === 'finalized'
-                  ? 'bg-[#0F4C42] text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                Finalized / Signed Today ({finalizedCases.length})
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setQueueSubTab('finalized')}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                      queueSubTab === 'finalized'
+                        ? 'bg-slate-200 text-slate-800'
+                        : 'text-surface-600 hover:bg-surface-100'
+                    }`}
+                  >
+                    Finalized / Signed Today ({finalizedCases.length})
+                  </button>
+                </div>
+
+                {(queueSearch || queueModalityFilter !== 'all' || queueSeverityFilter !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQueueSearch('');
+                      setQueueModalityFilter('all');
+                      setQueueSeverityFilter('all');
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-surface-500 hover:text-navy-700 hover:bg-surface-100 rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Search & Dropdown Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              {/* Search */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search patient, case #, MRN, notes..."
+                  value={queueSearch}
+                  onChange={(e) => setQueueSearch(e.target.value)}
+                  className="input-field pl-9 text-xs"
+                />
+              </div>
+
+              {/* Modality Filter */}
+              <div>
+                <select
+                  value={queueModalityFilter}
+                  onChange={(e) => setQueueModalityFilter(e.target.value)}
+                  className="input-field text-xs cursor-pointer"
+                >
+                  <option value="all">All Modalities</option>
+                  <option value="X-Ray">X-Ray (General Radiography)</option>
+                  <option value="Ultrasound">Ultrasound</option>
+                  <option value="CT Scan">CT Scan</option>
+                  <option value="MRI">MRI</option>
+                </select>
+              </div>
+
+              {/* Severity Filter */}
+              <div>
+                <select
+                  value={queueSeverityFilter}
+                  onChange={(e) => setQueueSeverityFilter(e.target.value)}
+                  className="input-field text-xs cursor-pointer"
+                >
+                  <option value="all">All Clinical Priorities</option>
+                  <option value="Critical">Critical Red Flag Alert</option>
+                  <option value="Urgent">Urgent Priority</option>
+                  <option value="Routine">Routine / Elective</option>
+                </select>
+              </div>
             </div>
-          )}
+          </div>
 
           <div className="space-y-3">
-            {activeQueueCases.map((c) => {
+            {filteredQueueCases.map((c) => {
               const isFinal = c.status === 'COMPLETED' || c.status === 'FINALIZED' || c.status === 'REPORT_SUBMITTED';
 
               return (
@@ -728,46 +824,42 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                         )}
                       </div>
 
-                      <p className="text-xs font-bold text-slate-900 mt-1">
-                        Patient: {c.patientName} <span className="text-[10px] text-slate-500 font-mono">({c.patientId})</span>
-                      </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-700">
+                        <span className="font-bold">{c.patientName}</span>
+                        <span className="text-slate-400">|</span>
+                        <span>Patient ID: <span className="font-mono">{c.patientId}</span></span>
+                      </div>
 
-                      <p className="text-[11px] text-slate-600">
-                        Exam: <strong className="text-slate-800">{c.modality || 'X-Ray'} — {c.scanType}</strong>
-                        {c.bodyRegion ? ` · ${c.bodyRegion}` : ''} &middot; Clinic: {c.clinicName}
+                      <p className="text-xs text-slate-500">
+                        <span className="font-semibold text-slate-700">{c.modality || 'X-Ray'}</span> — {c.scanType}
+                        {c.bodyRegion ? ` • ${c.bodyRegion}` : ''}
+                        {c.notes ? ` • ${c.notes}` : ''}
                       </p>
-
-                      <p className="text-[11px] text-slate-500">
-                        Indication: {getCaseIndication(c)} &middot; Registered by: {getCaseRegistrar(c)}
+                      <p className="text-[11px] text-slate-400">
+                        Facility: <span className="font-medium text-slate-600">{c.originatingCenterName || c.clinicName || '—'}</span> •
+                        Registrar: <span className="font-medium text-slate-600">{getCaseRegistrar(c)}</span> •
+                        Registered: {new Date(c.createdAt).toLocaleDateString()}
                       </p>
-
-                      {c.radiographerFindings && (
-                        <p className="text-[11px] text-teal-800 bg-teal-50 p-1.5 rounded border border-teal-200 mt-1">
-                          <strong className="font-semibold">Radiographer Notes:</strong> {c.radiographerFindings}
-                        </p>
-                      )}
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
-                      <Link to={`/case/${c.id}`} className="btn-secondary text-xs">
-                        View Details
-                      </Link>
-
+                    <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
                       {!isFinal ? (
                         <button
                           type="button"
                           onClick={() => startAuthoringCase(c)}
-                          className="btn-primary text-xs flex items-center gap-1 px-3 py-1.5"
+                          className="btn-primary text-xs py-2 px-3.5 flex items-center gap-1.5 shadow-xs"
                         >
                           <FileText className="w-3.5 h-3.5" />
-                          <span>Review &amp; Author Report</span>
+                          <span>Author Report</span>
                         </button>
                       ) : (
                         <button
                           type="button"
-                          onClick={() => startAuthoringCase(c)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                          onClick={() => {
+                            setSelectedCaseId(c.id);
+                            setActiveTab('reporting');
+                          }}
+                          className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>View Report</span>
@@ -779,11 +871,15 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
               );
             })}
 
-            {activeQueueCases.length === 0 && (
+            {filteredQueueCases.length === 0 && (
               <div className="card p-12 text-center text-slate-400 space-y-2 bg-white">
                 <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" />
-                <h3 className="text-sm font-bold text-slate-700">Queue is Clear</h3>
-                <p className="text-xs text-slate-500">No pending medical scans awaiting review in this section.</p>
+                <h3 className="text-sm font-bold text-slate-700">No Cases Found</h3>
+                <p className="text-xs text-slate-500">
+                  {queueSearch || queueModalityFilter !== 'all' || queueSeverityFilter !== 'all'
+                    ? 'No medical scans match the specified search and filter criteria.'
+                    : 'No pending medical scans awaiting review in this section.'}
+                </p>
               </div>
             )}
           </div>
