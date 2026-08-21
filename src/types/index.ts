@@ -365,11 +365,20 @@ export interface Case {
   referringDoctorId?: string;
   referringDoctorName?: string;
 
-  /** Escalation tracking from MO to Specialist Radiologist */
+  /** Escalation tracking from MO to Specialist Radiologist (In-House 2nd Opinion) */
   isEscalated?: boolean;
   escalationReason?: string;
   escalatedBy?: string;
   escalatedAt?: string;
+  assignedRadiologistId?: string;
+  assignedRadiologistName?: string;
+  preliminaryFindings?: string;
+  preliminaryImpression?: string;
+  preliminarySuggestions?: string;
+  preliminaryAuthorId?: string;
+  preliminaryAuthorName?: string;
+  preliminaryAuthorRole?: string;
+  preliminarySubmittedAt?: string;
 
   /** Critical Finding Emergency Alert (Red Flag) */
   isCriticalFinding?: boolean;

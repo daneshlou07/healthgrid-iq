@@ -168,6 +168,7 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
   const {
     cases,
     reports,
+    users,
     crossOrgReferrals,
     addReport,
     addReportAddendum,
@@ -181,6 +182,19 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
 
   const isRadiologist = currentUser?.role === 'Radiologist';
   const isDoctor = currentUser?.role === 'Medical Officer';
+
+  const userCenterId = currentUser?.healthcareCenterId || currentUser?.deploymentLocationId;
+  const userCenterName = currentUser?.healthcareCenterName || 'In-House Healthcare Center';
+
+  // In-House Radiologists belonging strictly to the Medical Officer's healthcare center
+  const inHouseRadiologists = useMemo(() => {
+    if (!users || !currentUser) return [];
+    return users.filter(
+      (u) =>
+        u.role === 'Radiologist' &&
+        (u.healthcareCenterId === userCenterId || u.deploymentLocationId === userCenterId)
+    );
+  }, [users, currentUser, userCenterId]);
 
   // ── ACTIVE TAB ────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'incoming' | 'escalated' | 'reporting' | 'archive'>(() => {
@@ -205,8 +219,18 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
   const [saving, setSaving] = useState(false);
   const [isVisionAiAnalyzing, setIsVisionAiAnalyzing] = useState(false);
   const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [selectedRadiologistId, setSelectedRadiologistId] = useState<string>('');
   const [escalateReason, setEscalateReason] = useState('Suspected Abnormality / Requires Specialist Opinion');
   const [escalateNotes, setEscalateNotes] = useState('');
+
+  // Auto-select first in-house radiologist when list changes
+  useEffect(() => {
+    if (inHouseRadiologists.length > 0) {
+      setSelectedRadiologistId(inHouseRadiologists[0].id);
+    } else {
+      setSelectedRadiologistId('');
+    }
+  }, [inHouseRadiologists]);
 
   // ── ADDENDUM MODAL STATE ─────────────────────────────────────────────────
   const [showAddendumModal, setShowAddendumModal] = useState(false);
@@ -309,11 +333,11 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
       setIsCriticalFinding(!!existingReport.isCriticalFinding);
       setCriticalFindingNote(existingReport.criticalFindingNote || '');
     } else {
-      setFindings(selectedCase.radiographerFindings || '');
-      setImpression(selectedCase.radiographerImpression || '');
-      setSuggestions('');
-      setIsCriticalFinding(false);
-      setCriticalFindingNote('');
+      setFindings(selectedCase.preliminaryFindings || selectedCase.radiographerFindings || '');
+      setImpression(selectedCase.preliminaryImpression || selectedCase.radiographerImpression || '');
+      setSuggestions(selectedCase.preliminarySuggestions || '');
+      setIsCriticalFinding(!!selectedCase.isCriticalFinding);
+      setCriticalFindingNote(selectedCase.criticalFindingNote || '');
     }
   }, [selectedCase?.id, existingReport]);
 
@@ -410,17 +434,35 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
     }
   };
 
-  // Escalate to Hospital Specialist Radiologist (Teleradiology)
+  // Request In-House Radiologist Review (2nd Opinion with Preliminary Report Draft Attached)
   const handleConfirmEscalation = async () => {
     if (!selectedCase || !currentUser) return;
     setSaving(true);
     try {
+      const assignedRad = inHouseRadiologists.find((r) => r.id === selectedRadiologistId) || inHouseRadiologists[0];
+      const radId = assignedRad?.id || selectedCase.radiologistId || '';
+      const radName = assignedRad?.name || selectedCase.radiologistName || 'In-House Radiologist';
+
       await editCase(selectedCase.id, {
         status: 'RADIOLOGIST_REVIEW',
         routedToRole: 'Radiologist',
         isEscalated: true,
         secondOpinionRequested: true,
-        notes: escalateNotes.trim() ? `${selectedCase.notes || ''}\n[Escalation Reason: ${escalateReason}] ${escalateNotes}` : selectedCase.notes,
+        assignedRadiologistId: radId,
+        assignedRadiologistName: radName,
+        radiologistId: radId,
+        radiologistName: radName,
+        preliminaryFindings: findings.trim() || undefined,
+        preliminaryImpression: impression.trim() || undefined,
+        preliminarySuggestions: suggestions.trim() || undefined,
+        preliminaryAuthorId: currentUser.id,
+        preliminaryAuthorName: currentUser.name,
+        preliminaryAuthorRole: currentUser.role,
+        preliminarySubmittedAt: new Date().toISOString(),
+        escalationReason: escalateReason,
+        notes: escalateNotes.trim()
+          ? `${selectedCase.notes || ''}\n[In-House 2nd Opinion (${escalateReason}) assigned to ${radName}]: ${escalateNotes}`
+          : selectedCase.notes,
       });
 
       await addAuditLog({
@@ -429,15 +471,15 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
         userRole: currentUser.role,
         action: 'CASE_ESCALATED_TO_RADIOLOGIST',
         target: `cases/${selectedCase.id}`,
-        details: `Medical Officer ${currentUser.name} escalated Case #${selectedCase.caseNumber} to Hospital Specialist Radiologist for formal secondary opinion (${escalateReason}).`,
+        details: `Medical Officer ${currentUser.name} requested In-House 2nd Opinion for Case #${selectedCase.caseNumber} and assigned to In-House Radiologist ${radName} (${escalateReason}) with preliminary draft report attached.`,
         timestamp: new Date().toISOString(),
       });
 
-      toast.success(`Case ${selectedCase.caseNumber} escalated to Hospital Specialist Radiologist.`);
+      toast.success(`Case ${selectedCase.caseNumber} and preliminary draft assigned to ${radName}.`);
       setShowEscalateModal(false);
       setActiveTab('incoming');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to escalate case.');
+      toast.error(err.message || 'Failed to assign to in-house radiologist.');
     } finally {
       setSaving(false);
     }
@@ -579,11 +621,10 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
             setActiveTab('incoming');
             setSearchParams({});
           }}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'incoming'
-              ? 'border-[#0F4C42] text-[#0F4C42]'
-              : 'border-transparent text-surface-500 hover:text-surface-800'
-          }`}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === 'incoming'
+            ? 'border-[#0F4C42] text-[#0F4C42]'
+            : 'border-transparent text-surface-500 hover:text-surface-800'
+            }`}
         >
           <Clock className="w-4 h-4" />
           New Scans ({incomingCases.length})
@@ -595,11 +636,10 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
             setActiveTab('escalated');
             setSearchParams({});
           }}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'escalated'
-              ? 'border-[#0F4C42] text-[#0F4C42]'
-              : 'border-transparent text-surface-500 hover:text-surface-800'
-          }`}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === 'escalated'
+            ? 'border-[#0F4C42] text-[#0F4C42]'
+            : 'border-transparent text-surface-500 hover:text-surface-800'
+            }`}
         >
           <Send className="w-4 h-4" />
           Sent to Specialist ({escalatedCases.length})
@@ -608,11 +648,10 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
         <button
           type="button"
           onClick={() => setActiveTab('reporting')}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'reporting'
-              ? 'border-[#0F4C42] text-[#0F4C42]'
-              : 'border-transparent text-surface-500 hover:text-surface-800'
-          }`}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === 'reporting'
+            ? 'border-[#0F4C42] text-[#0F4C42]'
+            : 'border-transparent text-surface-500 hover:text-surface-800'
+            }`}
         >
           <FileText className="w-4 h-4" />
           Write Report Desk {selectedCase ? `(Case #${selectedCase.caseNumber})` : ''}
@@ -624,11 +663,10 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
             setActiveTab('archive');
             setSearchParams({});
           }}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'archive'
-              ? 'border-[#0F4C42] text-[#0F4C42]'
-              : 'border-transparent text-surface-500 hover:text-surface-800'
-          }`}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === 'archive'
+            ? 'border-[#0F4C42] text-[#0F4C42]'
+            : 'border-transparent text-surface-500 hover:text-surface-800'
+            }`}
         >
           <Printer className="w-4 h-4" />
           Reports Archive ({reports.length})
@@ -643,11 +681,10 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
         <button
           type="button"
           onClick={() => setActiveTab('incoming')}
-          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-            activeTab === 'incoming'
-              ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
-              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-          }`}
+          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${activeTab === 'incoming'
+            ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+            }`}
         >
           <div className="w-9 h-9 shrink-0 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
             <Clock className="w-4 h-4" />
@@ -662,11 +699,10 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
         <button
           type="button"
           onClick={() => setActiveTab('escalated')}
-          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-            activeTab === 'escalated'
-              ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
-              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-          }`}
+          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${activeTab === 'escalated'
+            ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+            }`}
         >
           <div className="w-9 h-9 shrink-0 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
             <Send className="w-4 h-4" />
@@ -681,11 +717,10 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
         <button
           type="button"
           onClick={() => setActiveTab('archive')}
-          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-            activeTab === 'archive'
-              ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
-              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-          }`}
+          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${activeTab === 'archive'
+            ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+            }`}
         >
           <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <FileCheck2 className="w-4 h-4" />
@@ -1290,10 +1325,12 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                         type="button"
                         onClick={handleGenerateAiDraft}
                         disabled={isVisionAiAnalyzing}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-bold transition-colors"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold transition-all"
                       >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        {isVisionAiAnalyzing ? 'Analyzing...' : 'Generate AI Draft'}
+                        <Sparkles
+                          className={`w-3.5 h-3.5 ${isVisionAiAnalyzing ? 'animate-pulse' : ''}`}
+                        />
+                        {isVisionAiAnalyzing ? 'Analyzing…' : 'Analyze with AI'}
                       </button>
                     )}
                   </div>
@@ -1319,6 +1356,30 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                         This report was officially signed by <strong className="text-slate-900">{existingReport?.radiologistName || selectedCase.radiologistName || 'Attending Doctor'}</strong> ({existingReport?.signedByRole || 'Medical Officer'}) on{' '}
                         <strong>{existingReport?.signedAt ? new Date(existingReport.signedAt).toLocaleString() : 'Finalized'}</strong>.
                         To maintain clinical audit integrity and legal compliance, finalized reports cannot be edited. If supplementary findings are required, please use <strong>+ Add Clinical Addendum</strong>.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* In-House 2nd Opinion Context Banner */}
+                  {!isCaseFinalized && selectedCase.isEscalated && selectedCase.preliminaryAuthorName && (
+                    <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-4 text-purple-950 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Send className="w-4 h-4 text-purple-700 shrink-0" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-purple-900">
+                            In-House 2nd Opinion Review
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded border border-purple-200 inline-flex items-center gap-1 w-fit">
+                          <User className="w-3 h-3 text-purple-600" />
+                          Preliminary Draft by {selectedCase.preliminaryAuthorName} ({selectedCase.preliminaryAuthorRole || 'Medical Officer'})
+                        </span>
+                      </div>
+                      <p className="text-xs text-purple-900 leading-relaxed">
+                        <strong>Reason:</strong> {selectedCase.escalationReason || 'Suspected Abnormality / Requires Specialist Opinion'}
+                      </p>
+                      <p className="text-[11px] text-purple-700">
+                        The preliminary findings and impressions entered by {selectedCase.preliminaryAuthorName} have been pre-filled below for your in-house specialist review, refinement, and final sign-off.
                       </p>
                     </div>
                   )}
@@ -1350,16 +1411,15 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
 
                     <textarea
                       required
-                      readOnly={isCaseFinalized}
+                      disabled={isCaseFinalized}
                       value={findings}
                       onChange={(e) => setFindings(e.target.value)}
                       placeholder="Describe the radiological findings..."
                       rows={7}
-                      className={`w-full resize-y min-h-[160px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed transition ${
-                        isCaseFinalized
-                          ? 'bg-slate-50 border border-slate-200 text-slate-900 font-medium cursor-default focus:outline-none'
-                          : 'bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
-                      }`}
+                      className={`w-full resize-y min-h-[160px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed transition ${isCaseFinalized
+                        ? 'bg-slate-50 border border-slate-200 text-slate-900 font-medium cursor-default focus:outline-none'
+                        : 'bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
+                        }`}
                     />
                   </div>
 
@@ -1373,7 +1433,7 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                         </label>
 
                         <span className="text-[10px] text-slate-400">
-                          Primary diagnostic conclusion
+                          Primary radiological diagnosis or conclusion
                         </span>
                       </div>
 
@@ -1390,58 +1450,47 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
 
                     <textarea
                       required
-                      readOnly={isCaseFinalized}
+                      disabled={isCaseFinalized}
                       value={impression}
                       onChange={(e) => setImpression(e.target.value)}
                       placeholder="Enter the primary diagnostic impression..."
                       rows={4}
-                      className={`w-full resize-y min-h-[95px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed font-medium transition ${
-                        isCaseFinalized
-                          ? 'bg-slate-50 border border-slate-200 text-slate-900 cursor-default focus:outline-none'
-                          : 'bg-slate-50/70 border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
-                      }`}
+                      className={`w-full resize-y min-h-[95px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed font-medium transition ${isCaseFinalized
+                        ? 'bg-slate-50 border border-slate-200 text-slate-900 cursor-default focus:outline-none'
+                        : 'bg-slate-50/70 border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
+                        }`}
                     />
                   </div>
 
                   {/* Recommendations */}
                   <div>
-                    <div className="flex items-end justify-between gap-3 mb-2">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-900">
-                          Recommendations &amp; Follow-up
-                        </label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                      Clinical Recommendations / Suggestions
+                    </label>
 
-                        <span className="text-[10px] text-slate-400">
-                          Clinical follow-up, further investigation, or specialty referral
-                        </span>
-                      </div>
-
-                      <span className="text-[10px] text-slate-400">
-                        {isCaseFinalized ? 'Archived' : 'Optional'}
-                      </span>
-                    </div>
+                    <p className="text-[10px] text-slate-400 mb-2">
+                      Optional recommendations for follow-up imaging, biopsy, clinical correlation, or patient management
+                    </p>
 
                     <textarea
-                      readOnly={isCaseFinalized}
+                      disabled={isCaseFinalized}
                       value={suggestions}
                       onChange={(e) => setSuggestions(e.target.value)}
                       placeholder="Add follow-up imaging, referral, or other clinical recommendations..."
                       rows={3}
-                      className={`w-full resize-y min-h-[75px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed transition ${
-                        isCaseFinalized
-                          ? 'bg-slate-50 border border-slate-200 text-slate-900 cursor-default focus:outline-none'
-                          : 'bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
-                      }`}
+                      className={`w-full resize-y min-h-[75px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed transition ${isCaseFinalized
+                        ? 'bg-slate-50 border border-slate-200 text-slate-900 cursor-default focus:outline-none'
+                        : 'bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
+                        }`}
                     />
                   </div>
 
                   {/* Critical finding */}
                   <div
-                    className={`rounded-lg border transition-colors ${
-                      isCriticalFinding
-                        ? 'border-red-300 bg-red-50'
-                        : 'border-slate-200 bg-slate-50'
-                    }`}
+                    className={`rounded-lg border transition-colors ${isCriticalFinding
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-slate-200 bg-slate-50'
+                      }`}
                   >
                     <label className={`flex items-start gap-3 p-3.5 ${isCaseFinalized ? 'cursor-default' : 'cursor-pointer'}`}>
                       <input
@@ -1456,21 +1505,19 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
 
                       <div>
                         <span
-                          className={`block text-xs font-bold ${
-                            isCriticalFinding
-                              ? 'text-red-900'
-                              : 'text-slate-800'
-                          }`}
+                          className={`block text-xs font-bold ${isCriticalFinding
+                            ? 'text-red-900'
+                            : 'text-slate-800'
+                            }`}
                         >
                           Critical / Urgent Finding
                         </span>
 
                         <span
-                          className={`block text-[10px] mt-0.5 ${
-                            isCriticalFinding
-                              ? 'text-red-700'
-                              : 'text-slate-500'
-                          }`}
+                          className={`block text-[10px] mt-0.5 ${isCriticalFinding
+                            ? 'text-red-700'
+                            : 'text-slate-500'
+                            }`}
                         >
                           Mark this report for immediate clinical notification.
                         </span>
@@ -1479,18 +1526,14 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
 
                     {isCriticalFinding && (
                       <div className="px-3.5 pb-3.5">
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-red-800 mb-1.5">
-                          Urgent Action / Notification Note
-                        </label>
-
                         <input
                           type="text"
-                          readOnly={isCaseFinalized}
+                          disabled={isCaseFinalized}
                           value={criticalFindingNote}
                           onChange={(e) =>
                             setCriticalFindingNote(e.target.value)
                           }
-                          placeholder="Specify the urgent action required..."
+                          placeholder="e.g., Immediate notification: pneumothorax, intracranial hemorrhage..."
                           className="w-full h-9 px-3 bg-white border border-red-300 rounded-lg text-xs text-red-950 placeholder:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 read-only:bg-red-50/50"
                         />
                       </div>
@@ -1570,10 +1613,10 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                           <button
                             type="button"
                             onClick={() => setShowEscalateModal(true)}
-                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-purple-200 bg-white text-purple-800 hover:bg-purple-50 text-xs font-bold transition-colors"
+                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-purple-200 bg-white text-purple-700 hover:bg-purple-50 hover:border-purple-300 text-xs font-semibold transition-all"
                           >
                             <Send className="w-3.5 h-3.5" />
-                            Escalate to Radiologist
+                            Request In-House Radiologist Review
                           </button>
                         )}
                       </div>
@@ -1597,7 +1640,9 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
 
                           {saving
                             ? 'Signing Report...'
-                            : 'Sign & Finalize Report'}
+                            : isRadiologist
+                              ? 'Sign & Finalize Specialist Report'
+                              : 'Sign & Finalize Report'}
                         </button>
                       </div>
                     </div>
@@ -1608,11 +1653,11 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
           )}
 
           {/* ================================================================
-              ESCALATION MODAL
+              IN-HOUSE RADIOLOGIST 2ND OPINION MODAL
           ================================================================= */}
           {showEscalateModal && (
             <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+              <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                 {/* Modal header */}
                 <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -1622,11 +1667,11 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
 
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">
-                        Escalate Case
+                        Request In-House Radiologist Review
                       </h3>
 
                       <p className="text-[10px] text-slate-500">
-                        Request specialist radiologist review
+                        Facility: <strong className="text-slate-700">{userCenterName}</strong> (Internal 2nd Opinion)
                       </p>
                     </div>
                   </div>
@@ -1641,17 +1686,71 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                 </div>
 
                 {/* Modal content */}
-                <div className="p-5 space-y-4">
-                  <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg">
-                    <p className="text-[11px] leading-relaxed text-purple-900">
-                      This case will be routed to the central hospital radiology
-                      network for formal secondary review.
+                <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+                  {/* Attached Preliminary Draft Card */}
+                  {(findings.trim() || impression.trim()) ? (
+                    <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-slate-800">
+                          <FileText className="w-3.5 h-3.5 text-[#0F4C42]" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800">
+                            Preliminary Report Attached
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Auto-Forwarded to Radiologist
+                        </span>
+                      </div>
+                      {findings.trim() && (
+                        <p className="text-xs text-slate-700 line-clamp-2">
+                          <strong className="text-slate-900">Findings:</strong> {findings}
+                        </p>
+                      )}
+                      {impression.trim() && (
+                        <p className="text-xs text-slate-700 line-clamp-1">
+                          <strong className="text-slate-900">Impression:</strong> {impression}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-slate-400">
+                        Drafter: <span className="font-semibold text-slate-600">{currentUser?.name}</span> ({currentUser?.role || 'Medical Officer'})
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-xs">
+                      <strong>Note:</strong> You can type preliminary findings in the main editor before opening this modal so your draft is attached automatically for the radiologist.
+                    </div>
+                  )}
+
+                  {/* 1. Select In-House Radiologist */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      1. Select In-House Center Radiologist *
+                    </label>
+
+                    <select
+                      value={selectedRadiologistId}
+                      onChange={(e) => setSelectedRadiologistId(e.target.value)}
+                      className="w-full h-10 px-3 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/10 focus:border-purple-500 cursor-pointer"
+                    >
+                      {inHouseRadiologists.length > 0 ? (
+                        inHouseRadiologists.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} {r.qualification ? `(${r.qualification})` : ''} {r.specialty ? `— ${r.specialty}` : ''}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">In-House Radiologist on Duty ({userCenterName})</option>
+                      )}
+                    </select>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Showing radiologists registered directly at <span className="font-semibold text-slate-600">{userCenterName}</span>
                     </p>
                   </div>
 
+                  {/* 2. Reason for In-House Review */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Reason for Escalation
+                      2. Reason for In-House Review
                     </label>
 
                     <select
@@ -1659,16 +1758,20 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                       onChange={(e) => setEscalateReason(e.target.value)}
                       className="w-full h-10 px-3 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/10 focus:border-purple-500"
                     >
-                      <option value="Suspected Abnormality / Requires Specialist Opinion">
-                        Suspected Abnormality / Requires Specialist Opinion
+                      <option value="Suspected Abnormality / Requires Specialist 2nd Opinion">
+                        Suspected Abnormality / Requires Specialist 2nd Opinion
+                      </option>
+
+                      <option value="Complex Pathology / Inconclusive Finding">
+                        Complex Pathology / Inconclusive Finding
                       </option>
 
                       <option value="Pediatric Complex Case">
                         Pediatric Complex Case
                       </option>
 
-                      <option value="Suspected Trauma / Fracture">
-                        Suspected Trauma / Fracture
+                      <option value="Suspected Trauma / Fracture Confirmation">
+                        Suspected Trauma / Fracture Confirmation
                       </option>
 
                       <option value="Unclear Image Artifacts">
@@ -1681,16 +1784,17 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                     </select>
                   </div>
 
+                  {/* 3. Clinical Questions / Notes */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Clinical Questions / Notes
+                      3. Clinical Questions / Specific Inquiry for Radiologist
                     </label>
 
                     <textarea
                       value={escalateNotes}
                       onChange={(e) => setEscalateNotes(e.target.value)}
-                      placeholder="Describe what you would like the specialist to review..."
-                      rows={4}
+                      placeholder="Describe what specific regions or pathologies you would like the in-house specialist to verify..."
+                      rows={3}
                       className="w-full resize-none px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-xs leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/10 focus:border-purple-500"
                     />
                   </div>
@@ -1710,7 +1814,7 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                     type="button"
                     onClick={handleConfirmEscalation}
                     disabled={saving}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-xs font-bold"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-xs font-bold shadow-sm"
                   >
                     <Send className="w-3.5 h-3.5" />
 
