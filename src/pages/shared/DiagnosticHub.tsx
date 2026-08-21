@@ -1238,23 +1238,6 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                     </div>
                   )}
                 </div>
-
-                {/* Clinical context */}
-                <div className="px-4 pb-4">
-                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#0F4C42]" />
-
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Clinical Indication
-                      </span>
-                    </div>
-
-                    <p className="text-xs leading-relaxed text-slate-700">
-                      {getCaseIndication(selectedCase)}
-                    </p>
-                  </div>
-                </div>
               </section>
 
               {/* ============================================================
