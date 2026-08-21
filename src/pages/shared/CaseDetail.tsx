@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
-import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload, QrCode, Smartphone, Navigation, MapPin, Share2 } from 'lucide-react';
+import { ArrowLeft, Clock, User, Building2, FileText, Send, Copy, CheckCircle, ClipboardList, Calendar, AlertTriangle, Upload, QrCode, Smartphone, Navigation, MapPin, Share2, Lock, History } from 'lucide-react';
 import { loadImages } from '../../services/imageStorage';
 import { getCaseIndication, getCaseRegistrar } from '../../utils/caseDisplay';
 import RadiologyWorksheet from './RadiologyWorksheet';
@@ -45,7 +45,7 @@ export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { cases, patients, reports, clinics, users, addComment, getCommentsForCase, addRecentItem, addAuditLog, editCase } = useData();
+  const { cases, patients, reports, clinics, users, addComment, getCommentsForCase, addRecentItem, addAuditLog, editCase, getScopedCases } = useData();
   const [activeTab, setActiveTab] = useState<'overview' | 'worksheet'>('overview');
   const [newMessage, setNewMessage] = useState('');
   const [copied, setCopied] = useState(false);
@@ -71,6 +71,28 @@ export default function CaseDetail() {
 
   const caseItem = cases.find((c) => c.id === caseId);
   if (!caseItem) return <div className="text-center py-20 text-surface-400">Case not found.</div>;
+
+  const authorizedCases = getScopedCases ? getScopedCases() : cases;
+  const isAuthorized = authorizedCases.some((c) => c.id === caseId);
+
+  if (!isAuthorized) {
+    return (
+      <div className="card p-8 max-w-lg mx-auto my-12 text-center space-y-4 border-amber-200 bg-amber-50">
+        <AlertTriangle className="w-12 h-12 text-amber-600 mx-auto" />
+        <h2 className="text-lg font-bold text-slate-900">Access Restricted</h2>
+        <p className="text-sm text-slate-600">
+          This case originated from <strong>{caseItem.originatingCenterName || caseItem.clinicName || 'another facility'}</strong> and has not been referred to your healthcare center.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="btn-secondary text-xs"
+        >
+          Return to My Workspace
+        </button>
+      </div>
+    );
+  }
 
   const patient = patients.find((p) => p.id === caseItem.patientId);
   const report = reports.find((r) => r.caseId === caseId);
@@ -465,8 +487,18 @@ export default function CaseDetail() {
 
           {/* Report (if exists) */}
           {report && (
-            <div className="card">
-              <h2 className="section-title mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-navy-600" /> Diagnostic Report</h2>
+            <div className="card border-emerald-200/80 bg-white">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-surface-200">
+                <h2 className="section-title flex items-center gap-2 text-navy-900">
+                  <FileText className="w-4 h-4 text-navy-600" />
+                  <span>Diagnostic Report</span>
+                </h2>
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded border border-emerald-200 flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-emerald-700" />
+                  Signed &amp; Finalized
+                </span>
+              </div>
+
               <div className="space-y-3">
                 {/* Scan Images */}
                 {(report.imageKeys && report.imageKeys.length > 0) || (caseItem.images && caseItem.images.length > 0) ? (
@@ -475,10 +507,54 @@ export default function CaseDetail() {
                     <CaseImages imageKeys={report.imageKeys && report.imageKeys.length > 0 ? report.imageKeys : caseItem.images} />
                   </div>
                 ) : null}
-                <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Findings</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700 whitespace-pre-line">{report.findings}</div></div>
-                <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Impression</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700 whitespace-pre-line">{report.impression}</div></div>
-                {report.suggestions && <div><p className="text-xs text-surface-500 uppercase font-semibold mb-1">Suggestions</p><div className="bg-surface-100 rounded-lg p-3 text-sm text-surface-700 whitespace-pre-line">{report.suggestions}</div></div>}
-                <p className="text-[10px] text-surface-400">Signed by {report.radiologistName} on {report.signedAt ? new Date(report.signedAt).toLocaleString() : '—'}</p>
+
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Findings</p>
+                  <div className="bg-surface-50 border border-surface-200 rounded-lg p-3 text-sm text-surface-900 whitespace-pre-line leading-relaxed font-medium">
+                    {report.findings}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Impression</p>
+                  <div className="bg-surface-50 border border-surface-200 rounded-lg p-3 text-sm text-surface-900 whitespace-pre-line leading-relaxed font-semibold">
+                    {report.impression}
+                  </div>
+                </div>
+
+                {report.suggestions && (
+                  <div>
+                    <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Recommendations &amp; Follow-up</p>
+                    <div className="bg-surface-50 border border-surface-200 rounded-lg p-3 text-sm text-surface-700 whitespace-pre-line">
+                      {report.suggestions}
+                    </div>
+                  </div>
+                )}
+
+                {/* Addendums */}
+                {report.addendums && report.addendums.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-surface-200">
+                    <div className="flex items-center gap-1.5 text-purple-900 font-bold text-xs">
+                      <History className="w-3.5 h-3.5 text-purple-700" />
+                      <span>Official Clinical Addendums ({report.addendums.length})</span>
+                    </div>
+                    {report.addendums.map((add, idx) => (
+                      <div key={add.id || idx} className="p-3 bg-purple-50/70 border border-purple-200 rounded-lg space-y-1 text-xs">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-purple-950">Addendum #{idx + 1} &middot; {add.reason || 'Clinical Note'}</span>
+                          <span className="text-purple-700 font-mono">{new Date(add.signedAt || add.createdAt).toLocaleString()}</span>
+                        </div>
+                        <p className="text-slate-800 whitespace-pre-wrap leading-relaxed">{add.content}</p>
+                        <p className="text-[10px] text-purple-800 font-medium">Signed by: {add.authorName} ({add.authorRole})</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-2 flex items-center justify-between text-[11px] text-surface-500 border-t border-surface-100">
+                  <span>Signed by <strong>{report.radiologistName}</strong> ({report.signedByRole || 'Clinician'})</span>
+                  <span>{report.signedAt ? new Date(report.signedAt).toLocaleString() : 'Finalized'}</span>
+                </div>
               </div>
             </div>
           )}

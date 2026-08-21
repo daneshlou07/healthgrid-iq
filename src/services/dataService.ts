@@ -24,6 +24,9 @@ import {
   mockAuditLogs,
   mockMobilePacsVans,
   mockRadioSchedules,
+  mockFacilityEquipment,
+  mockBemsIncidents,
+  mockCrossOrgReferrals,
   generateScheduleSlots,
 } from './mockData';
 import type {
@@ -37,10 +40,76 @@ import type {
   AuditLog,
   MobilePacsVan,
   RadioScheduleProfile,
+  FacilityEquipment,
+  BemsIncident,
+  CrossOrganizationReferral,
   CaseStatus,
   PatientRequestStatus,
   ExternalImagingRequest,
+  HealthcareOrganizationType,
+  UserRole,
 } from '../types';
+
+/**
+ * Resolves full multi-tenant healthcare center and organization type context
+ * from the active user profile and known clinics collection.
+ */
+export function resolveUserFacilityContext(user: User | null, clinics: Clinic[] = []): {
+  healthcareCenterId: string;
+  healthcareCenterName: string;
+  organizationType: HealthcareOrganizationType;
+  organizationId: string;
+} {
+  if (!user) {
+    return {
+      healthcareCenterId: 'clinic-001',
+      healthcareCenterName: 'Klinik Kesihatan Bestari Jaya',
+      organizationType: 'Klinik Kesihatan',
+      organizationId: 'org-moh-selangor',
+    };
+  }
+
+  // 1. Resolve Center ID
+  const centerId = user.healthcareCenterId || user.deploymentLocationId || 'clinic-001';
+
+  // 2. Find matching Clinic / Healthcare Center
+  const clinic =
+    clinics.find((c) => c.id === centerId) ||
+    clinics.find((c) => user.healthcareCenterName && c.name.toLowerCase() === user.healthcareCenterName.toLowerCase());
+
+  // 3. Resolve Center Name
+  const centerName = clinic?.name || user.healthcareCenterName || 'Klinik Kesihatan Bestari Jaya';
+
+  // 4. Resolve Organization Type
+  let orgType: HealthcareOrganizationType = user.organizationType || clinic?.organizationType || 'Klinik Kesihatan';
+  if (!user.organizationType && !clinic?.organizationType) {
+    const lower = centerName.toLowerCase();
+    if (lower.includes('kpj') || lower.includes('sunway') || lower.includes('private') || lower.includes('specialist')) {
+      orgType = 'Private Hospital';
+    } else if (lower.includes('hospital') || lower.includes('hkl')) {
+      orgType = 'Public Hospital';
+    } else {
+      orgType = 'Klinik Kesihatan';
+    }
+  }
+
+  // 5. Resolve Organization ID
+  const orgId =
+    user.organizationId ||
+    clinic?.organizationId ||
+    (orgType === 'Klinik Kesihatan'
+      ? 'org-moh-selangor'
+      : orgType === 'Public Hospital'
+      ? 'org-moh-tertiary'
+      : 'org-private-group');
+
+  return {
+    healthcareCenterId: clinic?.id || centerId,
+    healthcareCenterName: centerName,
+    organizationType: orgType,
+    organizationId: orgId,
+  };
+}
 
 // Helper to determine if we use live Firestore or mock data
 function useMock(): boolean {
@@ -62,6 +131,12 @@ export async function getOrganizations(): Promise<HealthcareOrganization[]> {
 
 // ==================== USERS ====================
 export async function getUsers(): Promise<User[]> {
+  let customUsers: User[] = [];
+  try {
+    const raw = localStorage.getItem('healthgrid_custom_users');
+    if (raw) customUsers = JSON.parse(raw);
+  } catch {}
+
   const db = getFirestoreDb();
   if (db && isFirebaseConfigured()) {
     try {
@@ -69,19 +144,31 @@ export async function getUsers(): Promise<User[]> {
       const existingUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
       
       if (existingUsers.length > 0) {
-        return existingUsers;
+        const map = new Map<string, User>();
+        existingUsers.forEach((u) => map.set(u.id, u));
+        customUsers.forEach((u) => {
+          if (!map.has(u.id)) map.set(u.id, u);
+        });
+        return Array.from(map.values());
       }
 
       // Initial seeding only when Firestore collection is completely empty
       for (const u of mockUsers) {
         await setDoc(doc(db, 'users', u.id), u, { merge: true });
       }
-      return [...mockUsers];
+      for (const u of customUsers) {
+        await setDoc(doc(db, 'users', u.id), u, { merge: true });
+      }
+      return [...mockUsers, ...customUsers];
     } catch (e) {
       console.warn('Firestore getUsers fallback to mock:', e);
     }
   }
-  return [...mockUsers];
+
+  const map = new Map<string, User>();
+  mockUsers.forEach((u) => map.set(u.id, u));
+  customUsers.forEach((u) => map.set(u.id, u));
+  return Array.from(map.values());
 }
 
 export async function getUsersByRole(role: string): Promise<User[]> {
@@ -139,6 +226,50 @@ export async function saveUser(user: User): Promise<User> {
   }
 
   return cleanUser;
+}
+
+const CANONICAL_ROLES: Set<UserRole> = new Set([
+  'Medical Officer',
+  'Radiographer',
+  'Radiologist',
+  'Administrator',
+  'BEMS Officer',
+  'Super Admin',
+]);
+
+export function sanitizeUserRole(u: User): User {
+  let role = u.role as string;
+  let orgType = u.organizationType;
+
+  if (role === 'Public Hospital Admin') {
+    role = 'Administrator';
+    orgType = orgType || 'Public Hospital';
+  } else if (role === 'Private Hospital Admin') {
+    role = 'Administrator';
+    orgType = orgType || 'Private Hospital';
+  } else if (role === 'Public Hospital Radiographer') {
+    role = 'Radiographer';
+    orgType = orgType || 'Public Hospital';
+  } else if (role === 'Private Hospital Radiographer') {
+    role = 'Radiographer';
+    orgType = orgType || 'Private Hospital';
+  } else if (role === 'BEMS' || role === 'BEMZ') {
+    role = 'BEMS Officer';
+  } else if (role === 'Master Admin') {
+    role = 'Super Admin';
+  } else if (!CANONICAL_ROLES.has(role as UserRole)) {
+    if (role.includes('Radiographer')) role = 'Radiographer';
+    else if (role.includes('Radiologist')) role = 'Radiologist';
+    else if (role.includes('Admin') || role.includes('admin')) role = 'Administrator';
+    else if (role.includes('BEMS') || role.includes('BEMZ')) role = 'BEMS Officer';
+    else role = 'Medical Officer';
+  }
+
+  return {
+    ...u,
+    role: role as UserRole,
+    organizationType: orgType,
+  };
 }
 
 // ==================== CLINICS ====================
@@ -604,3 +735,49 @@ export async function updateExternalReferral(id: string, updates: Partial<Extern
     localStorage.setItem('healthgrid_external_referrals', JSON.stringify(existing));
   }
 }
+
+export async function getFacilityEquipment(): Promise<FacilityEquipment[]> {
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snap = await getDocs(collection(db, 'facility_equipment'));
+      if (!snap.empty) {
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FacilityEquipment));
+      }
+    } catch (e) {
+      console.warn('Firestore getFacilityEquipment fallback:', e);
+    }
+  }
+  return mockFacilityEquipment;
+}
+
+export async function getBemsIncidents(): Promise<BemsIncident[]> {
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snap = await getDocs(collection(db, 'bems_incidents'));
+      if (!snap.empty) {
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BemsIncident));
+      }
+    } catch (e) {
+      console.warn('Firestore getBemsIncidents fallback:', e);
+    }
+  }
+  return mockBemsIncidents;
+}
+
+export async function getCrossOrgReferrals(): Promise<CrossOrganizationReferral[]> {
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snap = await getDocs(collection(db, 'cross_org_referrals'));
+      if (!snap.empty) {
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as CrossOrganizationReferral));
+      }
+    } catch (e) {
+      console.warn('Firestore getCrossOrgReferrals fallback:', e);
+    }
+  }
+  return mockCrossOrgReferrals;
+}
+

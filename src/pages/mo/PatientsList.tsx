@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { Users, Plus, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -12,11 +13,25 @@ function displayNric(nric: string): string {
 }
 
 export default function PatientsList() {
+  const { currentUser } = useAuth();
   const { patients, cases, getScopedCases } = useData();
   const [search, setSearch] = useState('');
   const scopedCases = getScopedCases ? getScopedCases() : cases;
 
-  const filtered = patients.filter(
+  const userCenterId = currentUser?.healthcareCenterId || currentUser?.deploymentLocationId;
+  const isPlatformOfficer = currentUser?.role === 'Super Admin' || currentUser?.role === 'BEMS Officer';
+
+  const visiblePatients = useMemo(() => {
+    if (isPlatformOfficer || !userCenterId) return patients;
+    const authorizedPatientIds = new Set(scopedCases.map((c) => c.patientId));
+    return patients.filter((p) => {
+      const isLocalOrigin = (p.registeredAtCenterId || p.clinicId || p.primaryClinicId) === userCenterId;
+      const isReferredPatient = authorizedPatientIds.has(p.id);
+      return isLocalOrigin || isReferredPatient;
+    });
+  }, [patients, scopedCases, userCenterId, isPlatformOfficer]);
+
+  const filtered = visiblePatients.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.mrn.toLowerCase().includes(search.toLowerCase()) ||

@@ -253,7 +253,7 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
   },
 ];
 
-export type RoleNavigationConfig = Record<UserRole, string[]>;
+export type RoleNavigationConfig = Partial<Record<UserRole, string[]>>;
 
 export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
   'Medical Officer': [
@@ -273,18 +273,6 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
     'upload_scans',
     'credentials',
   ],
-  'Public Hospital Radiographer': [
-    'dashboard',
-    'scan_queue',
-    'upload_scans',
-    'credentials',
-  ],
-  'Private Hospital Radiographer': [
-    'dashboard',
-    'scan_queue',
-    'upload_scans',
-    'credentials',
-  ],
   'Radiologist': [
     'dashboard',
     'reporting',
@@ -292,22 +280,7 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
   ],
   'BEMS Officer': [
     'dashboard',
-  ],
-  'BEMZ': [
-    'dashboard',
-  ],
-  'BEMS': [
-    'dashboard',
-  ],
-  'Public Hospital Admin': [
-    'dashboard',
-    'public_admin',
-    'track_status',
-  ],
-  'Private Hospital Admin': [
-    'dashboard',
-    'private_admin',
-    'track_status',
+    'bems',
   ],
   'Administrator': [
     'dashboard',
@@ -345,15 +318,6 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
     'users',
     'recycle_bin',
     'audit_logs',
-  ],
-  'Equipment Marketplace': [
-    'dashboard',
-    'marketplace_medical',
-    'marketplace_non_medical',
-    'marketplace_orders',
-    'marketplace_manage',
-    'marketplace_all',
-    'tech_stack',
   ],
 };
 

@@ -72,35 +72,35 @@ export default function ImpersonationBanner() {
   if (!isMasterAdmin && !originalAdminUser) return null;
 
   return (
-    <div className="w-full bg-[#0F172A] border-b border-[#334155] text-white text-[13px] px-4 py-2 flex items-center justify-between shadow-md z-50 shrink-0">
+    <div className="w-full bg-[#0F172A] border-b border-[#334155] text-white text-[12px] sm:text-[13px] px-3 sm:px-4 py-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 shadow-md z-50 shrink-0">
       
       {/* Left Details */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#0A5236] text-emerald-100 rounded text-[11px] font-semibold tracking-wide uppercase">
+      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#0A5236] text-emerald-100 rounded text-[10px] sm:text-[11px] font-semibold tracking-wide uppercase shrink-0">
           <Shield className="w-3.5 h-3.5" />
           Master Super-Admin
         </div>
 
         {originalAdminUser ? (
-          <div className="flex items-center gap-2 text-amber-300 font-medium">
-            <span>Active View:</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 text-amber-300 font-medium text-xs">
+            <span className="hidden sm:inline">Active View:</span>
             <span className="bg-amber-400/20 px-2 py-0.5 rounded text-amber-200 font-semibold flex items-center gap-1">
               <UserCheck className="w-3.5 h-3.5" />
               {currentUser?.name} &middot; <span className="text-amber-100 font-normal">{currentUser?.role}</span>
             </span>
           </div>
         ) : (
-          <span className="text-slate-300">
-            Welcome, <strong>{currentUser?.name || 'Master Admin'}</strong>. Full multi-account access enabled.
+          <span className="text-slate-300 text-xs truncate">
+            Welcome, <strong>{currentUser?.name || 'Master Admin'}</strong>.
           </span>
         )}
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 justify-between md:justify-end flex-wrap">
         {/* Switch Impersonation Dropdown */}
-        <div className="relative flex items-center gap-1.5">
-          <label className="text-[12px] text-slate-400 font-medium hidden sm:inline">Switch Account View:</label>
+        <div className="relative flex items-center gap-1.5 flex-1 md:flex-initial min-w-0">
+          <label className="text-[11px] sm:text-[12px] text-slate-400 font-medium hidden lg:inline shrink-0">Switch Account:</label>
           <select
             onChange={(e) => {
               if (e.target.value) {
@@ -109,7 +109,7 @@ export default function ImpersonationBanner() {
               }
             }}
             value={currentUser?.id || ''}
-            className="px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-[12px] text-slate-100 cursor-pointer focus:outline-none focus:border-emerald-500 max-w-[320px] truncate"
+            className="w-full md:w-auto px-2 sm:px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-[11px] sm:text-[12px] text-slate-100 cursor-pointer focus:outline-none focus:border-emerald-500 max-w-full md:max-w-[320px] truncate"
           >
             <option value="" disabled>-- Select User to Impersonate --</option>
             {allAvailableUsers.map((user) => {
@@ -129,10 +129,10 @@ export default function ImpersonationBanner() {
         {originalAdminUser && (
           <button
             onClick={stopImpersonating}
-            className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-[12px] rounded transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-[11px] sm:text-[12px] rounded transition-colors cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Return to Master Admin
+            <span>Return to Admin</span>
           </button>
         )}
       </div>

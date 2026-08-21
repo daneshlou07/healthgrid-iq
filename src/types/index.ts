@@ -87,7 +87,7 @@ export interface HealthcareCenter {
   longitude: number;
   phone: string;
   fax?: string;
-  email: string;
+  email?: string;
   operatingHours?: string;
   status: EntityStatus;
   googlePlaceId?: string;
@@ -113,10 +113,18 @@ export interface User {
   createdAt: string;
   
   /** 
+   * Primary organization classification ('Klinik Kesihatan' | 'Public Hospital' | 'Private Hospital').
+   * Undefined for platform-level roles (Super Admin, BEMS Officer).
+   */
+  organizationType?: HealthcareOrganizationType;
+  organizationId?: string;
+
+  /** 
    * Primary organizational affiliation (Source of Truth). 
    * Undefined for platform-level roles (Super Admin, BEMS Officer).
    */
   healthcareCenterId?: string;
+  healthcareCenterName?: string;
 
   /** @deprecated Transitional backward-compatibility alias for healthcareCenterId. */
   deploymentLocationId?: string;
@@ -155,6 +163,16 @@ export interface Patient {
   preferredClinicName?: string;
   clinicId?: string;
   clinicName?: string;
+  /** Registration Origin & Attribution */
+  registeredById?: string;
+  registeredByName?: string;
+  registeredByRole?: string;
+  registeredAtCenterId?: string;
+  registeredAtCenterName?: string;
+  registeredAtOrgType?: HealthcareOrganizationType;
+  registeredAtOrgId?: string;
+  primaryClinicId?: string;
+  primaryClinicName?: string;
   /** MOH Form — Field 7 Etnik */
   ethnicity?: string;
   /** MOH Form — Field 16 Status Bayaran (Citizenship: Malaysian / Non-Malaysian) */
@@ -202,9 +220,10 @@ export interface Case {
   wardOrClinic?: string;
   /** MOH Field 11 — Disiplin (Requesting Specialty / Department) */
   disiplin?: string;
-  /** Radiology Department staff member who registered the case. */
+  /** Staff member / clinician who registered the case. */
   registeredById?: string;
   registeredByName?: string;
+  registeredByRole?: string;
   radiographerId?: string;
   radiographerName?: string;
   radiologistId?: string;
@@ -212,6 +231,7 @@ export interface Case {
   /** Originating Healthcare Center ID (Source of Truth for Case Ownership). Links to HealthcareCenter.id */
   originatingCenterId?: string;
   originatingCenterName?: string;
+  originatingOrganizationType?: HealthcareOrganizationType;
   originatingOrganizationId?: string;
   /** @deprecated Transitional backward-compatibility alias for originatingCenterId */
   clinicId?: string;
@@ -379,10 +399,30 @@ export interface Case {
   externalFacilityType?: 'Public Hospital' | 'Private Hospital';
   externalFacilityId?: string;
   externalFacilityName?: string;
+  /** Alias for externalFacilityId */
+  assignedFacilityId?: string;
+  assignedFacilityName?: string;
   externalRadiographerId?: string;
   externalRadiographerName?: string;
   externalAdminId?: string;
   externalAdminName?: string;
+
+  /** Linked physical machine ID used or failed */
+  equipmentId?: string;
+  /** Linked BEMS incident ticket if equipment breakdown occurred */
+  incidentId?: string;
+
+  /** POC Milestone Timestamps (ISO 8601) */
+  lifecycleTimestamps?: {
+    caseCreatedAt: string;
+    scheduledAt?: string;
+    patientArrivedAt?: string;
+    scanStartedAt?: string;
+    scanCompletedAt?: string;
+    radiologistReviewStartedAt?: string;
+    reportSignedAt?: string;
+    moReviewCompletedAt?: string;
+  };
 
   /** @deprecated Read-only support for cases created before the symptom workflow. */
   disease?: string;
@@ -445,8 +485,204 @@ export interface ExternalImagingRequest {
 }
 
 // ---------------------------------------------------------------------------
-// 4.5 Report Entity
+// 4.4.2 Operational Modalities & Physical Facility Equipment
 // ---------------------------------------------------------------------------
+export type ImagingModality = 
+  | 'X-Ray' 
+  | 'CT' 
+  | 'MRI' 
+  | 'Ultrasound' 
+  | 'Mammography' 
+  | 'Fluoroscopy' 
+  | 'PET-CT'
+  | 'Mobile PACS';
+
+export type EquipmentOperationalStatus = 
+  | 'Available' 
+  | 'In Use' 
+  | 'In Transit' 
+  | 'Maintenance' 
+  | 'Offline' 
+  | 'Retired';
+
+export interface FacilityEquipment {
+  id: string; // e.g. "eq-kk-ijok-xray-01", "eq-htk-ct-01"
+  healthcareCenterId: string; // Source of truth for facility location
+  healthcareCenterName: string;
+  name: string; // e.g. "Siemens Multix Impact Digital X-Ray"
+  modality: ImagingModality;
+  modelNumber: string;
+  manufacturer: string;
+  serialNumber: string;
+  roomOrLocation: string; // e.g. "Bilik X-Ray 1", "CT Suite 1"
+  status: EquipmentOperationalStatus;
+  installationDate?: string;
+  lastMaintenanceDate?: string;
+  nextMaintenanceDue?: string;
+  currentIncidentId?: string;
+  operationalNotes?: string;
+}
+
+// ---------------------------------------------------------------------------
+// 4.4.3 BEMS Incident Entity
+// ---------------------------------------------------------------------------
+export type BemsIncidentStatus = 
+  | 'REPORTED' 
+  | 'TRIAGED' 
+  | 'WORK_ORDER_ISSUED' 
+  | 'IN_MAINTENANCE' 
+  | 'RESOLVED' 
+  | 'CLOSED';
+
+export type BemsIncidentSeverity = 'Routine' | 'Urgent' | 'Critical Breakdown';
+
+export interface BemsIncident {
+  id: string; // e.g. "inc-2026-001"
+  incidentNumber: string; // e.g. "INC-20260821-01"
+  equipmentId: string; // Links to FacilityEquipment.id
+  equipmentName: string;
+  modality: ImagingModality;
+  healthcareCenterId: string; // Originating facility of broken machine
+  healthcareCenterName: string;
+  reportedByUserId: string;
+  reportedByUserName: string;
+  reportedByUserRole: UserRole;
+  issueReason: MachineIssueReason;
+  issueDetails: string;
+  severity: BemsIncidentSeverity;
+  status: BemsIncidentStatus;
+  associatedCaseId?: string; // Case impacted if breakdown occurred during exam
+  bemsOfficerId?: string;
+  bemsOfficerName?: string;
+  workOrderNumber?: string;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+}
+
+// ---------------------------------------------------------------------------
+// 4.4.4 First-Class Cross-Organization Referral Entity
+// ---------------------------------------------------------------------------
+export type CrossOrgReferralStatus = 
+  | 'REQUESTED'
+  | 'BEMS_REVIEW'
+  | 'ALLOCATED'
+  | 'DISPATCHED'
+  | 'ACCEPTED'
+  | 'RADIOGRAPHER_ASSIGNED'
+  | 'IMAGING_COMPLETED'
+  | 'RADIOLOGIST_REPORTING'
+  | 'REPORT_SIGNED'
+  | 'RETURNED'
+  | 'CLOSED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export interface CrossOrganizationReferral {
+  id: string; // e.g. "ref-2026-001"
+  referralNumber: string; // e.g. "REF-20260821-001"
+  caseId: string;
+  caseNumber: string;
+  patientId: string;
+  patientName: string;
+  modality: ImagingModality;
+  urgency: 'Routine' | 'Urgent' | 'Emergency';
+  
+  // Originating Entity (Clinical Owner)
+  originatingCenterId: string;
+  originatingCenterName: string;
+  originatingOrganizationId?: string;
+  requestedByUserId: string;
+  requestedByUserName: string;
+  requestedByUserRole: UserRole;
+  referralReason: string;
+  incidentId?: string; // If triggered by equipment breakdown
+
+  // Receiving Entity (Service Provider)
+  receivingCenterId?: string;
+  receivingCenterName?: string;
+  receivingOrganizationId?: string;
+  receivingFacilityType?: HealthcareOrganizationType;
+
+  // BEMS Governance
+  bemsOfficerId?: string;
+  bemsOfficerName?: string;
+  bemsAllocationNotes?: string;
+
+  // Receiving Facility Actors
+  receivingAdminId?: string;
+  receivingAdminName?: string;
+  assignedRadiographerId?: string;
+  assignedRadiographerName?: string;
+  assignedRadiologistId?: string;
+  assignedRadiologistName?: string;
+
+  // Clinical & Workflow Artifacts
+  uploadedImageKeys?: string[];
+  reportId?: string;
+  status: CrossOrgReferralStatus;
+  rejectionReason?: string;
+
+  // POC Measurement Milestones (ISO 8601 Timestamps)
+  timestamps: {
+    requestedAt: string;
+    bemsAllocatedAt?: string;
+    dispatchedAt?: string;
+    acceptedAt?: string;
+    radiographerAssignedAt?: string;
+    imagingStartedAt?: string;
+    imagingCompletedAt?: string;
+    radiologistAssignedAt?: string;
+    reportStartedAt?: string;
+    reportSignedAt?: string;
+    returnedToOriginAt?: string;
+    closedAt?: string;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 4.4.5 Routing Recommendation Entity (Decision Support)
+// ---------------------------------------------------------------------------
+export interface RoutingRecommendation {
+  facilityId: string;
+  facilityName: string;
+  organizationType: HealthcareOrganizationType;
+  distanceKm: number;
+  estimatedDriveMinutes: number;
+  availableEquipmentCount: number;
+  equipmentNames: string[];
+  activeCaseload: number;
+  maxDailyCapacity: number;
+  capacityUtilizationPercent: number;
+  availableRadiographersCount: number;
+  radiographerNames: string[];
+  suitabilityScore: number; // 0 to 100
+  scoreBreakdown: {
+    modalityMatch: boolean;
+    equipmentScore: number;
+    distanceScore: number;
+    capacityScore: number;
+    staffScore: number;
+  };
+  recommendationReason: string;
+}
+
+// ---------------------------------------------------------------------------
+// 4.5 Report Entity & Addendum
+// ---------------------------------------------------------------------------
+export interface ReportAddendum {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorRole: UserRole;
+  content: string;
+  reason?: string;
+  /** ISO 8601 */
+  createdAt: string;
+  signedAt: string;
+}
+
 export interface Report {
   id: string;
   caseId: string;
@@ -469,6 +705,8 @@ export interface Report {
   reportToken?: string;
   mmcNumber?: string;
   qualification?: string;
+  /** Official clinical addendums / amendments appended after report finalization */
+  addendums?: ReportAddendum[];
 }
 
 // ---------------------------------------------------------------------------

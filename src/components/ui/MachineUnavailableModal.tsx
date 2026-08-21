@@ -25,12 +25,20 @@ const ISSUE_REASONS: MachineIssueReason[] = [
 
 export default function MachineUnavailableModal({ isOpen, onClose, caseItem, onSuccess }: Props) {
   const { currentUser } = useAuth();
-  const { reportMachineUnavailable } = useData();
+  const { reportMachineUnavailable, facilityEquipment } = useData();
   const toast = useToast();
 
   const [reason, setReason] = useState<MachineIssueReason>('Broken');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Filter local machines for this healthcare center
+  const centerId = caseItem.originatingCenterId || caseItem.clinicId;
+  const localEquipment = facilityEquipment.filter((e) => e.healthcareCenterId === centerId);
+  const matchingEquipment = localEquipment.find((e) => e.modality === caseItem.modality || e.modality === caseItem.scanType);
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(
+    matchingEquipment ? matchingEquipment.id : localEquipment[0]?.id || ''
+  );
 
   if (!isOpen) return null;
 
@@ -50,6 +58,7 @@ export default function MachineUnavailableModal({ isOpen, onClose, caseItem, onS
         reason,
         notes: notes.trim(),
         user: currentUser,
+        equipmentId: selectedEquipmentId || undefined,
       });
 
       toast.success('Equipment fault logged and external referral request submitted to BEMS.');
@@ -96,6 +105,26 @@ export default function MachineUnavailableModal({ isOpen, onClose, caseItem, onS
             <span className="text-[#0F4C42] font-semibold">{caseItem.initialMoName || caseItem.registeredByName || 'Initial Medical Officer'}</span>
           </div>
         </div>
+
+        {/* Machine / Equipment Selector */}
+        {localEquipment.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700">
+              Affected Facility Machine <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={selectedEquipmentId}
+              onChange={(e) => setSelectedEquipmentId(e.target.value)}
+              className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F4C42]"
+            >
+              {localEquipment.map((eq) => (
+                <option key={eq.id} value={eq.id}>
+                  {eq.name} ({eq.modality}) — Status: {eq.status}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Reason Selector */}
         <div className="space-y-1.5">

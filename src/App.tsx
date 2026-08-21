@@ -127,52 +127,53 @@ function AppRoutes() {
 
         {/* Medical Officer & Admin routes */}
         <Route path="/patients" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoPatientsList /></ProtectedRoute>} />
-        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoPatientRegistration /></ProtectedRoute>} />
-        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoAllCases /></ProtectedRoute>} />
-        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator']}><MoNewCaseRegistration /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Radiologist', 'Administrator']}><MoDepartmentReports /></ProtectedRoute>} />
+        {/* MO & Shared Clinical routes */}
+        <Route path="/patients/register" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'Super Admin']}><MoPatientRegistration /></ProtectedRoute>} />
+        <Route path="/cases" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'Super Admin']}><MoAllCases /></ProtectedRoute>} />
+        <Route path="/cases/new" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'Super Admin']}><MoNewCaseRegistration /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Radiologist', 'Administrator', 'Super Admin']}><MoDepartmentReports /></ProtectedRoute>} />
         <Route path="/requests" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'Super Admin']}><RoleRouter moPage={MoPatientRequests} defaultPage={PatientRequestsReview} /></ProtectedRoute>} />
         <Route path="/scheduling" element={<Navigate to="/ai-scheduler" replace />} />
 
         {/* Radiographer routes */}
-        <Route path="/scan-queue" element={<ProtectedRoute allowedRoles={['Radiographer', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><ScanQueue /></ProtectedRoute>} />
-        <Route path="/schedule" element={<ProtectedRoute allowedRoles={['Radiographer', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><ScheduleView /></ProtectedRoute>} />
-        <Route path="/upload" element={<ProtectedRoute allowedRoles={['Radiographer', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><UploadScans /></ProtectedRoute>} />
+        <Route path="/scan-queue" element={<ProtectedRoute allowedRoles={['Radiographer', 'Administrator', 'Super Admin', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><ScanQueue /></ProtectedRoute>} />
+        <Route path="/schedule" element={<ProtectedRoute allowedRoles={['Radiographer', 'Administrator', 'Super Admin', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><ScheduleView /></ProtectedRoute>} />
+        <Route path="/upload" element={<ProtectedRoute allowedRoles={['Radiographer', 'Administrator', 'Super Admin', 'Public Hospital Radiographer', 'Private Hospital Radiographer']}><UploadScans /></ProtectedRoute>} />
 
         {/* Radiologist & Medical Officer review and reporting routes */}
-        <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><RoleRouter moPage={MoReviewQueue} defaultPage={ReviewQueue} /></ProtectedRoute>} />
-        <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer']}><RoleRouter moPage={MoReporting} defaultPage={Reporting} /></ProtectedRoute>} />
+        <Route path="/review-queue" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer', 'Administrator', 'Super Admin']}><RoleRouter moPage={MoReviewQueue} defaultPage={ReviewQueue} /></ProtectedRoute>} />
+        <Route path="/reporting" element={<ProtectedRoute allowedRoles={['Radiologist', 'Medical Officer', 'Administrator', 'Super Admin']}><RoleRouter moPage={MoReporting} defaultPage={Reporting} /></ProtectedRoute>} />
 
         {/* Onboarding & Credentials routes */}
-        <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
-        <Route path="/credentials" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist']}><OnboardingRouter /></ProtectedRoute>} />
+        <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist', 'Administrator', 'Super Admin']}><OnboardingRouter /></ProtectedRoute>} />
+        <Route path="/credentials" element={<ProtectedRoute allowedRoles={['Radiographer', 'Medical Officer', 'Radiologist', 'Administrator', 'Super Admin']}><OnboardingRouter /></ProtectedRoute>} />
 
         {/* Track Status route */}
-        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'BEMZ', 'Public Hospital Admin', 'Private Hospital Admin']}><MoTrackStatus /></ProtectedRoute>} />
+        <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'BEMS Officer', 'BEMS', 'BEMZ', 'Super Admin', 'Public Hospital Admin', 'Private Hospital Admin']}><MoTrackStatus /></ProtectedRoute>} />
 
         {/* BEMS & External Hospital Routes */}
-        <Route path="/bems" element={<ProtectedRoute allowedRoles={['BEMZ', 'Administrator', 'Super Admin']}><BemsDashboard /></ProtectedRoute>} />
-        <Route path="/public-admin" element={<ProtectedRoute allowedRoles={['Public Hospital Admin', 'Administrator', 'Super Admin']}><PublicHospitalAdminDashboard /></ProtectedRoute>} />
-        <Route path="/private-admin" element={<ProtectedRoute allowedRoles={['Private Hospital Admin', 'Administrator', 'Super Admin']}><PrivateHospitalAdminDashboard /></ProtectedRoute>} />
-        <Route path="/external-radiographer" element={<ProtectedRoute allowedRoles={['Public Hospital Radiographer', 'Private Hospital Radiographer', 'Radiographer', 'Administrator', 'Super Admin', 'Public Hospital Admin', 'Private Hospital Admin']}><ExternalRadiographerWorkspace /></ProtectedRoute>} />
+        <Route path="/bems" element={<ProtectedRoute allowedRoles={['BEMS Officer', 'BEMS', 'BEMZ', 'Administrator', 'Super Admin']}><BemsDashboard /></ProtectedRoute>} />
+        <Route path="/public-admin" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'Public Hospital Admin']}><PublicHospitalAdminDashboard /></ProtectedRoute>} />
+        <Route path="/private-admin" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'Private Hospital Admin']}><PrivateHospitalAdminDashboard /></ProtectedRoute>} />
+        <Route path="/external-radiographer" element={<ProtectedRoute allowedRoles={['Radiographer', 'Administrator', 'Super Admin', 'Public Hospital Radiographer', 'Private Hospital Radiographer', 'Public Hospital Admin', 'Private Hospital Admin']}><ExternalRadiographerWorkspace /></ProtectedRoute>} />
 
         {/* Administrator routes (full CRUD access) */}
-        <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersManagement /></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><UsersManagement /></ProtectedRoute>} />
         <Route path="/clinics" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><ClinicsManagement /></ProtectedRoute>} />
-        <Route path="/fleet" element={<ProtectedRoute allowedRoles={['Administrator']}><FleetManagement /></ProtectedRoute>} />
-        <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['Administrator']}><PatientRegistry /></ProtectedRoute>} />
-        <Route path="/patient-requests" element={<ProtectedRoute allowedRoles={['Administrator']}><PatientRequestsReview /></ProtectedRoute>} />
-        <Route path="/ai-scheduler" element={<ProtectedRoute allowedRoles={['Administrator']}><AISchedulerMap /></ProtectedRoute>} />
-        <Route path="/analytics" element={<ProtectedRoute allowedRoles={['Administrator']}><Analytics /></ProtectedRoute>} />
-        <Route path="/announcements" element={<ProtectedRoute allowedRoles={['Administrator']}><Announcements /></ProtectedRoute>} />
-        <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['Administrator']}><AuditLogs /></ProtectedRoute>} />
-        <Route path="/tech-stack" element={<ProtectedRoute allowedRoles={['Administrator']}><TechStack /></ProtectedRoute>} />
-        <Route path="/recycle-bin" element={<ProtectedRoute allowedRoles={['Administrator']}><RecycleBin /></ProtectedRoute>} />
-        <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><MarketplaceCatalogue /></ProtectedRoute>} />
-        <Route path="/marketplace/medical" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><MedicalEquipmentPage /></ProtectedRoute>} />
-        <Route path="/marketplace/non-medical" element={<ProtectedRoute allowedRoles={['Equipment Marketplace', 'Super Admin']}><NonMedicalEquipmentPage /></ProtectedRoute>} />
-        <Route path="/marketplace/manage-items" element={<ProtectedRoute allowedRoles={['Super Admin']}><EquipmentManagementPage /></ProtectedRoute>} />
-        <Route path="/marketplace/orders" element={<ProtectedRoute allowedRoles={['Super Admin']}><OrdersManagementPage /></ProtectedRoute>} />
+        <Route path="/fleet" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><FleetManagement /></ProtectedRoute>} />
+        <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><PatientRegistry /></ProtectedRoute>} />
+        <Route path="/patient-requests" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><PatientRequestsReview /></ProtectedRoute>} />
+        <Route path="/ai-scheduler" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><AISchedulerMap /></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><Analytics /></ProtectedRoute>} />
+        <Route path="/announcements" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><Announcements /></ProtectedRoute>} />
+        <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><AuditLogs /></ProtectedRoute>} />
+        <Route path="/tech-stack" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><TechStack /></ProtectedRoute>} />
+        <Route path="/recycle-bin" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><RecycleBin /></ProtectedRoute>} />
+        <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'Equipment Marketplace']}><MarketplaceCatalogue /></ProtectedRoute>} />
+        <Route path="/marketplace/medical" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'Equipment Marketplace']}><MedicalEquipmentPage /></ProtectedRoute>} />
+        <Route path="/marketplace/non-medical" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'Equipment Marketplace']}><NonMedicalEquipmentPage /></ProtectedRoute>} />
+        <Route path="/marketplace/manage-items" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><EquipmentManagementPage /></ProtectedRoute>} />
+        <Route path="/marketplace/orders" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><OrdersManagementPage /></ProtectedRoute>} />
         <Route path="/medical-equipment" element={<Navigate to="/marketplace/medical" replace />} />
         <Route path="/non-medical-equipment" element={<Navigate to="/marketplace/non-medical" replace />} />
       </Route>

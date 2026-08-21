@@ -50,15 +50,10 @@ import {
 const MANAGED_ROLES: UserRole[] = [
   'Medical Officer',
   'Radiographer',
-  'Public Hospital Radiographer',
-  'Private Hospital Radiographer',
   'Radiologist',
-  'BEMZ',
-  'Public Hospital Admin',
-  'Private Hospital Admin',
   'Administrator',
+  'BEMS Officer',
   'Super Admin',
-  'Equipment Marketplace',
 ];
 
 const CATEGORIES = [

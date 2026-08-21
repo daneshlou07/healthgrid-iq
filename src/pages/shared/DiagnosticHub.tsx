@@ -31,6 +31,9 @@ import {
   FileCheck2,
   User,
   X,
+  Lock,
+  PlusCircle,
+  History,
 } from 'lucide-react';
 
 /** Inline image loader for report thumbnails in the Archive tab */
@@ -156,13 +159,23 @@ interface DiagnosticHubProps {
   initialTab?: 'queue' | 'reporting' | 'reports';
 }
 
-export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubProps) {
+export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const caseIdFromUrl = searchParams.get('caseId');
   const tabFromUrl = searchParams.get('tab');
 
   const { currentUser } = useAuth();
-  const { cases, reports, addReport, editCase, addAuditLog, getScopedCases } = useData();
+  const {
+    cases,
+    reports,
+    crossOrgReferrals,
+    addReport,
+    addReportAddendum,
+    editCase,
+    addAuditLog,
+    getScopedCases,
+    signCrossOrgReferralReport,
+  } = useData();
   const scopedCases = getScopedCases ? getScopedCases() : cases;
   const toast = useToast();
 
@@ -191,6 +204,12 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
   const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [escalateReason, setEscalateReason] = useState('Suspected Abnormality / Requires Specialist Opinion');
   const [escalateNotes, setEscalateNotes] = useState('');
+
+  // ── ADDENDUM MODAL STATE ─────────────────────────────────────────────────
+  const [showAddendumModal, setShowAddendumModal] = useState(false);
+  const [addendumContent, setAddendumContent] = useState('');
+  const [addendumReason, setAddendumReason] = useState('Supplementary Clinical Information');
+  const [submittingAddendum, setSubmittingAddendum] = useState(false);
 
   // ── TAB 3: ARCHIVE STATE ─────────────────────────────────────────────────
   const [archiveSearch, setArchiveSearch] = useState('');
@@ -239,10 +258,27 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
       .sort((a, b) => (b.finalizedAt || b.createdAt).localeCompare(a.finalizedAt || a.createdAt));
   }, [cases]);
 
-  // Selected case object for authoring
+  // Selected case object for authoring / viewing
   const selectedCase = useMemo(() => {
     return cases.find((c) => c.id === selectedCaseId);
   }, [cases, selectedCaseId]);
+
+  // Existing report for selected case
+  const existingReport = useMemo(() => {
+    if (!selectedCase) return null;
+    return reports.find((r) => r.caseId === selectedCase.id) || null;
+  }, [selectedCase, reports]);
+
+  // Finalized / locked state
+  const isCaseFinalized = useMemo(() => {
+    if (!selectedCase) return false;
+    return (
+      selectedCase.status === 'COMPLETED' ||
+      selectedCase.status === 'FINALIZED' ||
+      selectedCase.status === 'REPORT_SUBMITTED' ||
+      !!existingReport
+    );
+  }, [selectedCase, existingReport]);
 
   // Sync caseId when changed from outside
   useEffect(() => {
@@ -263,17 +299,20 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
       return;
     }
 
-    const existingReport = reports.find((r) => r.caseId === selectedCase.id);
     if (existingReport) {
       setFindings(existingReport.findings || '');
       setImpression(existingReport.impression || '');
       setSuggestions(existingReport.suggestions || '');
+      setIsCriticalFinding(!!existingReport.isCriticalFinding);
+      setCriticalFindingNote(existingReport.criticalFindingNote || '');
     } else {
       setFindings(selectedCase.radiographerFindings || '');
       setImpression(selectedCase.radiographerImpression || '');
       setSuggestions('');
+      setIsCriticalFinding(false);
+      setCriticalFindingNote('');
     }
-  }, [selectedCase?.id]);
+  }, [selectedCase?.id, existingReport]);
 
   // AI draft generator
   const handleGenerateAiDraft = async () => {
@@ -340,6 +379,12 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
         finalizedAt: new Date().toISOString(),
       });
 
+      // Check if this case has a CrossOrganizationReferral awaiting report signature
+      const matchingCrossRef = crossOrgReferrals?.find((r) => r.caseId === selectedCase.id);
+      if (matchingCrossRef && signCrossOrgReferralReport) {
+        await signCrossOrgReferralReport(matchingCrossRef.id, reportToken, currentUser.id, currentUser.name);
+      }
+
       await addAuditLog({
         userId: currentUser.id,
         userName: currentUser.name,
@@ -392,6 +437,45 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
       toast.error(err.message || 'Failed to escalate case.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Save Clinical Addendum / Amendment
+  const handleSaveAddendum = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !existingReport || !selectedCase) return;
+    if (!addendumContent.trim()) {
+      toast.error('Please enter the clinical addendum text.');
+      return;
+    }
+
+    setSubmittingAddendum(true);
+    try {
+      await addReportAddendum(existingReport.id, {
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        authorRole: currentUser.role,
+        content: addendumContent.trim(),
+        reason: addendumReason,
+      });
+
+      await addAuditLog({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'DIAGNOSTIC_REPORT_ADDENDUM_ADDED',
+        target: `reports/${existingReport.id}`,
+        details: `${currentUser.role} ${currentUser.name} signed Clinical Addendum on Case #${selectedCase.caseNumber} (${addendumReason}).`,
+        timestamp: new Date().toISOString(),
+      });
+
+      toast.success(`Clinical Addendum attached to Case #${selectedCase.caseNumber}.`);
+      setAddendumContent('');
+      setShowAddendumModal(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to attach clinical addendum.');
+    } finally {
+      setSubmittingAddendum(false);
     }
   };
 
@@ -876,70 +960,123 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
               {/* ============================================================
                   REPORT EDITOR
               ============================================================= */}
-              <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+              <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
                 {/* Report header */}
                 <div className="px-5 py-3.5 border-b border-slate-200">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-[#0F4C42]/10 flex items-center justify-center">
-                        <FileText className="w-4 h-4 text-[#0F4C42]" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCaseFinalized ? 'bg-emerald-50 text-emerald-700' : 'bg-[#0F4C42]/10 text-[#0F4C42]'}`}>
+                        {isCaseFinalized ? <Lock className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                       </div>
 
                       <div>
-                        <h2 className="text-xs font-bold text-slate-900">
-                          Diagnostic Report
-                        </h2>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-xs font-bold text-slate-900">
+                            Diagnostic Report
+                          </h2>
+                          {isCaseFinalized && (
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded border border-emerald-200 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3 text-emerald-600" />
+                              Signed &amp; Finalized
+                            </span>
+                          )}
+                        </div>
 
                         <p className="text-[10px] text-slate-500">
-                          Author and finalize the clinical report
+                          {isCaseFinalized
+                            ? 'Official signed medical record · Immutable'
+                            : 'Author and finalize the clinical report'}
                         </p>
                       </div>
                     </div>
 
-                    {/* AI */}
-                    <button
-                      type="button"
-                      onClick={handleGenerateAiDraft}
-                      disabled={isVisionAiAnalyzing}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-bold transition-colors"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-
-                      {isVisionAiAnalyzing
-                        ? 'Analyzing...'
-                        : 'Generate AI Draft'}
-                    </button>
+                    {/* Header Action Button */}
+                    {isCaseFinalized ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (existingReport) handlePrintReport(existingReport);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-colors shadow-xs"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-[#0F4C42]" />
+                        <span>Print MOH Report</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleGenerateAiDraft}
+                        disabled={isVisionAiAnalyzing}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-bold transition-colors"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        {isVisionAiAnalyzing ? 'Analyzing...' : 'Generate AI Draft'}
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Editor */}
-                <div className="p-5 space-y-5">
+                {/* Editor Body */}
+                <div className="p-5 space-y-5 flex-1">
+                  {/* Finalized Locked Record Banner */}
+                  {isCaseFinalized && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-emerald-950 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                            Immutable Medical Record
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                          MOH Clinical Governance
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-700 leading-relaxed">
+                        This report was officially signed by <strong className="text-slate-900">{existingReport?.radiologistName || selectedCase.radiologistName || 'Attending Doctor'}</strong> ({existingReport?.signedByRole || 'Medical Officer'}) on{' '}
+                        <strong>{existingReport?.signedAt ? new Date(existingReport.signedAt).toLocaleString() : 'Finalized'}</strong>.
+                        To maintain clinical audit integrity and legal compliance, finalized reports cannot be edited. If supplementary findings are required, please use <strong>+ Add Clinical Addendum</strong>.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Findings */}
                   <div>
                     <div className="flex items-end justify-between gap-3 mb-2">
                       <div>
                         <label className="block text-xs font-bold text-slate-900">
                           Clinical Findings
-                          <span className="text-red-500 ml-1">*</span>
+                          {!isCaseFinalized && <span className="text-red-500 ml-1">*</span>}
                         </label>
 
                         <span className="text-[10px] text-slate-400">
-                          Describe the objective radiological findings
+                          Objective radiological observations
                         </span>
                       </div>
 
-                      <span className="text-[10px] text-slate-400 shrink-0">
-                        Required
-                      </span>
+                      {isCaseFinalized ? (
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                          Locked
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 shrink-0">
+                          Required
+                        </span>
+                      )}
                     </div>
 
                     <textarea
                       required
+                      readOnly={isCaseFinalized}
                       value={findings}
                       onChange={(e) => setFindings(e.target.value)}
                       placeholder="Describe the radiological findings..."
-                      rows={8}
-                      className="w-full resize-y min-h-[180px] bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-xs leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42] transition"
+                      rows={7}
+                      className={`w-full resize-y min-h-[160px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed transition ${
+                        isCaseFinalized
+                          ? 'bg-slate-50 border border-slate-200 text-slate-900 font-medium cursor-default focus:outline-none'
+                          : 'bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
+                      }`}
                     />
                   </div>
 
@@ -949,26 +1086,37 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
                       <div>
                         <label className="block text-xs font-bold text-slate-900">
                           Diagnostic Impression
-                          <span className="text-red-500 ml-1">*</span>
+                          {!isCaseFinalized && <span className="text-red-500 ml-1">*</span>}
                         </label>
 
                         <span className="text-[10px] text-slate-400">
-                          Summarise the primary diagnostic conclusion
+                          Primary diagnostic conclusion
                         </span>
                       </div>
 
-                      <span className="text-[10px] text-slate-400 shrink-0">
-                        Required
-                      </span>
+                      {isCaseFinalized ? (
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                          Locked
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 shrink-0">
+                          Required
+                        </span>
+                      )}
                     </div>
 
                     <textarea
                       required
+                      readOnly={isCaseFinalized}
                       value={impression}
                       onChange={(e) => setImpression(e.target.value)}
                       placeholder="Enter the primary diagnostic impression..."
                       rows={4}
-                      className="w-full resize-y min-h-[105px] bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 text-xs leading-relaxed font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42] transition"
+                      className={`w-full resize-y min-h-[95px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed font-medium transition ${
+                        isCaseFinalized
+                          ? 'bg-slate-50 border border-slate-200 text-slate-900 cursor-default focus:outline-none'
+                          : 'bg-slate-50/70 border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
+                      }`}
                     />
                   </div>
 
@@ -977,60 +1125,69 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
                     <div className="flex items-end justify-between gap-3 mb-2">
                       <div>
                         <label className="block text-xs font-bold text-slate-900">
-                          Recommendations & Follow-up
+                          Recommendations &amp; Follow-up
                         </label>
 
                         <span className="text-[10px] text-slate-400">
-                          Optional clinical recommendations
+                          Clinical follow-up, further investigation, or specialty referral
                         </span>
                       </div>
 
                       <span className="text-[10px] text-slate-400">
-                        Optional
+                        {isCaseFinalized ? 'Archived' : 'Optional'}
                       </span>
                     </div>
 
                     <textarea
+                      readOnly={isCaseFinalized}
                       value={suggestions}
                       onChange={(e) => setSuggestions(e.target.value)}
                       placeholder="Add follow-up imaging, referral, or other clinical recommendations..."
                       rows={3}
-                      className="w-full resize-y min-h-[80px] bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-xs leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42] transition"
+                      className={`w-full resize-y min-h-[75px] rounded-lg px-3.5 py-2.5 text-xs leading-relaxed transition ${
+                        isCaseFinalized
+                          ? 'bg-slate-50 border border-slate-200 text-slate-900 cursor-default focus:outline-none'
+                          : 'bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]'
+                      }`}
                     />
                   </div>
 
                   {/* Critical finding */}
                   <div
-                    className={`rounded-lg border transition-colors ${isCriticalFinding
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-slate-200 bg-slate-50'
-                      }`}
+                    className={`rounded-lg border transition-colors ${
+                      isCriticalFinding
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-slate-200 bg-slate-50'
+                    }`}
                   >
-                    <label className="flex items-start gap-3 p-3.5 cursor-pointer">
+                    <label className={`flex items-start gap-3 p-3.5 ${isCaseFinalized ? 'cursor-default' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
+                        disabled={isCaseFinalized}
                         checked={isCriticalFinding}
                         onChange={(e) =>
                           setIsCriticalFinding(e.target.checked)
                         }
-                        className="mt-0.5 w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                        className="mt-0.5 w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 disabled:opacity-80"
                       />
 
                       <div>
                         <span
-                          className={`block text-xs font-bold ${isCriticalFinding
-                            ? 'text-red-900'
-                            : 'text-slate-800'
-                            }`}
+                          className={`block text-xs font-bold ${
+                            isCriticalFinding
+                              ? 'text-red-900'
+                              : 'text-slate-800'
+                          }`}
                         >
                           Critical / Urgent Finding
                         </span>
 
                         <span
-                          className={`block text-[10px] mt-0.5 ${isCriticalFinding
-                            ? 'text-red-700'
-                            : 'text-slate-500'
-                            }`}
+                          className={`block text-[10px] mt-0.5 ${
+                            isCriticalFinding
+                              ? 'text-red-700'
+                              : 'text-slate-500'
+                          }`}
                         >
                           Mark this report for immediate clinical notification.
                         </span>
@@ -1045,60 +1202,123 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
 
                         <input
                           type="text"
+                          readOnly={isCaseFinalized}
                           value={criticalFindingNote}
                           onChange={(e) =>
                             setCriticalFindingNote(e.target.value)
                           }
                           placeholder="Specify the urgent action required..."
-                          className="w-full h-9 px-3 bg-white border border-red-300 rounded-lg text-xs text-red-950 placeholder:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                          className="w-full h-9 px-3 bg-white border border-red-300 rounded-lg text-xs text-red-950 placeholder:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 read-only:bg-red-50/50"
                         />
                       </div>
                     )}
                   </div>
+
+                  {/* Addendums List (If any exist) */}
+                  {existingReport?.addendums && existingReport.addendums.length > 0 && (
+                    <div className="space-y-3 pt-3 border-t border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <History className="w-4 h-4 text-purple-700" />
+                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                          Official Clinical Addendums ({existingReport.addendums.length})
+                        </h3>
+                      </div>
+
+                      {existingReport.addendums.map((add, idx) => (
+                        <div key={add.id || idx} className="p-4 bg-purple-50/60 border border-purple-200 rounded-xl space-y-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-purple-200/60 pb-2">
+                            <span className="font-bold text-xs text-purple-950">
+                              Addendum #{idx + 1} &middot; {add.reason || 'Clinical Update'}
+                            </span>
+                            <span className="text-[11px] text-purple-700 font-mono">
+                              {new Date(add.signedAt || add.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                            {add.content}
+                          </p>
+                          <p className="text-[10px] text-purple-800 font-medium pt-1">
+                            Signed by: <strong>{add.authorName}</strong> ({add.authorRole})
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* ========================================================
                     REPORT ACTIONS
                 ========================================================= */}
                 <div className="px-5 py-4 bg-slate-50 border-t border-slate-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    {/* Escalation */}
-                    <div>
-                      {isDoctor && (
+                  {isCaseFinalized ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
+                        <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Signed record is locked from direct edits</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => setShowEscalateModal(true)}
-                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-purple-200 bg-white text-purple-800 hover:bg-purple-50 text-xs font-bold transition-colors"
+                          onClick={() => {
+                            if (existingReport) handlePrintReport(existingReport);
+                          }}
+                          className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                         >
-                          <Send className="w-3.5 h-3.5" />
-                          Escalate to Radiologist
+                          <Printer className="w-3.5 h-3.5 text-[#0F4C42]" />
+                          <span>Print / PDF Report</span>
                         </button>
-                      )}
+
+                        <button
+                          type="button"
+                          onClick={() => setShowAddendumModal(true)}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0F4C42] hover:bg-[#0B3D35] text-white text-xs font-bold shadow-sm transition-colors"
+                        >
+                          <PlusCircle className="w-3.5 h-3.5" />
+                          <span>+ Add Clinical Addendum</span>
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      {/* Escalation */}
+                      <div>
+                        {isDoctor && (
+                          <button
+                            type="button"
+                            onClick={() => setShowEscalateModal(true)}
+                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-purple-200 bg-white text-purple-800 hover:bg-purple-50 text-xs font-bold transition-colors"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            Escalate to Radiologist
+                          </button>
+                        )}
+                      </div>
 
-                    {/* Main actions */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('queue')}
-                        className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors"
-                      >
-                        Cancel
-                      </button>
+                      {/* Main actions */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('queue')}
+                          className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors"
+                        >
+                          Cancel
+                        </button>
 
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0F4C42] hover:bg-[#0B3D35] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold shadow-sm transition-colors"
-                      >
-                        <FileCheck2 className="w-3.5 h-3.5" />
+                        <button
+                          type="submit"
+                          disabled={saving}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0F4C42] hover:bg-[#0B3D35] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold shadow-sm transition-colors"
+                        >
+                          <FileCheck2 className="w-3.5 h-3.5" />
 
-                        {saving
-                          ? 'Signing Report...'
-                          : 'Sign & Finalize Report'}
-                      </button>
+                          {saving
+                            ? 'Signing Report...'
+                            : 'Sign & Finalize Report'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </section>
             </div>
@@ -1216,6 +1436,99 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
                       : 'Dispatch Escalation'}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================================================================
+              CLINICAL ADDENDUM MODAL
+          ================================================================= */}
+          {showAddendumModal && existingReport && selectedCase && (
+            <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                {/* Modal Header */}
+                <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#0F4C42]/10 flex items-center justify-center text-[#0F4C42]">
+                      <PlusCircle className="w-4 h-4" />
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Create Clinical Addendum
+                      </h3>
+                      <p className="text-[10px] text-slate-500 font-mono">
+                        Case #{selectedCase.caseNumber} &middot; {selectedCase.patientName}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddendumModal(false)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Modal Form */}
+                <form onSubmit={handleSaveAddendum} className="p-5 space-y-4">
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 leading-relaxed">
+                    <strong>MOH Protocol Notice:</strong> The original signed findings will remain permanently unaltered. This addendum will be timestamped, attributed to your clinical credentials, and appended to the official diagnostic record.
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                      Reason for Addendum *
+                    </label>
+                    <select
+                      value={addendumReason}
+                      onChange={(e) => setAddendumReason(e.target.value)}
+                      className="w-full h-10 px-3 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-[#0F4C42] focus:ring-2 focus:ring-[#0F4C42]/10"
+                    >
+                      <option value="Supplementary Clinical Information">Supplementary Clinical Information</option>
+                      <option value="Comparison with Prior Imaging">Comparison with Prior Imaging</option>
+                      <option value="Additional Subspecialty Finding">Additional Subspecialty Finding</option>
+                      <option value="Correction of Notation / Laterality">Correction of Notation / Laterality</option>
+                      <option value="Post-Procedure Follow-Up Correlation">Post-Procedure Follow-Up Correlation</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                      Addendum Observations &amp; Clinical Notes *
+                    </label>
+                    <textarea
+                      required
+                      rows={5}
+                      value={addendumContent}
+                      onChange={(e) => setAddendumContent(e.target.value)}
+                      placeholder="Enter the official clinical amendment or supplementary observations..."
+                      className="w-full resize-none px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-xs leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/10 focus:border-[#0F4C42]"
+                    />
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddendumModal(false)}
+                      className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs font-semibold"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={submittingAddendum || !addendumContent.trim()}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0F4C42] hover:bg-[#0B3D35] disabled:opacity-60 text-white text-xs font-bold shadow-xs transition-colors"
+                    >
+                      <FileCheck2 className="w-3.5 h-3.5" />
+                      <span>{submittingAddendum ? 'Signing Addendum...' : 'Sign & Attach Addendum'}</span>
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
@@ -1360,6 +1673,25 @@ export default function DiagnosticHub({ initialTab = 'queue' }: DiagnosticHubPro
                     <div className="p-3 bg-slate-50 rounded border border-slate-200 whitespace-pre-wrap text-slate-800">
                       {viewingReport.suggestions}
                     </div>
+                  </div>
+                )}
+
+                {/* Addendums in Modal */}
+                {viewingReport.addendums && viewingReport.addendums.length > 0 && (
+                  <div className="space-y-3 pt-2 border-t border-slate-200">
+                    <span className="font-bold text-purple-900 block uppercase tracking-wider text-[11px]">
+                      Official Clinical Addendums ({viewingReport.addendums.length})
+                    </span>
+                    {viewingReport.addendums.map((add, idx) => (
+                      <div key={add.id || idx} className="p-3 bg-purple-50/70 border border-purple-200 rounded-lg space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-purple-950">Addendum #{idx + 1} &middot; {add.reason || 'Clinical Note'}</span>
+                          <span className="text-purple-700 font-mono">{new Date(add.signedAt || add.createdAt).toLocaleString()}</span>
+                        </div>
+                        <p className="text-slate-800 whitespace-pre-wrap leading-relaxed">{add.content}</p>
+                        <p className="text-[10px] text-purple-800 font-medium">Signed by: {add.authorName} ({add.authorRole})</p>
+                      </div>
+                    ))}
                   </div>
                 )}
 

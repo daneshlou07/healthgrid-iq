@@ -19,7 +19,7 @@ const DEMO_RADIOGRAPHERS = [
 ];
 
 
-const OTHER_ROLES = ['Super Admin', 'Administrator', 'Equipment Marketplace', 'Radiologist'] as const;
+const OTHER_ROLES = ['Super Admin', 'BEMS Officer', 'Administrator', 'Medical Officer', 'Radiologist'] as const;
 
 export default function DevAccountSwitcher() {
   const { currentUser, loginAsUser } = useAuth();
@@ -140,7 +140,9 @@ export default function DevAccountSwitcher() {
                             <p className="text-xs font-medium text-surface-800 truncate">
                               {u.name} {isCurrent && <span className="text-[9px] text-navy-600 font-medium ml-1">(Active)</span>}
                             </p>
-                            <p className="text-[10px] text-surface-400 truncate">{u.email}</p>
+                            <p className="text-[10px] text-surface-500 truncate">
+                              {u.healthcareCenterName ? `${u.healthcareCenterName}` : (u.organizationType ? `${u.organizationType}` : u.email)}
+                            </p>
                           </div>
                         </button>
                       );

@@ -333,9 +333,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginAsUser = (userId: string) => {
-    const user = mockUsers.find((u) => u.id === userId) || mockUsers[0];
-    saveUserSession(user);
-    recordLoginAudit(user);
+    let user = mockUsers.find((u) => u.id === userId);
+    if (!user) {
+      try {
+        const custom = localStorage.getItem('healthgrid_custom_users');
+        if (custom) {
+          const list: User[] = JSON.parse(custom);
+          user = list.find((u) => u.id === userId);
+        }
+      } catch {}
+    }
+    const target = user || mockUsers[0];
+    saveUserSession(target);
+    recordLoginAudit(target);
   };
 
   // -----------------------------------------------------------------------

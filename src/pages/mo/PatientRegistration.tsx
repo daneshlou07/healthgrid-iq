@@ -33,6 +33,7 @@ import {
   calculateMohPaymentCategory,
   formatPaymentCategoryBadge,
 } from '../../utils/paymentCategory';
+import { resolveUserFacilityContext } from '../../services/dataService';
 
 type IdType = 'mykad' | 'passport';
 
@@ -257,6 +258,21 @@ export default function PatientRegistration() {
     }
   }, [patientGeo.lat, patientGeo.lon, uniqueClinics, radiographersByClinic, isManualOverride]);
 
+  const isFormValid = useMemo(() => {
+    if (!form.name.trim()) return false;
+    if (!form.idNumber.trim()) return false;
+    if (idType === 'mykad' && (!nricResult || !nricResult.valid)) return false;
+    if (duplicatePatient) return false;
+    if (!form.dob) return false;
+    if (!form.gender) return false;
+    const cleanPhone = form.phone.replace(/[\s-]/g, '');
+    if (!cleanPhone || !/^\+?\d{8,15}$/.test(cleanPhone)) return false;
+    if (form.address.trim().length < 6) return false;
+    if (!form.preferredClinicId) return false;
+    if (form.previousContrastReaction === 'Yes' && !form.previousContrastDetails.trim()) return false;
+    return true;
+  }, [form, idType, nricResult, duplicatePatient]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -315,6 +331,9 @@ export default function PatientRegistration() {
         }
       }
 
+      const { healthcareCenterId, healthcareCenterName, organizationType, organizationId } =
+        resolveUserFacilityContext(currentUser, clinics);
+
       const patientData: Omit<
         Parameters<typeof addPatient>[0],
         never
@@ -342,6 +361,18 @@ export default function PatientRegistration() {
           form.previousContrastReaction,
         previousContrastDetails:
           form.previousContrastDetails,
+        // Automatic Multi-Tenant Attribution:
+        registeredById: currentUser.id,
+        registeredByName: currentUser.name,
+        registeredByRole: currentUser.role,
+        registeredAtCenterId: healthcareCenterId,
+        registeredAtCenterName: healthcareCenterName,
+        registeredAtOrgType: organizationType,
+        registeredAtOrgId: organizationId,
+        primaryClinicId: healthcareCenterId,
+        primaryClinicName: healthcareCenterName,
+        clinicId: healthcareCenterId,
+        clinicName: healthcareCenterName,
       };
 
       if (form.ethnicity) {
@@ -1135,23 +1166,33 @@ export default function PatientRegistration() {
         <div className="bg-white border border-surface-200 rounded-xl shadow-sm px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
           <div className="flex items-start gap-2">
-            <div className="w-7 h-7 rounded-full bg-[#EFF6F3] flex items-center justify-center shrink-0 mt-0.5">
-              <CheckCircle className="w-3.5 h-3.5 text-[#0F4C42]" />
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isFormValid ? 'bg-[#EFF6F3] text-[#0F4C42]' : 'bg-amber-50 text-amber-600 border border-amber-200'}`}>
+              {isFormValid ? <CheckCircle className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
             </div>
 
             <div>
               <p className="text-xs font-semibold text-surface-700">
-                {t(
-                  'Ready to register patient',
-                  'Sedia untuk mendaftarkan pesakit'
-                )}
+                {isFormValid
+                  ? t(
+                    'Ready to register patient',
+                    'Sedia untuk mendaftarkan pesakit'
+                  )
+                  : t(
+                    'Incomplete Required Details',
+                    'Sila Lengkapkan Maklumat Wajib'
+                  )}
               </p>
 
               <p className="text-[10px] text-surface-400 mt-0.5">
-                {t(
-                  'The patient will be added to the master registry.',
-                  'Pesakit akan ditambah ke dalam daftar induk.'
-                )}
+                {isFormValid
+                  ? t(
+                    'The patient will be added to the master registry.',
+                    'Pesakit akan ditambah ke dalam daftar induk.'
+                  )
+                  : t(
+                    'All required fields (*) including Name, ID, DOB, Phone, and Address must be completed.',
+                    'Semua medan bertanda (*) termasuk Nama, ID, Tarikh Lahir, Telefon, dan Alamat wajib diisi.'
+                  )}
               </p>
             </div>
           </div>
@@ -1159,7 +1200,7 @@ export default function PatientRegistration() {
           <button
             type="submit"
             disabled={
-              submitting || !!duplicatePatient
+              !isFormValid || submitting || !!duplicatePatient
             }
             className="
               btn-primary
@@ -1167,7 +1208,7 @@ export default function PatientRegistration() {
               items-center
               justify-center
               gap-2
-              disabled:opacity-60
+              disabled:opacity-40
               disabled:cursor-not-allowed
               text-sm
               px-6

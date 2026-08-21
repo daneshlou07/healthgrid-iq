@@ -36,6 +36,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { findNearestClinic, haversineDistance } from '../../services/routingService';
+import { resolveUserFacilityContext } from '../../services/dataService';
 
 const MODALITIES = Object.keys(MODALITY_REFERENCE_DATASET);
 
@@ -330,9 +331,12 @@ export default function NewCaseRegistration() {
       )
     ).join(', ');
 
-    const centerId = preferredClinicId || currentUser.healthcareCenterId || currentUser.deploymentLocationId || 'clinic-001';
+    const userFacContext = resolveUserFacilityContext(currentUser, clinics);
+    const centerId = preferredClinicId || userFacContext.healthcareCenterId;
     const center = clinics.find((c) => c.id === centerId);
-    const resolvedCenterName = center?.name || preferredClinic?.name || 'Klinik Kesihatan Bestari Jaya';
+    const resolvedCenterName = center?.name || preferredClinic?.name || userFacContext.healthcareCenterName;
+    const resolvedOrgType = center?.organizationType || userFacContext.organizationType;
+    const resolvedOrgId = center?.organizationId || userFacContext.organizationId;
 
     try {
       await addCase({
@@ -343,11 +347,13 @@ export default function NewCaseRegistration() {
         disiplin: resolvedDisiplin || undefined,
         registeredById: currentUser.id,
         registeredByName: currentUser.name,
+        registeredByRole: currentUser.role,
         initialMoId: currentUser.id,
         initialMoName: currentUser.name,
         originatingCenterId: centerId,
         originatingCenterName: resolvedCenterName,
-        originatingOrganizationId: center?.organizationId || 'org-moh-selangor',
+        originatingOrganizationType: resolvedOrgType,
+        originatingOrganizationId: resolvedOrgId,
         clinicId: centerId,
         clinicName: resolvedCenterName,
         scanType: fullScanType,
@@ -380,7 +386,7 @@ export default function NewCaseRegistration() {
         userRole: currentUser.role,
         action: 'CASE_CREATED',
         target: `cases/${caseNumber}`,
-        details: `Registered ${caseNumber} for ${patient?.name}`,
+        details: `Registered ${modality} case ${caseNumber} for ${patient?.name || 'patient'} at ${resolvedCenterName} (${resolvedOrgType})`,
         timestamp: new Date().toISOString(),
       });
 

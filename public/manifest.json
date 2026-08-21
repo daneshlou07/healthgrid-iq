@@ -1,0 +1,25 @@
+{
+  "short_name": "HealthGrid IQ",
+  "name": "HealthGrid IQ — Clinical Imaging & Diagnostic Platform",
+  "icons": [
+    {
+      "src": "/assets/iq-logo-transparent.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/healthgrid-iq-logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#EDF4F2",
+  "theme_color": "#0F4C42",
+  "display": "standalone",
+  "orientation": "any",
+  "scope": "/",
+  "description": "Enterprise healthcare platform for diagnostic imaging workflow management, AI scheduling, and radiology reporting."
+}

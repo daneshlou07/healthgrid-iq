@@ -386,12 +386,28 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
 
   return (
     <>
-      <header className="h-16 bg-[#FAFCFB] border-b border-[#D8E5E1] flex items-center px-4 md:px-6 gap-3">
+      <header className="h-16 bg-[#FAFCFB] border-b border-[#D8E5E1] flex items-center px-3 sm:px-4 md:px-6 gap-2 sm:gap-3 shrink-0">
+        {/* Mobile / Desktop Sidebar Toggle Button */}
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="p-2 -ml-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/20"
+            title={sidebarOpen ? 'Collapse Navigation' : 'Open Navigation'}
+            aria-label="Toggle navigation menu"
+          >
+            {sidebarOpen ? (
+              <PanelLeftClose className="w-5 h-5 text-[#0F4C42]" />
+            ) : (
+              <PanelLeft className="w-5 h-5 text-slate-600" />
+            )}
+          </button>
+        )}
 
-        <div className="flex-1 max-w-xl">
+        <div className="flex-1 max-w-xl min-w-0">
           <button
             onClick={openSearch}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5
+            className="w-full flex items-center gap-2 px-2.5 sm:px-3 py-1.5
     bg-white
     border border-[#D8E5E1]
     rounded-lg
@@ -402,7 +418,7 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
           >
             <Search className="w-3.5 h-3.5 flex-shrink-0 text-[#3B665E]" />
 
-            <span className="flex-1">
+            <span className="flex-1 truncate">
               Search patients, cases, reports...
             </span>
 
@@ -424,15 +440,16 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
         {criticalCases.length > 0 && (
           <button
             onClick={() => setShowCriticalModal(true)}
-            className="hidden lg:flex items-center gap-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold animate-pulse shadow-md transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold animate-pulse shadow-md transition-all cursor-pointer shrink-0"
             title="Click to view & acknowledge emergency critical findings"
           >
             <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
-            <span>{criticalCases.length} CRITICAL RED FLAG FINDING(S)!</span>
+            <span className="hidden sm:inline">{criticalCases.length} CRITICAL RED FLAG FINDING(S)!</span>
+            <span className="sm:hidden">{criticalCases.length} CRITICAL</span>
           </button>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
           {/* AI Mascot Toggle */}
           <button
             onClick={() => {
@@ -441,7 +458,7 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
               window.dispatchEvent(new CustomEvent('healthgrid:mascot-visibility', { detail: { visible: nextState } }));
               setMascotActive(nextState);
             }}
-            className={`p-1.5 px-2.5 rounded-lg transition-all duration-150 flex items-center gap-1.5 text-xs font-semibold ${mascotActive
+            className={`p-1.5 sm:px-2.5 rounded-lg transition-all duration-150 flex items-center gap-1.5 text-xs font-semibold ${mascotActive
                 ? 'text-[#0F4C42] bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300/80 shadow-xs'
                 : 'text-surface-500 hover:text-navy-700 hover:bg-surface-100 border border-surface-200'
               }`}
@@ -449,7 +466,7 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
             aria-label="Toggle AI Copilot"
           >
             <Bot className={`w-4 h-4 ${mascotActive ? 'text-[#0F4C42]' : 'text-surface-400'}`} />
-            <span className="hidden sm:inline text-[11px] font-medium">
+            <span className="hidden md:inline text-[11px] font-medium">
               {mascotActive ? 'Copilot On' : 'Copilot Off'}
             </span>
           </button>
@@ -461,7 +478,7 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
               {unreadCount > 0 && <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadCount}</span>}
             </button>
             {showNotifications && (
-              <div className="absolute right-0 top-12 w-[420px] max-w-[calc(100vw-24px)] bg-white border border-surface-200 rounded-2xl shadow-elevated z-50 overflow-hidden">
+              <div className="fixed sm:absolute inset-x-2 top-16 sm:inset-x-auto sm:right-0 sm:top-12 w-auto sm:w-[420px] max-w-[calc(100vw-16px)] bg-white border border-surface-200 rounded-2xl shadow-elevated z-50 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-surface-200 bg-white">
                   <div>

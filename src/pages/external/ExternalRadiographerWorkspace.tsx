@@ -25,7 +25,13 @@ export default function ExternalRadiographerWorkspace() {
   const [searchParams] = useSearchParams();
   const caseIdFromUrl = searchParams.get('caseId');
   const { currentUser } = useAuth();
-  const { externalReferrals, cases, externalUploadScans } = useData();
+  const {
+    externalReferrals,
+    crossOrgReferrals,
+    cases,
+    externalUploadScans,
+    completeCrossOrgReferralImaging,
+  } = useData();
   const toast = useToast();
 
   const [selectedReferralId, setSelectedReferralId] = useState('');
@@ -139,6 +145,12 @@ export default function ExternalRadiographerWorkspace() {
         routedToRole,
         uploadedBy: currentUser,
       });
+
+      // Update matching CrossOrganizationReferral if present
+      const matchingCrossRef = crossOrgReferrals?.find((r) => r.caseId === selectedReferral.caseId || r.id === selectedReferral.id);
+      if (matchingCrossRef && completeCrossOrgReferralImaging) {
+        await completeCrossOrgReferralImaging(matchingCrossRef.id, imageKeys);
+      }
 
       toast.success(
         `Scans uploaded successfully! Case returned to Initial Medical Officer (${matchedCase?.initialMoName || 'Primary MO'}) for final clinical review.`

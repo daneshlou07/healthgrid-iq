@@ -26,14 +26,30 @@ import {
 
 export default function BemsDashboard() {
   const { currentUser } = useAuth();
-  const { externalReferrals, cases, clinics, users, bemsAssignFacility } = useData();
+  const {
+    externalReferrals,
+    crossOrgReferrals,
+    cases,
+    clinics,
+    users,
+    facilityEquipment,
+    bemsIncidents,
+    bemsAssignFacility,
+    bemsDispatchCrossOrgReferral,
+    updateFacilityEquipmentStatus,
+    updateBemsIncidentStatus,
+    getRoutingRecommendations,
+  } = useData();
   const toast = useToast();
 
+  const [activeTab, setActiveTab] = useState<'referrals' | 'equipment' | 'incidents'>('referrals');
   const [search, setSearch] = useState('');
   const [selectedFacilityTypeFilter, setSelectedFacilityTypeFilter] = useState<'ALL' | 'PENDING' | 'PUBLIC' | 'PRIVATE'>('ALL');
+  const [equipmentStatusFilter, setEquipmentStatusFilter] = useState<string>('ALL');
 
   // Assign Modal State
   const [selectedReferral, setSelectedReferral] = useState<ExternalImagingRequest | null>(null);
+  const [selectedTargetCenterId, setSelectedTargetCenterId] = useState('');
   const [targetFacilityType, setTargetFacilityType] = useState<ExternalFacilityType>('PUBLIC_HOSPITAL');
   const [selectedFacilityName, setSelectedFacilityName] = useState('');
   const [selectedPublicRadId, setSelectedPublicRadId] = useState('');
@@ -169,10 +185,27 @@ export default function BemsDashboard() {
     });
   }, [allReferrals, search, selectedFacilityTypeFilter]);
 
+  const currentRecommendations = useMemo(() => {
+    if (!selectedReferral) return [];
+    const origCenterId = selectedReferral.originatingClinicId || 'clinic-001';
+    const modality = (selectedReferral.modality || 'X-Ray') as any;
+    const urgency = (selectedReferral.urgency || 'Routine') as any;
+    return getRoutingRecommendations(origCenterId, modality, urgency);
+  }, [selectedReferral, getRoutingRecommendations]);
+
   const openAssignModal = (ref: ExternalImagingRequest) => {
     setSelectedReferral(ref);
-    setTargetFacilityType('PUBLIC_HOSPITAL');
-    setSelectedFacilityName('Hospital Kuala Lumpur (HKL)');
+    const recs = getRoutingRecommendations(ref.originatingClinicId || 'clinic-001', (ref.modality || 'X-Ray') as any, ref.urgency);
+    const topRec = recs[0];
+    if (topRec) {
+      setSelectedTargetCenterId(topRec.facilityId);
+      setSelectedFacilityName(topRec.facilityName);
+      setTargetFacilityType(topRec.organizationType === 'Private Hospital' ? 'PRIVATE_HOSPITAL' : 'PUBLIC_HOSPITAL');
+    } else {
+      setSelectedTargetCenterId('clinic-002');
+      setTargetFacilityType('PUBLIC_HOSPITAL');
+      setSelectedFacilityName('Hospital Tanjong Karang');
+    }
     setSelectedPublicRadId(publicRadiographers[0]?.id || '');
     setSelectedPublicAdminId(publicHospitalAdmins[0]?.id || '');
     setSelectedPrivAdminId(privateHospitalAdmins[0]?.id || '');
@@ -199,7 +232,7 @@ export default function BemsDashboard() {
 
       await bemsAssignFacility(selectedReferral.id, {
         facilityType: targetFacilityType,
-        facilityId: `fac-${Date.now()}`,
+        facilityId: selectedTargetCenterId || `fac-${Date.now()}`,
         facilityName: selectedFacilityName.trim() || (isPublic ? 'Public Hospital' : 'Private Hospital'),
         radiographerId: assignedRadiographer?.id,
         radiographerName: assignedRadiographer?.name,
@@ -208,6 +241,18 @@ export default function BemsDashboard() {
         bemsOfficer: currentUser,
         bemsNotes: bemsNotes.trim(),
       });
+
+      // Also dispatch matching CrossOrganizationReferral if present
+      const matchingCrossRef = crossOrgReferrals.find((r) => r.caseId === selectedReferral.caseId || r.id === selectedReferral.id);
+      if (matchingCrossRef) {
+        await bemsDispatchCrossOrgReferral(
+          matchingCrossRef.id,
+          selectedTargetCenterId || 'clinic-002',
+          selectedFacilityName.trim() || (isPublic ? 'Public Hospital' : 'Private Hospital'),
+          targetFacilityType === 'PRIVATE_HOSPITAL' ? 'Private Hospital' : 'Public Hospital',
+          bemsNotes
+        );
+      }
 
       toast.success(
         isPublicDirect
@@ -236,6 +281,45 @@ export default function BemsDashboard() {
         </div>
       </div>
 
+      {/* ── BEMS PORTAL TABS ───────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          onClick={() => setActiveTab('referrals')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${
+            activeTab === 'referrals'
+              ? 'bg-[#0F4C42] text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <GitBranch className="w-4 h-4" />
+          <span>Referrals &amp; Routing Engine ({pendingRequests.length} Pending)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('equipment')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${
+            activeTab === 'equipment'
+              ? 'bg-[#0F4C42] text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Wrench className="w-4 h-4" />
+          <span>Facility Equipment Fleet ({facilityEquipment.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('incidents')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${
+            activeTab === 'incidents'
+              ? 'bg-[#0F4C42] text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" />
+          <span>BEMS Breakdown Incidents ({bemsIncidents.length})</span>
+        </button>
+      </div>
+
       {/* ── METRICS GRID ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card p-4 space-y-1 bg-white border border-[#E2E8F0]">
@@ -258,230 +342,227 @@ export default function BemsDashboard() {
 
         <div className="card p-4 space-y-1 bg-white border border-[#E2E8F0]">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-            <span>Scans Returned</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>Registered Machines</span>
+            <Wrench className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-bold text-[#0F172A]">{completedReferrals.length}</div>
-          <p className="text-[11px] text-emerald-700">Returned to Initial MO</p>
+          <div className="text-2xl font-bold text-[#0F172A]">{facilityEquipment.length}</div>
+          <p className="text-[11px] text-emerald-700">{facilityEquipment.filter((e) => e.status === 'Available').length} Available Online</p>
         </div>
 
         <div className="card p-4 space-y-1 bg-white border border-[#E2E8F0]">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-            <span>Total Referrals Managed</span>
-            <Activity className="w-4 h-4 text-[#0F4C42]" />
+            <span>Open Breakdown Tickets</span>
+            <Activity className="w-4 h-4 text-red-600" />
           </div>
-          <div className="text-2xl font-bold text-[#0F172A]">{externalReferrals.length}</div>
-          <p className="text-[11px] text-slate-500">Live database records</p>
+          <div className="text-2xl font-bold text-[#0F172A]">{bemsIncidents.filter((i) => i.status !== 'RESOLVED' && i.status !== 'CLOSED').length}</div>
+          <p className="text-[11px] text-red-700">Breakdowns / Inoperative</p>
         </div>
       </div>
 
-      {/* ── ACTION QUEUE: PENDING BEMS REFERRAL REQUESTS ───────────────────── */}
-      {pendingRequests.length > 0 && (
-        <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-700" />
-              <h2 className="text-sm font-bold text-amber-900">
-                Action Required: Pending Referral Requests ({pendingRequests.length})
-              </h2>
-            </div>
-            <span className="text-[11px] text-amber-800">
-              Select facility type (Public / Private) to proceed with scan execution
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {pendingRequests.map((req) => {
-              const matchedCase = cases.find((c) => c.id === req.caseId);
-              return (
-                <div key={req.id} className="bg-white border border-amber-300 rounded-lg p-4 space-y-2 shadow-none">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-xs text-[#0F4C42]">
-                          {req.caseNumber}
-                        </span>
-                        <span className="px-1.5 py-0.2 bg-red-100 text-red-800 font-bold rounded text-[10px]">
-                          {req.machineIssueReason}
-                        </span>
-                      </div>
-                      <p className="text-xs font-bold text-slate-900 mt-1">
-                        Modality: {req.modality}
-                      </p>
-                      <p className="text-[11px] text-slate-600">
-                        Origin Facility: {req.originatingClinicName || 'Primary Care Center'}
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => openAssignModal(req)}
-                      className="px-3.5 py-1.5 bg-[#0F4C42] hover:bg-[#0c3c34] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shrink-0 shadow-sm"
-                    >
-                      <span>Relocate to Hospital</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {req.machineIssueDetails && (
-                    <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
-                      <span className="font-semibold text-slate-700">Machine Failure Details:</span> {req.machineIssueDetails}
-                    </div>
-                  )}
-
-                  <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100">
-                    <span>Reported by: {req.requestingRadiographerName}</span>
-                    <span>Submitted: {new Date(req.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
+      {activeTab === 'referrals' && (
+        <>
+          {/* ── ACTION QUEUE: PENDING BEMS REFERRAL REQUESTS ───────────────────── */}
+          {pendingRequests.length > 0 && (
+            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-700" />
+                  <h2 className="text-sm font-bold text-amber-900">
+                    Action Required: Pending Referral Requests ({pendingRequests.length})
+                  </h2>
                 </div>
-              );
-            })}
+                <span className="text-[11px] text-amber-800">
+                  Select facility type (Public / Private) to proceed with scan execution
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {pendingRequests.map((req) => {
+                  return (
+                    <div key={req.id} className="bg-white border border-amber-300 rounded-lg p-4 space-y-2 shadow-none">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs text-[#0F4C42]">
+                              {req.caseNumber}
+                            </span>
+                            <span className="px-1.5 py-0.2 bg-red-100 text-red-800 font-bold rounded text-[10px]">
+                              {req.machineIssueReason}
+                            </span>
+                          </div>
+                          <p className="text-xs font-bold text-slate-900 mt-1">
+                            Modality: {req.modality}
+                          </p>
+                          <p className="text-[11px] text-slate-600">
+                            Origin Facility: {req.originatingClinicName || 'Primary Care Center'}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => openAssignModal(req)}
+                          className="px-3.5 py-1.5 bg-[#0F4C42] hover:bg-[#0c3c34] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shrink-0 shadow-sm"
+                        >
+                          <span>Review &amp; Dispatch</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {req.machineIssueDetails && (
+                        <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+                          <span className="font-semibold text-slate-700">Machine Failure Details:</span> {req.machineIssueDetails}
+                        </div>
+                      )}
+
+                      <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span>Reported by: {req.requestingRadiographerName}</span>
+                        <span>Submitted: {new Date(req.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── ALL EXTERNAL REFERRALS REPOSITORY ─────────────────────────────── */}
+          <div className="card space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A]">External Referrals Repository</h2>
+                <p className="text-xs text-slate-500">Live referral lifecycle status across Public and Private facilities</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search referral or case..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="text-xs pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0F4C42]"
+                  />
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
+                  <button
+                    onClick={() => setSelectedFacilityTypeFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-md transition-all ${selectedFacilityTypeFilter === 'ALL' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600'
+                      }`}
+                  >
+                    All ({externalReferrals.length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedFacilityTypeFilter('PENDING')}
+                    className={`px-2.5 py-1 rounded-md transition-all ${selectedFacilityTypeFilter === 'PENDING' ? 'bg-white text-amber-800 shadow-sm' : 'text-slate-600'
+                      }`}
+                  >
+                    Pending ({pendingRequests.length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedFacilityTypeFilter('PUBLIC')}
+                    className={`px-2.5 py-1 rounded-md transition-all ${selectedFacilityTypeFilter === 'PUBLIC' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600'
+                      }`}
+                  >
+                    Public Hospital
+                  </button>
+                  <button
+                    onClick={() => setSelectedFacilityTypeFilter('PRIVATE')}
+                    className={`px-2.5 py-1 rounded-md transition-all ${selectedFacilityTypeFilter === 'PRIVATE' ? 'bg-white text-purple-800 shadow-sm' : 'text-slate-600'
+                      }`}
+                  >
+                    Private Hospital
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-2.5 px-3">Case / Patient</th>
+                    <th className="py-2.5 px-3">Modality / Issue</th>
+                    <th className="py-2.5 px-3">Origin Facility</th>
+                    <th className="py-2.5 px-3">Assigned Destination</th>
+                    <th className="py-2.5 px-3">Assigned Staff</th>
+                    <th className="py-2.5 px-3">Lifecycle Status</th>
+                    <th className="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredReferrals.map((req) => (
+                    <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3 px-3">
+                        <div className="font-mono font-bold text-slate-900">{req.caseNumber}</div>
+                        <div className="text-[11px] text-slate-500">{req.patientName}</div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-[#0F4C42]">{req.modality}</div>
+                        <div className="text-[11px] text-red-600 font-medium">{req.machineIssueReason}</div>
+                      </td>
+                      <td className="py-3 px-3 text-slate-700 font-medium">
+                        {req.originatingClinicName || 'Primary Care Center'}
+                      </td>
+                      <td className="py-3 px-3">
+                        {req.assignedFacilityName ? (
+                          <div>
+                            <span className="font-bold text-slate-900">{req.assignedFacilityName}</span>
+                            <span className={`block text-[10px] ${req.facilityType === 'PUBLIC_HOSPITAL' ? 'text-blue-600' : 'text-purple-600'
+                              }`}>
+                              {req.facilityType === 'PUBLIC_HOSPITAL' ? 'Public Hospital' : 'Private Hospital'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3">
+                        {req.assignedRadiographerName ? (
+                          <div className="text-slate-700 font-medium">
+                            <span>Rad: {req.assignedRadiographerName}</span>
+                          </div>
+                        ) : req.assignedHospitalAdminName ? (
+                          <div className="text-slate-600">
+                            <span>Admin: {req.assignedHospitalAdminName}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3">
+                        <StatusBadge status={req.status} />
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        {req.status === 'PENDING_BEMZ' ? (
+                          <button
+                            onClick={() => openAssignModal(req)}
+                            className="btn-primary text-xs py-1 px-2.5"
+                          >
+                            Relocate Scan
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-500 font-medium">Relocated</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredReferrals.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-slate-400 text-xs">
+                        No equipment maintenance referrals match the selected filter.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
-
-      {/* ── ALL EXTERNAL REFERRALS REPOSITORY ─────────────────────────────── */}
-      <div className="card space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
-          <div>
-            <h2 className="text-sm font-bold text-[#0F172A]">External Referrals Repository</h2>
-            <p className="text-xs text-slate-500">Live referral lifecycle status across Public and Private facilities</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search referral or case..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="text-xs pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0F4C42]"
-              />
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
-              <button
-                onClick={() => setSelectedFacilityTypeFilter('ALL')}
-                className={`px-2.5 py-1 rounded-md transition-all ${selectedFacilityTypeFilter === 'ALL' ? 'bg-white text-[#0F4C42] shadow-sm' : 'text-slate-600'
-                  }`}
-              >
-                All ({externalReferrals.length})
-              </button>
-              <button
-                onClick={() => setSelectedFacilityTypeFilter('PENDING')}
-                className={`px-2.5 py-1 rounded-md transition-all ${selectedFacilityTypeFilter === 'PENDING' ? 'bg-white text-amber-800 shadow-sm' : 'text-slate-600'
-                  }`}
-              >
-                Pending ({pendingRequests.length})
-              </button>
-              <button
-                onClick={() => setSelectedFacilityTypeFilter('PUBLIC')}
-                className={`px-2.5 py-1 rounded-md transition-all ${selectedFacilityTypeFilter === 'PUBLIC' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600'
-                  }`}
-              >
-                Public Hospital
-              </button>
-              <button
-                onClick={() => setSelectedFacilityTypeFilter('PRIVATE')}
-                className={`px-2.5 py-1 rounded-md transition-all ${selectedFacilityTypeFilter === 'PRIVATE' ? 'bg-white text-purple-800 shadow-sm' : 'text-slate-600'
-                  }`}
-              >
-                Private Hospital
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                <th className="py-2.5 px-3 font-bold">Case Reference</th>
-                <th className="py-2.5 px-3 font-bold">Modality &amp; Origin Clinic</th>
-                <th className="py-2.5 px-3 font-bold">Machine Fault</th>
-                <th className="py-2.5 px-3 font-bold">Relocation Pathway</th>
-                <th className="py-2.5 px-3 font-bold">Assigned Staff</th>
-                <th className="py-2.5 px-3 font-bold">Status</th>
-                <th className="py-2.5 px-3 font-bold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredReferrals.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3 px-3">
-                    <span className="font-mono font-bold text-[#0F4C42]">
-                      {req.caseNumber}
-                    </span>
-                    <div className="text-[10px] text-slate-400 font-mono">{req.id}</div>
-                  </td>
-                  <td className="py-3 px-3">
-                    <div className="font-bold text-slate-900">{req.modality}</div>
-                    <div className="text-[10px] text-slate-500">{req.originatingClinicName || 'Primary Clinic'}</div>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded font-semibold text-[10px]">
-                      {req.machineIssueReason}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    {req.facilityType ? (
-                      <div>
-                        <div className="font-semibold text-slate-800">{req.assignedFacilityName}</div>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${req.facilityType === 'PUBLIC_HOSPITAL' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
-                          }`}>
-                          {req.facilityType === 'PUBLIC_HOSPITAL' ? 'Public Hospital' : 'Private Hospital'}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-amber-600 font-semibold text-[11px]">Pending Relocation</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 text-slate-700">
-                    {req.assignedRadiographerName ? (
-                      <div>
-                        <div className="font-medium text-slate-800">Rad: {req.assignedRadiographerName}</div>
-                        <div className="text-[10px] text-slate-400">Directly assigned</div>
-                      </div>
-                    ) : req.assignedHospitalAdminName ? (
-                      <div>
-                        <div className="font-medium text-slate-800">Admin: {req.assignedHospitalAdminName}</div>
-                        <div className="text-[10px] text-slate-400">Reviewing assignment</div>
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3">
-                    <StatusBadge status={req.status} />
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    {req.status === 'PENDING_BEMZ' ? (
-                      <button
-                        onClick={() => openAssignModal(req)}
-                        className="btn-primary text-xs py-1 px-2.5"
-                      >
-                        Relocate Scan
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-slate-500 font-medium">Relocated</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filteredReferrals.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-400 text-xs">
-                    No equipment maintenance referrals match the selected filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       {/* ── ASSIGN EXTERNAL FACILITY MODAL ─────────────────────────────────── */}
       {selectedReferral && (
@@ -509,6 +590,73 @@ export default function BemsDashboard() {
                 <span className="text-red-600 font-semibold">{selectedReferral.machineIssueReason}</span>
               </div>
             </div>
+
+            {/* ── Intelligent Routing Engine Decision Support Cards ── */}
+            {currentRecommendations.length > 0 && (
+              <div className="space-y-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#0F172A]">
+                    <GitBranch className="w-3.5 h-3.5 text-[#0F4C42]" />
+                    <span>Intelligent Routing Decision Support ({currentRecommendations.length} Candidates)</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">BEMS Recommendation Only</span>
+                </div>
+
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {currentRecommendations.slice(0, 3).map((rec, idx) => {
+                    const isSelected = selectedTargetCenterId === rec.facilityId;
+                    return (
+                      <div
+                        key={rec.facilityId}
+                        onClick={() => {
+                          setSelectedTargetCenterId(rec.facilityId);
+                          setSelectedFacilityName(rec.facilityName);
+                          setTargetFacilityType(rec.organizationType === 'Private Hospital' ? 'PRIVATE_HOSPITAL' : 'PUBLIC_HOSPITAL');
+                        }}
+                        className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-[#EFF6F3] border-[#0F4C42] ring-1 ring-[#0F4C42]'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              idx === 0 ? 'bg-[#0F4C42] text-white' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                              #{idx + 1}
+                            </span>
+                            <span className="font-bold text-slate-900">{rec.facilityName}</span>
+                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px]">
+                              {rec.organizationType}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-[#0F4C42] text-xs">{rec.suitabilityScore}% Match</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1 mt-2 text-[10px] text-slate-600">
+                          <div>
+                            <span className="text-slate-400">Distance:</span> {rec.distanceKm} km ({rec.estimatedDriveMinutes} min)
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Machines Online:</span> {rec.availableEquipmentCount}
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Staff on Duty:</span> {rec.availableRadiographersCount}
+                          </div>
+                        </div>
+
+                        <div className="mt-1 text-[10px] text-slate-500 italic">
+                          {rec.recommendationReason}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Facility Type Selector (Public vs Private) */}
             <div className="space-y-1.5">

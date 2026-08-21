@@ -581,7 +581,7 @@ export default function AISchedulerMap() {
 
         // Fetch route asynchronously
         getRoute(patLat, patLon, clinic.latitude, clinic.longitude)
-          .then((route) => {
+          .then((route: any) => {
             if (route.polylineCoords.length > 0) {
               const polyline = L.polyline(route.polylineCoords, { color, weight: 4, opacity: 0.82 });
               routeCache.set(cacheKey, polyline);

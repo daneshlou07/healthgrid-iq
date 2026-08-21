@@ -20,7 +20,14 @@ import {
 
 export default function PublicHospitalAdminDashboard() {
   const { currentUser } = useAuth();
-  const { externalReferrals, users, hospitalAdminAssignRadiographer } = useData();
+  const {
+    externalReferrals,
+    crossOrgReferrals,
+    users,
+    hospitalAdminAssignRadiographer,
+    receivingAdminAcceptCrossOrgReferral,
+    receivingAdminAssignRadiographerToReferral,
+  } = useData();
   const toast = useToast();
 
   const [search, setSearch] = useState('');
@@ -115,6 +122,17 @@ export default function PublicHospitalAdminDashboard() {
         adminUser: currentUser,
         notes: adminNotes.trim(),
       });
+
+      // Update matching CrossOrganizationReferral if present
+      const matchingCrossRef = crossOrgReferrals?.find((r) => r.caseId === selectedReferral.caseId || r.id === selectedReferral.id);
+      if (matchingCrossRef) {
+        if (matchingCrossRef.status === 'DISPATCHED' && receivingAdminAcceptCrossOrgReferral) {
+          await receivingAdminAcceptCrossOrgReferral(matchingCrossRef.id, currentUser.id, currentUser.name);
+        }
+        if (receivingAdminAssignRadiographerToReferral && rad) {
+          await receivingAdminAssignRadiographerToReferral(matchingCrossRef.id, rad.id, rad.name);
+        }
+      }
 
       toast.success(`Assigned Radiographer ${rad?.name} to Case ${selectedReferral.caseNumber}`);
       setSelectedReferral(null);
