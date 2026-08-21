@@ -86,14 +86,14 @@ export function getScopedCasesForUser(user: User | null, allCases: Case[]): Case
     });
   }
 
-  // 4. Radiologists: Local center cases + explicitly assigned or escalated specialist reviews
+  // 4. Radiologists: Local center cases + explicitly assigned cases + cases referred to their center
   if (user.role === 'Radiologist') {
     return allCases.filter((c) => {
       const caseCenterId = c.originatingCenterId || c.clinicId;
       const isLocalCenter = caseCenterId === userCenterId;
       const isAssignedRadiologist = c.radiologistId === user.id;
-      const isEscalatedOrSecondOpinion = (c as any).isEscalated || (c as any).routedToRole === 'Radiologist' || (c as any).secondOpinionRequested;
-      return isLocalCenter || isAssignedRadiologist || isEscalatedOrSecondOpinion;
+      const isReferredToCenter = c.externalFacilityId === userCenterId;
+      return isLocalCenter || isAssignedRadiologist || isReferredToCenter;
     });
   }
 
@@ -216,6 +216,8 @@ interface DataContextValue {
   reports: Report[];
   patientRequests: PatientRequest[];
   auditLogs: AuditLog[];
+  mobilePacsVans: MobilePacsVan[];
+  /** @deprecated Transitional alias for mobilePacsVans to resolve generic equipment naming collisions */
   equipment: MobilePacsVan[];
   loading: boolean;
   comments: CaseComment[];
@@ -319,6 +321,7 @@ interface DataContextValue {
   addClinicLocally: (clinic: Clinic) => void;
   // Raw setters retained for admin pages that need to batch-replace full lists
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  setMobilePacsVans: React.Dispatch<React.SetStateAction<MobilePacsVan[]>>;
   setEquipment: React.Dispatch<React.SetStateAction<MobilePacsVan[]>>;
   setClinics: React.Dispatch<React.SetStateAction<Clinic[]>>;
   setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
@@ -991,6 +994,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await editCase(targetCaseId, {
         status: hasRadiographer ? 'EXTERNAL_RADIOGRAPHER_ASSIGNED' : 'PRIVATE_HOSPITAL_ADMIN_REVIEW',
         externalFacilityType: isPublic ? 'Public Hospital' : 'Private Hospital',
+        externalFacilityId: payload.facilityId,
         externalFacilityName: payload.facilityName,
         externalRadiographerId: payload.radiographerId,
         externalRadiographerName: payload.radiographerName,
@@ -1628,7 +1632,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider value={{
       organizations, healthcareCenters, getScopedCases,
-      users, cases, patients, clinics, reports, patientRequests, auditLogs, equipment, externalReferrals, loading,
+      users, cases, patients, clinics, reports, patientRequests, auditLogs,
+      mobilePacsVans: equipment, equipment, externalReferrals, loading,
       comments, recentItems, trash,
       equipmentCatalog, quotationRequests, marketplaceCart,
       addEquipmentItem, updateEquipmentItem, deleteEquipmentItem,
@@ -1646,7 +1651,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       softDelete, restoreFromTrash, permanentDelete,
       updateUserLocally, updateEquipmentLocally, updateClinicLocally,
       updatePatientLocally, addUserLocally, addEquipmentLocally, addClinicLocally,
-      setUsers, setEquipment, setClinics, setPatients, setPatientRequests,
+      setUsers, setMobilePacsVans: setEquipment, setEquipment, setClinics, setPatients, setPatientRequests,
       refresh: loadAll, clearStorage, resetFirestoreData,
     }}>
       {children}

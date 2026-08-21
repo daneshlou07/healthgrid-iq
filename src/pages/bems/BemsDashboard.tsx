@@ -46,28 +46,37 @@ export default function BemsDashboard() {
   const [selectedPublicAdminId, setSelectedPublicAdminId] = useState('');
 
   const publicRadiographers = useMemo(() => {
-    return users.filter(
-      (u) =>
-        u.role === 'Public Hospital Radiographer' ||
-        (u.role === 'Radiographer' && (u.deploymentLocationId?.includes('hosp') || u.specialty?.includes('Public')))
-    );
-  }, [users]);
+    return users.filter((u) => {
+      if (u.role === 'Public Hospital Radiographer') return true;
+      if (u.role === 'Radiographer') {
+        const center = clinics.find((c) => c.id === (u.healthcareCenterId || u.deploymentLocationId));
+        return center?.organizationType === 'Public Hospital';
+      }
+      return false;
+    });
+  }, [users, clinics]);
 
   const publicHospitalAdmins = useMemo(() => {
-    return users.filter(
-      (u) =>
-        u.role === 'Public Hospital Admin' ||
-        (u.role === 'Administrator' && (u.specialty?.includes('Public') || u.name.includes('Public') || u.name.includes('HKL')))
-    );
-  }, [users]);
+    return users.filter((u) => {
+      if (u.role === 'Public Hospital Admin') return true;
+      if (u.role === 'Administrator') {
+        const center = clinics.find((c) => c.id === (u.healthcareCenterId || u.deploymentLocationId));
+        return center?.organizationType === 'Public Hospital';
+      }
+      return false;
+    });
+  }, [users, clinics]);
 
   const privateHospitalAdmins = useMemo(() => {
-    return users.filter(
-      (u) =>
-        u.role === 'Private Hospital Admin' ||
-        (u.role === 'Administrator' && (u.specialty?.includes('Private') || u.name.includes('KPJ') || u.name.includes('Sunway')))
-    );
-  }, [users]);
+    return users.filter((u) => {
+      if (u.role === 'Private Hospital Admin') return true;
+      if (u.role === 'Administrator') {
+        const center = clinics.find((c) => c.id === (u.healthcareCenterId || u.deploymentLocationId));
+        return center?.organizationType === 'Private Hospital';
+      }
+      return false;
+    });
+  }, [users, clinics]);
 
   // Aggregate and synchronize all equipment issue tickets from externalReferrals and active cases
   const allReferrals = useMemo(() => {

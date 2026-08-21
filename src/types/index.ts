@@ -404,7 +404,11 @@ export interface ExternalImagingRequest {
   caseNumber: string;
   patientId: string;
   patientName: string;
+  originatingCenterId?: string;
+  originatingCenterName?: string;
+  /** @deprecated Transitional backward-compatibility alias for originatingCenterId */
   originatingClinicId?: string;
+  /** @deprecated Transitional backward-compatibility alias for originatingCenterName */
   originatingClinicName?: string;
   requestingRadiographerId: string;
   requestingRadiographerName: string;

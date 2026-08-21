@@ -12,8 +12,9 @@ function displayNric(nric: string): string {
 }
 
 export default function PatientsList() {
-  const { patients, cases } = useData();
+  const { patients, cases, getScopedCases } = useData();
   const [search, setSearch] = useState('');
+  const scopedCases = getScopedCases ? getScopedCases() : cases;
 
   const filtered = patients.filter(
     (p) =>
@@ -99,7 +100,7 @@ export default function PatientsList() {
 
             <tbody className="divide-y divide-surface-200">
               {filtered.map((patient) => {
-                const caseCount = cases.filter(
+                const caseCount = scopedCases.filter(
                   (c) => c.patientId === patient.id
                 ).length;
 

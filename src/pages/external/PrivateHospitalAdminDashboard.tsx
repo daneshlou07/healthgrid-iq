@@ -32,24 +32,32 @@ export default function PrivateHospitalAdminDashboard() {
   const [submitting, setSubmitting] = useState(false);
 
   // Available private hospital clinical imaging team
+  const adminCenterId = currentUser?.healthcareCenterId || currentUser?.deploymentLocationId;
   const privateRadiographers = useMemo(() => {
     return users.filter(
       (u) =>
-        u.role === 'Private Hospital Radiographer' ||
-        (u.role === 'Radiographer' && (u.specialty?.includes('Private') || u.name.includes('KPJ') || u.name.includes('Private')))
+        (u.role === 'Private Hospital Radiographer' || u.role === 'Radiographer') &&
+        (adminCenterId ? (u.healthcareCenterId === adminCenterId || u.deploymentLocationId === adminCenterId) : true)
     );
-  }, [users]);
+  }, [users, adminCenterId]);
 
   // Referrals routed to this private hospital admin (Strictly excludes Public Hospital cases)
   const myHospitalReferrals = useMemo(() => {
-    return externalReferrals.filter(
-      (r) =>
+    return externalReferrals.filter((r) => {
+      if (adminCenterId) {
+        return (
+          r.assignedFacilityId === adminCenterId ||
+          r.assignedHospitalAdminId === currentUser?.id
+        );
+      }
+      return (
         (r.facilityType === 'PRIVATE_HOSPITAL' ||
           r.assignedHospitalAdminId === currentUser?.id ||
           (r.status === 'PRIVATE_ADMIN_REVIEW' && r.facilityType !== 'PUBLIC_HOSPITAL')) &&
         r.facilityType !== 'PUBLIC_HOSPITAL'
-    );
-  }, [externalReferrals, currentUser?.id]);
+      );
+    });
+  }, [externalReferrals, adminCenterId, currentUser?.id]);
 
   const pendingAssignment = myHospitalReferrals.filter(
     (r) => r.status === 'PRIVATE_ADMIN_REVIEW' || !r.assignedRadiographerId

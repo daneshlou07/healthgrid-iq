@@ -31,30 +31,27 @@ export default function PublicHospitalAdminDashboard() {
   const [submitting, setSubmitting] = useState(false);
 
   // Available public hospital diagnostic imaging team
+  const adminCenterId = currentUser?.healthcareCenterId || currentUser?.deploymentLocationId;
   const publicRadiographers = useMemo(() => {
     return users.filter(
       (u) =>
-        u.role === 'Public Hospital Radiographer' ||
-        (u.role === 'Radiographer' &&
-          (u.specialty?.toLowerCase().includes('public') ||
-            u.name.toLowerCase().includes('noraini') ||
-            u.deploymentLocationId?.includes('clinic-002') ||
-            u.deploymentLocationId?.includes('hosp')))
+        (u.role === 'Public Hospital Radiographer' || u.role === 'Radiographer') &&
+        (adminCenterId ? (u.healthcareCenterId === adminCenterId || u.deploymentLocationId === adminCenterId) : true)
     );
-  }, [users]);
+  }, [users, adminCenterId]);
 
-  // Referrals routed to Public Hospital administration
+  // Referrals routed to this Public Hospital administration
   const publicHospitalReferrals = useMemo(() => {
     return externalReferrals.filter((r) => {
-      const isPublicType = r.facilityType === 'PUBLIC_HOSPITAL';
-      const isAssignedToThisAdmin = r.assignedHospitalAdminId === currentUser?.id;
-      const isPublicNamed = (r.assignedFacilityName || '').toLowerCase().includes('public') ||
-        (r.assignedFacilityName || '').toLowerCase().includes('kuala lumpur') ||
-        (r.assignedFacilityName || '').toLowerCase().includes('general hospital');
-
-      return isPublicType || isAssignedToThisAdmin || isPublicNamed;
+      if (adminCenterId) {
+        return (
+          r.assignedFacilityId === adminCenterId ||
+          r.assignedHospitalAdminId === currentUser?.id
+        );
+      }
+      return r.facilityType === 'PUBLIC_HOSPITAL' || r.assignedHospitalAdminId === currentUser?.id;
     });
-  }, [externalReferrals, currentUser?.id]);
+  }, [externalReferrals, adminCenterId, currentUser?.id]);
 
   const pendingAssignment = useMemo(() => {
     return publicHospitalReferrals.filter(
