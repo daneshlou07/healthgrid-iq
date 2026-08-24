@@ -68,25 +68,36 @@ export function resolveUserFacilityContext(user: User | null, clinics: Clinic[] 
   organizationType: HealthcareOrganizationType;
   organizationId: string;
 } {
+  const isMasterOrSuper = user?.email === 'daneshlou05@gmail.com' || user?.role === 'Super Admin';
+  if (isMasterOrSuper) {
+    return {
+      healthcareCenterId: '',
+      healthcareCenterName: '',
+      organizationType: 'Klinik Kesihatan',
+      organizationId: 'org-moh-selangor',
+    };
+  }
+
   if (!user) {
     return {
-      healthcareCenterId: 'clinic-001',
-      healthcareCenterName: 'Klinik Kesihatan Bestari Jaya',
+      healthcareCenterId: '',
+      healthcareCenterName: '',
       organizationType: 'Klinik Kesihatan',
       organizationId: 'org-moh-selangor',
     };
   }
 
   // 1. Resolve Center ID
-  const centerId = user.healthcareCenterId || user.deploymentLocationId || 'clinic-001';
+  const centerId = user.healthcareCenterId || user.deploymentLocationId || '';
 
   // 2. Find matching Clinic / Healthcare Center
-  const clinic =
-    clinics.find((c) => c.id === centerId) ||
-    clinics.find((c) => user.healthcareCenterName && c.name.toLowerCase() === user.healthcareCenterName.toLowerCase());
+  const clinic = centerId
+    ? (clinics.find((c) => c.id === centerId) ||
+       clinics.find((c) => user.healthcareCenterName && c.name.toLowerCase() === user.healthcareCenterName.toLowerCase()))
+    : null;
 
   // 3. Resolve Center Name
-  const centerName = clinic?.name || user.healthcareCenterName || 'Klinik Kesihatan Bestari Jaya';
+  const centerName = clinic?.name || user.healthcareCenterName || '';
 
   // 4. Resolve Organization Type
   let orgType: HealthcareOrganizationType = user.organizationType || clinic?.organizationType || 'Klinik Kesihatan';

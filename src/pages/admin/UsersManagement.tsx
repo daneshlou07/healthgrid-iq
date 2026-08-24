@@ -946,15 +946,19 @@ export default function UsersManagement() {
               </div>
             ) : (
               filteredAccounts.map((account) => {
-                const clinic = clinics.find(
+                const isMaster = account.email === 'daneshlou05@gmail.com';
+                const isSuper = account.role === 'Super Admin';
+                const isUntied = isMaster || isSuper;
+                const clinic = isUntied ? null : clinics.find(
                   (c) => c.id === (account.healthcareCenterId || account.deploymentLocationId)
                 );
-                const displayOrgType = account.organizationType || clinic?.organizationType || (
-                  account.role === 'Super Admin' || account.role === 'BEMS Officer' ? 'Central / Platform' : '—'
-                );
-                const displayCenter = clinic ? clinic.name : (
-                  account.healthcareCenterName || (account.role === 'Super Admin' || account.role === 'BEMS Officer' ? 'Platform / Central' : '—')
-                );
+                const displayOrgType = isUntied ? 'National / Central' : (account.organizationType || clinic?.organizationType || (
+                  account.role === 'BEMS Officer' ? 'Central / Platform' : '—'
+                ));
+                const displayCenter = isUntied ? 'National (Untied)' : (clinic ? clinic.name : (
+                  account.healthcareCenterName || (account.role === 'BEMS Officer' ? 'Platform / Central' : '—')
+                ));
+                const displayName = isMaster ? 'Danesh' : account.name;
 
                 return (
                   <div key={account.id} className="card p-4 space-y-3 border-surface-200">
@@ -1097,15 +1101,19 @@ export default function UsersManagement() {
                     </tr>
                   ) : (
                     filteredAccounts.map((account) => {
-                      const clinic = clinics.find(
+                      const isMaster = account.email === 'daneshlou05@gmail.com';
+                      const isSuper = account.role === 'Super Admin';
+                      const isUntied = isMaster || isSuper;
+                      const clinic = isUntied ? null : clinics.find(
                         (c) => c.id === (account.healthcareCenterId || account.deploymentLocationId)
                       );
-                      const displayOrgType = account.organizationType || clinic?.organizationType || (
-                        account.role === 'Super Admin' || account.role === 'BEMS Officer' ? 'Central / Platform' : '—'
-                      );
-                      const displayCenter = clinic ? clinic.name : (
-                        account.healthcareCenterName || (account.role === 'Super Admin' || account.role === 'BEMS Officer' ? 'Platform / Central' : '—')
-                      );
+                      const displayOrgType = isUntied ? 'National / Central' : (account.organizationType || clinic?.organizationType || (
+                        account.role === 'BEMS Officer' ? 'Central / Platform' : '—'
+                      ));
+                      const displayCenter = isUntied ? 'National (Untied)' : (clinic ? clinic.name : (
+                        account.healthcareCenterName || (account.role === 'BEMS Officer' ? 'Platform / Central' : '—')
+                      ));
+                      const displayName = isMaster ? 'Danesh' : account.name;
 
                       return (
                         <tr
@@ -1122,7 +1130,7 @@ export default function UsersManagement() {
                           <td className="table-cell">
                             <div>
                               <p className="font-semibold text-surface-800 text-xs">
-                                {account.name}
+                                {displayName}
                               </p>
                               <p className="text-[11px] text-surface-500 font-mono">
                                 {account.email}

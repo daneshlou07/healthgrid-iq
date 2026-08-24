@@ -127,25 +127,30 @@ export default function DevAccountSwitcher() {
                     <p className="text-[9px] font-semibold text-surface-500 uppercase mb-1">{role}</p>
                     {roleUsers.map((u) => {
                       const isCurrent = u.id === currentUser?.id;
-                      return (
-                        <button
-                          key={u.id}
-                          onClick={() => !isCurrent && handleSwitch(u.id)}
-                          disabled={isCurrent}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors text-left mb-0.5 ${
-                            isCurrent ? 'bg-navy-50 cursor-default' : 'hover:bg-surface-100 cursor-pointer'
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-surface-800 truncate">
-                              {u.name} {isCurrent && <span className="text-[9px] text-navy-600 font-medium ml-1">(Active)</span>}
-                            </p>
-                            <p className="text-[10px] text-surface-500 truncate">
-                              {u.healthcareCenterName ? `${u.healthcareCenterName}` : (u.organizationType ? `${u.organizationType}` : u.email)}
-                            </p>
-                          </div>
-                        </button>
-                      );
+                        const isMaster = u.email === 'daneshlou05@gmail.com';
+                        const isSuper = u.role === 'Super Admin';
+                        const displayName = isMaster ? 'Danesh' : u.name;
+                        const subtitle = (isMaster || isSuper) ? u.email : (u.healthcareCenterName ? `${u.healthcareCenterName}` : (u.organizationType ? `${u.organizationType}` : u.email));
+
+                        return (
+                          <button
+                            key={u.id}
+                            onClick={() => !isCurrent && handleSwitch(u.id)}
+                            disabled={isCurrent}
+                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors text-left mb-0.5 ${
+                              isCurrent ? 'bg-navy-50 cursor-default' : 'hover:bg-surface-100 cursor-pointer'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-surface-800 truncate">
+                                {displayName} {isCurrent && <span className="text-[9px] text-navy-600 font-medium ml-1">(Active)</span>}
+                              </p>
+                              <p className="text-[10px] text-surface-500 truncate">
+                                {subtitle}
+                              </p>
+                            </div>
+                          </button>
+                        );
                     })}
                   </div>
                 );
