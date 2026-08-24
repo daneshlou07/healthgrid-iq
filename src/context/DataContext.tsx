@@ -20,7 +20,6 @@ import {
   getFacilityEquipment, getBemsIncidents, getCrossOrgReferrals,
   sanitizeUserRole,
 } from '../services/dataService';
-import { mockEquipmentCatalog, mockInitialQuotations } from '../services/mockMarketplaceData';
 import { useAuth } from './AuthContext';
 import { calculateFacilityRoutingRecommendations } from '../services/routingService';
 import type {
@@ -186,9 +185,9 @@ const CART_KEY = 'healthgrid_marketplace_cart';
 function loadMarketplaceCatalog(): EquipmentItem[] {
   try {
     const raw = localStorage.getItem(MARKETPLACE_CATALOG_KEY);
-    return raw ? JSON.parse(raw) : mockEquipmentCatalog;
+    return raw ? JSON.parse(raw) : [];
   } catch {
-    return mockEquipmentCatalog;
+    return [];
   }
 }
 
@@ -199,9 +198,9 @@ function saveMarketplaceCatalog(catalog: EquipmentItem[]) {
 function loadQuotations(): QuotationRequest[] {
   try {
     const raw = localStorage.getItem(QUOTATIONS_KEY);
-    return raw ? JSON.parse(raw) : mockInitialQuotations;
+    return raw ? JSON.parse(raw) : [];
   } catch {
-    return mockInitialQuotations;
+    return [];
   }
 }
 
