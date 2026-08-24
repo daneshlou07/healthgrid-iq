@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Case, RadioScheduleProfile, RadioScheduleSlot } from '../../types';
+import type { Case, RadioScheduleProfile, RadioScheduleSlot, SeverityLevel } from '../../types';
 import { User, CheckCircle, AlertTriangle, Sparkles, Building2 } from 'lucide-react';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   onSelect: (userId: string) => void;
   existingCases?: Case[];
   targetClinicId?: string | null;
+  caseSeverity?: SeverityLevel;
 }
 
 /**
@@ -241,7 +242,9 @@ export function getAvailableSlots(
 export function scoreRadiographer(
   profile: RadioScheduleProfile,
   requiredModality: string,
-  existingCases?: Case[]
+  existingCases?: Case[],
+  targetClinicId?: string | null,
+  caseSeverity?: SeverityLevel
 ): number {
   if (profile.leaveStatus === 'On Leave') return Infinity;
 
@@ -268,64 +271,102 @@ export function scoreRadiographer(
     (earliestDate.getTime() - now.getTime()) / 86400000
   );
 
-  const liveCount = existingCases
+  const activeAssignedCases = existingCases
     ? existingCases.filter(
       (c) =>
         c.radiographerId === profile.userId &&
         (c.status === 'SCHEDULED' || c.status === 'SCANNED')
-    ).length
-    : profile.currentCaseload;
+    )
+    : [];
+
+  const liveCount = activeAssignedCases.length > 0 ? activeAssignedCases.length : profile.currentCaseload;
 
   const workloadRatio =
     profile.maxDailyCaseload > 0
       ? liveCount / profile.maxDailyCaseload
       : 1;
 
+  // Location / On-site bonus/penalty: heavily prioritize radiographers stationed at the clinic
+  let locationScore = 0;
+  if (targetClinicId) {
+    if (profile.deployedClinicId === targetClinicId) {
+      locationScore = -1000; // Strong preference for on-site radiographer
+    } else {
+      locationScore = 600; // Deprioritize radiographers stationed at other clinics
+    }
+  }
+
+  // Severity workload balancing:
+  // Count existing high-severity cases to prevent cognitive overload and procedural delays
+  const activeCriticalCount = activeAssignedCases.filter((c) => c.severity === 'Critical').length;
+  const activeSevereCount = activeAssignedCases.filter((c) => c.severity === 'Severe').length;
+  const heavySeverityLoad = activeCriticalCount * 3 + activeSevereCount * 1.5;
+
+  let severityScore = 0;
+  if (caseSeverity === 'Critical') {
+    // For critical emergencies, prefer radiographer with zero/minimal critical burden right now
+    severityScore = activeCriticalCount === 0 ? -300 : activeCriticalCount * 250;
+  } else if (caseSeverity === 'Severe') {
+    severityScore = activeCriticalCount * 150 + activeSevereCount * 80;
+  } else {
+    // Routine / Mild / Moderate cases
+    severityScore = heavySeverityLoad * 40;
+  }
+
   return (
-    (supports ? 0 : 500) +
+    (supports ? 0 : 5000) +
+    locationScore +
+    severityScore +
     daysAway * 100 +
-    workloadRatio * 50
+    workloadRatio * 150
   );
 }
 
 export function getRecommendationReasons(
   profile: RadioScheduleProfile,
   requiredModality: string,
-  existingCases?: Case[]
+  existingCases?: Case[],
+  targetClinicId?: string | null,
+  caseSeverity?: SeverityLevel
 ): string[] {
   const reasons: string[] = [];
 
+  if (targetClinicId && profile.deployedClinicId === targetClinicId) {
+    reasons.push(`Stationed on-site at ${profile.deployedClinicName || 'this healthcare centre'}`);
+  }
+
   if (profile.supportedModalities.includes(requiredModality)) {
-    reasons.push('Certified for selected imaging modality');
+    reasons.push(`Certified for ${requiredModality} examinations`);
   }
 
-  const earliest = getEarliestSlot(
-    profile.schedule,
-    profile.userId,
-    existingCases
-  );
-
-  if (earliest) {
-    reasons.push('Next available slot is in the future');
-  }
-
-  const liveCount = existingCases
+  const activeAssignedCases = existingCases
     ? existingCases.filter(
       (c) =>
         c.radiographerId === profile.userId &&
         (c.status === 'SCHEDULED' || c.status === 'SCANNED')
-    ).length
-    : profile.currentCaseload;
+    )
+    : [];
 
+  const activeCriticalCount = activeAssignedCases.filter((c) => c.severity === 'Critical').length;
+
+  if (caseSeverity === 'Critical') {
+    if (activeCriticalCount === 0) {
+      reasons.push('Zero active critical cases — optimal capacity for emergency procedure');
+    } else {
+      reasons.push(`Currently handling ${activeCriticalCount} critical case(s) with available slot`);
+    }
+  } else if (caseSeverity === 'Severe') {
+    reasons.push('Low urgent case fatigue index');
+  }
+
+  const liveCount = activeAssignedCases.length > 0 ? activeAssignedCases.length : profile.currentCaseload;
   const workloadRatio =
     profile.maxDailyCaseload > 0
       ? liveCount / profile.maxDailyCaseload
       : 1;
 
-  if (workloadRatio <= 0.5) reasons.push('Low workload');
-  else if (workloadRatio <= 0.75) reasons.push('Acceptable workload');
-
-  reasons.push('Meets scheduling constraints');
+  if (workloadRatio <= 0.4) reasons.push('Low workload (available capacity)');
+  else if (workloadRatio <= 0.75) reasons.push('Balanced daily caseload');
 
   return reasons;
 }
@@ -333,16 +374,25 @@ export function getRecommendationReasons(
 export function recommendBestRadiographer(
   profiles: RadioScheduleProfile[],
   requiredModality: string,
-  existingCases?: Case[]
+  existingCases?: Case[],
+  targetClinicId?: string | null,
+  caseSeverity?: SeverityLevel
 ): string | null {
   let bestId: string | null = null;
   let bestScore = Infinity;
 
-  for (const profile of profiles) {
+  // Strictly filter to radiographers stationed at the selected healthcare centre
+  const candidateProfiles = targetClinicId
+    ? profiles.filter((p) => p.deployedClinicId === targetClinicId)
+    : profiles;
+
+  for (const profile of candidateProfiles) {
     const score = scoreRadiographer(
       profile,
       requiredModality,
-      existingCases
+      existingCases,
+      targetClinicId,
+      caseSeverity
     );
 
     if (score < bestScore) {
@@ -362,63 +412,73 @@ export default function RadiograperSelector({
   onSelect,
   existingCases,
   targetClinicId,
+  caseSeverity,
 }: Props) {
-  let eligible = profiles.filter(
+  // Strictly filter to radiographers stationed at the selected healthcare centre
+  const facilityProfiles = targetClinicId
+    ? profiles.filter((p) => p.deployedClinicId === targetClinicId)
+    : profiles;
+
+  const eligible = facilityProfiles.filter(
     (p) =>
       p.leaveStatus !== 'On Leave' &&
       p.supportedModalities.includes(requiredModality)
   );
 
-  if (eligible.length === 0) {
-    eligible = profiles.filter((p) => p.leaveStatus !== 'On Leave');
-  }
-
-  const unavailable = profiles.filter(
+  const unavailable = facilityProfiles.filter(
     (p) => !eligible.some((e) => e.userId === p.userId)
   );
 
-  // Sort eligible profiles:
+  // Sort display profiles:
   // 1. Recommended (Best Match)
-  // 2. On-Site at target clinic
-  // 3. Alphabetical
-  const sortedEligible = [...eligible].sort((a, b) => {
+  // 2. Alphabetical
+  const sortedProfiles = [...eligible].sort((a, b) => {
     if (a.userId === recommendedId) return -1;
     if (b.userId === recommendedId) return 1;
-
-    const aOnSite = targetClinicId && a.deployedClinicId === targetClinicId ? 1 : 0;
-    const bOnSite = targetClinicId && b.deployedClinicId === targetClinicId ? 1 : 0;
-    if (bOnSite !== aOnSite) return bOnSite - aOnSite;
 
     return a.userName.localeCompare(b.userName);
   });
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-surface-500">
-          Radiographer Assignment ({sortedEligible.length} Available)
+          Radiographer Assignment ({sortedProfiles.length} Available)
         </h3>
       </div>
 
-      {eligible.length === 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-700">
-          <AlertTriangle className="h-4 w-4" />
-          No eligible radiographers available for {requiredModality}.
+      {sortedProfiles.length === 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+          <span>
+            No radiographers are registered or stationed at this healthcare centre for {requiredModality}.
+          </span>
         </div>
       )}
 
-      {sortedEligible.map((profile) => {
+      {sortedProfiles.map((profile) => {
         const isRecommended = profile.userId === recommendedId;
         const isSelected = profile.userId === selectedId;
         const isOnSite = Boolean(targetClinicId && profile.deployedClinicId === targetClinicId);
 
-        const liveCaseload = existingCases
+        const assignedCases = existingCases
           ? existingCases.filter(
             (c) =>
               c.radiographerId === profile.userId &&
               (c.status === 'SCHEDULED' || c.status === 'SCANNED')
-          ).length
-          : profile.currentCaseload;
+          )
+          : [];
+
+        const liveCaseload = assignedCases.length > 0 ? assignedCases.length : profile.currentCaseload;
+        const activeCriticalCount = assignedCases.filter((c) => c.severity === 'Critical').length;
+        const activeSevereCount = assignedCases.filter((c) => c.severity === 'Severe').length;
+
+        // Calculate assigned minutes: X-Ray 20m, CT 35m, MRI 45m, Ultrasound 25m
+        const assignedMinutes = assignedCases.reduce((total, c) => {
+          const mod = extractModality(c.scanType || '');
+          const duration = mod === 'MRI' ? 45 : mod === 'CT' ? 35 : mod === 'Ultrasound' ? 25 : 20;
+          return total + duration;
+        }, 0);
 
         const workloadPct = Math.min(
           100,
@@ -431,7 +491,9 @@ export default function RadiograperSelector({
           ? getRecommendationReasons(
             profile,
             requiredModality,
-            existingCases
+            existingCases,
+            targetClinicId,
+            caseSeverity
           )
           : [];
 
@@ -440,40 +502,40 @@ export default function RadiograperSelector({
             key={profile.userId}
             type="button"
             onClick={() => onSelect(profile.userId)}
-            className={`w-full rounded-xl border p-3.5 text-left shadow-sm transition-all duration-150 ${isSelected
+            className={`w-full rounded-xl border p-3 text-left shadow-xs transition-all duration-150 ${isSelected
                 ? 'border-[#0F4C42] bg-[#F1F8F6] ring-1 ring-[#0F4C42]'
-                : 'border-surface-200 bg-white hover:border-[#9FC8BE] hover:shadow-md'
+                : 'border-surface-200 bg-white hover:border-[#9FC8BE] hover:shadow-sm'
               }`}
           >
             <div className="mb-2 flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E4F2EE]">
-                  <User className="h-3.5 w-3.5 text-[#0F4C42]" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E4F2EE] text-[#0F4C42] font-bold text-xs">
+                  {profile.userName.split(' ').map((n) => n[0]).slice(0, 2).join('')}
                 </div>
 
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-bold text-surface-900">
+                    <p className="text-xs font-bold text-surface-900">
                       {profile.userName}
                     </p>
                     {isOnSite && (
-                      <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800 border border-emerald-200">
-                        On-Site
+                      <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 border border-emerald-200">
+                        Stationed On-Site
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-surface-500 flex items-center gap-1">
-                    <Building2 className="w-3 h-3 text-surface-400" />
-                    {profile.deployedClinicName || 'Healthcare Facility'} &middot; {profile.shift}
+                  <p className="text-[10px] text-surface-500 flex items-center gap-1 mt-0.5">
+                    <Building2 className="w-3 h-3 text-surface-400 shrink-0" />
+                    <span className="truncate">{profile.deployedClinicName || 'Healthcare Facility'}</span> &middot; {profile.shift}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 {isRecommended && (
-                  <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                  <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
                     <Sparkles className="h-2.5 w-2.5" />
-                    Best Match
+                    AI Best Match
                   </span>
                 )}
 
@@ -483,65 +545,80 @@ export default function RadiograperSelector({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-              <div>
-                <span className="text-surface-500">Modalities:</span>
-                <div className="mt-0.5 flex flex-wrap gap-1">
-                  {profile.supportedModalities.map((modality) => (
-                    <span
-                      key={modality}
-                      className={`rounded px-1 py-0.5 text-[9px] font-medium ${modality === requiredModality
-                          ? 'border border-[#BFD8D1] bg-[#E4F2EE] text-[#0F4C42]'
-                          : 'bg-surface-200 text-surface-600'
-                        }`}
-                    >
-                      {modality}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <span className="text-surface-500">Workload:</span>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-200">
-                    <div
-                      className={`h-full rounded-full ${workloadPct > 80
-                          ? 'bg-red-500'
-                          : workloadPct > 50
-                            ? 'bg-amber-500'
-                            : 'bg-emerald-500'
-                        }`}
-                      style={{ width: `${workloadPct}%` }}
-                    />
-                  </div>
-                  <span className="text-surface-600">
-                    {liveCaseload}/{profile.maxDailyCaseload}
-                  </span>
-                </div>
-              </div>
-
-              <div className="col-span-2">
-                <span className="text-surface-500">Status:</span>
-                <span className="ml-1.5 font-medium text-emerald-600">
-                  Available
+            {/* Workload and Severity in hand */}
+            <div className="space-y-1.5 bg-surface-50/70 p-2 rounded-lg border border-surface-100 text-[11px]">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium text-surface-500">Live Workload:</span>
+                <span className="font-semibold text-surface-700 text-[10px]">
+                  {liveCaseload}/{profile.maxDailyCaseload} cases · {assignedMinutes} min assigned
                 </span>
+              </div>
+
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-200">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${workloadPct > 80
+                      ? 'bg-red-500'
+                      : workloadPct > 50
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                    }`}
+                  style={{ width: `${Math.max(5, workloadPct)}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] pt-0.5">
+                <span className="text-surface-500">Severity in hand:</span>
+                <div className="flex items-center gap-1">
+                  {activeCriticalCount > 0 ? (
+                    <span className="bg-red-50 text-red-800 border border-red-200 px-1.5 py-0.2 rounded font-bold">
+                      {activeCriticalCount} Critical
+                    </span>
+                  ) : (
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded font-medium">
+                      0 Critical
+                    </span>
+                  )}
+                  {activeSevereCount > 0 && (
+                    <span className="bg-orange-50 text-orange-800 border border-orange-200 px-1.5 py-0.2 rounded font-semibold">
+                      {activeSevereCount} Severe
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
+            {/* Certified Modalities */}
+            <div className="mt-2 flex items-center justify-between text-[10px]">
+              <div className="flex items-center gap-1">
+                <span className="text-surface-400">Modalities:</span>
+                {profile.supportedModalities.map((modality) => (
+                  <span
+                    key={modality}
+                    className={`rounded px-1.5 py-0.2 font-medium ${modality === requiredModality
+                        ? 'border border-[#BFD8D1] bg-[#E4F2EE] text-[#0F4C42] font-semibold'
+                        : 'bg-surface-100 text-surface-600'
+                      }`}
+                  >
+                    {modality}
+                  </span>
+                ))}
+              </div>
+              <span className="text-emerald-700 font-semibold">Ready for Dispatch</span>
+            </div>
+
             {isRecommended && reasons.length > 0 && (
-              <div className="mt-2 border-t border-surface-200 pt-2">
-                <p className="mb-1 text-[10px] text-surface-500">
-                  Why this radiographer:
+              <div className="mt-2.5 border-t border-emerald-100 bg-emerald-50/40 -mx-3 -mb-3 p-2.5 rounded-b-xl">
+                <p className="mb-1 text-[9px] font-bold text-emerald-900 uppercase tracking-wider">
+                  AI Recommendation Rationales:
                 </p>
 
                 <div className="space-y-0.5">
                   {reasons.map((reason) => (
                     <p
                       key={reason}
-                      className="flex items-center gap-1 text-[10px] text-emerald-700"
+                      className="flex items-center gap-1 text-[10px] text-emerald-800 font-medium"
                     >
-                      <CheckCircle className="h-2.5 w-2.5 shrink-0" />
+                      <CheckCircle className="h-2.5 w-2.5 shrink-0 text-emerald-600" />
                       {reason}
                     </p>
                   ))}
@@ -553,24 +630,24 @@ export default function RadiograperSelector({
       })}
 
       {unavailable.length > 0 && (
-        <div className="mt-4 border-t border-surface-200 pt-3">
-          <p className="mb-1 text-[10px] text-surface-400">
-            Unavailable ({unavailable.length})
+        <div className="mt-3 border-t border-surface-200 pt-2.5">
+          <p className="mb-1 text-[10px] font-semibold text-surface-400 uppercase">
+            Unavailable / On Leave ({unavailable.length})
           </p>
 
           {unavailable.map((profile) => (
             <div
               key={profile.userId}
-              className="mb-1 flex items-center justify-between rounded border border-surface-200 bg-surface-100 p-2 opacity-50"
+              className="mb-1 flex items-center justify-between rounded-lg border border-surface-200 bg-surface-50 p-2 text-xs opacity-60"
             >
-              <span className="text-[11px] text-surface-500">
+              <span className="text-surface-600 font-medium">
                 {profile.userName}
               </span>
 
-              <span className="text-[9px] text-red-500">
+              <span className="text-[10px] text-red-600 font-semibold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
                 {profile.leaveStatus === 'On Leave'
                   ? 'On Leave'
-                  : `No ${requiredModality}`}
+                  : `Missing ${requiredModality} Certification`}
               </span>
             </div>
           ))}

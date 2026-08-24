@@ -19,6 +19,7 @@ import {
 import RadiograperSelector from '../../components/scheduling/RadiograperSelector';
 import type { Case, Clinic, Patient, RadioScheduleProfile, RouteInfo } from '../../types';
 import StatusBadge from '../../components/ui/StatusBadge';
+import SeverityBadge from '../../components/ui/SeverityBadge';
 import { getCaseIndication } from '../../utils/caseDisplay';
 import L from 'leaflet';
 import {
@@ -388,10 +389,13 @@ export default function AISchedulerMap() {
     if (!selectedClinicId || !selectedCase) return;
     setScheduleProfiles(allScheduleProfiles);
     const modality = extractModality(selectedCase.scanType);
-    const onSiteProfiles = allScheduleProfiles.filter((s) => s.deployedClinicId === selectedClinicId);
-    const bestId =
-      recommendBestRadiographer(onSiteProfiles.length > 0 ? onSiteProfiles : allScheduleProfiles, modality, cases) ||
-      recommendBestRadiographer(allScheduleProfiles, modality, cases);
+    const bestId = recommendBestRadiographer(
+      allScheduleProfiles,
+      modality,
+      cases,
+      selectedClinicId,
+      selectedCase.severity
+    );
 
     setSelectedRadiographerId(bestId);
     setRecommendedRadiographerId(bestId);
@@ -537,7 +541,13 @@ export default function AISchedulerMap() {
         : allProfiles;
 
       const modality = extractModality(caseItem.scanType);
-      const bestId = recommendBestRadiographer(profiles, modality, cases);
+      const bestId = recommendBestRadiographer(
+        profiles,
+        modality,
+        cases,
+        targetClinicId,
+        caseItem.severity
+      );
       if (!bestId) continue;
 
       const bestProfile = profiles.find((p) => p.userId === bestId);
@@ -947,7 +957,10 @@ export default function AISchedulerMap() {
                         <div key={a.caseId} className={`p-2.5 rounded-lg border text-xs transition-all ${a.excluded ? 'bg-surface-50 border-surface-200 opacity-50' : 'bg-white border-surface-200 shadow-sm'}`}>
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <p className="font-mono font-semibold text-[#0F4C42]">{a.caseNumber}</p>
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <p className="font-mono font-semibold text-[#0F4C42]">{a.caseNumber}</p>
+                                <SeverityBadge severity={allCases.find((c) => c.id === a.caseId)?.severity || 'Moderate'} />
+                              </div>
                               <p className="text-surface-700 font-medium truncate">{a.patientName}</p>
                               <p className="text-surface-500">{a.scanType}</p>
                               <p className="text-surface-500">→ {a.clinicName}</p>
@@ -1031,9 +1044,12 @@ export default function AISchedulerMap() {
                       disabled={bulkLoading}
                       className="w-full text-left p-3.5 rounded-xl bg-white border border-surface-200 shadow-sm hover:border-[#9FC8BE] hover:shadow-md transition-all disabled:opacity-40 disabled:pointer-events-none"
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-mono text-[#0F4C42] font-medium">{c.caseNumber}</span>
-                        <StatusBadge status={c.status} />
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-mono text-[#0F4C42] font-semibold">{c.caseNumber}</span>
+                        <div className="flex items-center gap-1.5">
+                          <SeverityBadge severity={c.severity || 'Moderate'} />
+                          <StatusBadge status={c.status} />
+                        </div>
                       </div>
                       <p className="text-sm font-medium text-surface-800">{c.patientName}</p>
                       <p className="text-xs text-surface-500">{c.scanType} &middot; {getCaseIndication(c)}</p>
@@ -1110,8 +1126,17 @@ export default function AISchedulerMap() {
             {step === 'assign-radiographer' && selectedCase && (
               <div className="space-y-4">
                 <div className="p-3.5 bg-white rounded-xl border border-surface-200 shadow-sm flex items-center justify-between">
-                  <div><p className="text-xs text-surface-500">Case</p><p className="text-sm font-medium text-[#16433B]">{selectedCase.caseNumber}</p></div>
-                  <div className="text-right"><p className="text-xs text-surface-500">Clinic</p><p className="text-sm text-emerald-600 font-medium">{selectedClinic?.name}</p></div>
+                  <div>
+                    <p className="text-xs text-surface-500">Case</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-sm font-semibold text-[#16433B]">{selectedCase.caseNumber}</p>
+                      <SeverityBadge severity={selectedCase.severity || 'Moderate'} />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-surface-500">Clinic</p>
+                    <p className="text-sm text-emerald-600 font-medium">{selectedClinic?.name}</p>
+                  </div>
                 </div>
 
                 <RadiograperSelector
@@ -1120,8 +1145,9 @@ export default function AISchedulerMap() {
                   selectedId={selectedRadiographerId}
                   recommendedId={recommendedRadiographerId}
                   onSelect={handleRadiographerSelect}
-                  existingCases={cases}
+                  existingCases={allCases}
                   targetClinicId={selectedClinicId}
+                  caseSeverity={selectedCase.severity || 'Moderate'}
                 />
 
                 {selectedRadiographerId && appointmentTime && (

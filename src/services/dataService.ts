@@ -665,15 +665,15 @@ export function buildLiveRadioSchedules(
   );
 
   return activeRadiographers.map((rad) => {
-    const assignedClinic = clinicsList.find(
-      (c) => c.id === rad.deploymentLocationId
-    ) || clinicsList[0];
+    const centerId = rad.healthcareCenterId || rad.deploymentLocationId || '';
+    const assignedClinic = clinicsList.find((c) => c.id === centerId) ||
+      clinicsList.find((c) => rad.healthcareCenterName && c.name.toLowerCase() === rad.healthcareCenterName.toLowerCase());
 
     return {
       userId: rad.id,
       userName: rad.name,
-      deployedClinicId: rad.deploymentLocationId || assignedClinic?.id || 'clinic-001',
-      deployedClinicName: assignedClinic?.name || 'Primary Care Healthcare Clinic',
+      deployedClinicId: assignedClinic?.id || centerId || '',
+      deployedClinicName: assignedClinic?.name || rad.healthcareCenterName || 'Unassigned Facility',
       supportedModalities: rad.supportedModalities && rad.supportedModalities.length > 0
         ? rad.supportedModalities
         : ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
