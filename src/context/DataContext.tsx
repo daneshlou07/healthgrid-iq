@@ -943,7 +943,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const db = getFirestoreDb();
     if (db) {
       try {
-        await updateDoc(doc(db, 'cases', id), data as any);
+        await setDoc(doc(db, 'cases', id), data as any, { merge: true });
       } catch (e) {
         console.warn('[editCase] Firestore write warning:', e);
       }
@@ -994,7 +994,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const db = getFirestoreDb();
     if (db) {
       try {
-        await updateDoc(doc(db, 'patients', id), data as any);
+        await setDoc(doc(db, 'patients', id), data as any, { merge: true });
       } catch (e) {
         console.warn('[editPatient] Firestore write warning:', e);
       }
@@ -1022,7 +1022,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const db = getFirestoreDb();
     if (db) {
       try {
-        await updateDoc(doc(db, 'reports', id), data as any);
+        await setDoc(doc(db, 'reports', id), data as any, { merge: true });
       } catch (e) {
         console.warn('[editReport] Firestore write warning:', e);
       }
@@ -1060,9 +1060,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       try {
         const matching = reports.find((r) => r.id === reportId);
         const existingAddendums = matching?.addendums || [];
-        await updateDoc(doc(db, 'reports', reportId), {
+        await setDoc(doc(db, 'reports', reportId), {
           addendums: clean([...existingAddendums, newAddendum]),
-        });
+        }, { merge: true });
       } catch (e) {
         console.warn('[addReportAddendum] Firestore write warning:', e);
       }
@@ -1091,7 +1091,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const db = getFirestoreDb();
     if (db) {
       try {
-        await updateDoc(doc(db, 'patient_requests', id), data as any);
+        await setDoc(doc(db, 'patient_requests', id), data as any, { merge: true });
       } catch (e) {
         console.warn('[editPatientRequest] Firestore write warning:', e);
       }

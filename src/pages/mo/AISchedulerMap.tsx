@@ -69,7 +69,11 @@ async function parallelLimit<T>(
     while (nextIndex < tasks.length) {
       const idx = nextIndex++;
       try {
-        results[idx] = { status: 'fulfilled', value: await tasks[idx]() };
+        const taskPromise = tasks[idx]();
+        const timeoutPromise = new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error('Task timeout')), 4000)
+        );
+        results[idx] = { status: 'fulfilled', value: await Promise.race([taskPromise, timeoutPromise]) };
       } catch (reason) {
         results[idx] = { status: 'rejected', reason };
       }
