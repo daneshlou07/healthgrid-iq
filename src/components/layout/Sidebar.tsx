@@ -256,12 +256,6 @@ function getNavGroups(
               path: '/dashboard',
               icon: <House className="w-[18px] h-[18px]" />,
             },
-            {
-              label: t('BEMS Dispatch Hub', 'Hab Penghantaran BEMS'),
-              path: '/bems',
-              icon: <Wrench className="w-[18px] h-[18px]" />,
-              badge: pendingBems,
-            },
           ],
         },
       ];

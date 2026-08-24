@@ -292,15 +292,12 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
   ],
   'BEMS Officer': [
     'dashboard',
-    'bems',
   ],
   'BEMS': [
     'dashboard',
-    'bems',
   ],
   'BEMZ': [
     'dashboard',
-    'bems',
   ],
   'Public Hospital Admin': [
     'dashboard',
@@ -383,13 +380,7 @@ export function loadRoleNavConfig(): RoleNavigationConfig {
           }
         }
         if (role === 'BEMS Officer' || role === 'BEMZ' || role === 'BEMS') {
-          if (!filtered.includes('dashboard')) {
-            filtered.unshift('dashboard');
-          }
-          if (!filtered.includes('bems')) {
-            filtered.push('bems');
-          }
-          merged[role as UserRole] = filtered;
+          merged[role as UserRole] = ['dashboard'];
           continue;
         }
         merged[role as UserRole] = filtered;
