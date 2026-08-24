@@ -547,23 +547,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (isConfigured) {
       try {
         const [u, c, p, cl, r, pr, eq, al, ref, fe, bi, cor] = await Promise.all([
-          getUsers().catch(() => mockUsers),
-          getCases().catch(() => mockCases),
-          getPatients().catch(() => mockPatients),
-          getClinics().catch(() => mockClinics),
-          getReports().catch(() => mockReports),
-          getPatientRequests().catch(() => mockPatientRequests),
-          getMobilePacsVans().catch(() => mockMobilePacsVans),
+          getUsers().catch(() => []),
+          getCases().catch(() => []),
+          getPatients().catch(() => []),
+          getClinics().catch(() => []),
+          getReports().catch(() => []),
+          getPatientRequests().catch(() => []),
+          getMobilePacsVans().catch(() => []),
           getAuditLogs().catch(() => []),
           getExternalReferrals().catch(() => []),
-          getFacilityEquipment().catch(() => mockFacilityEquipment),
-          getBemsIncidents().catch(() => mockBemsIncidents),
-          getCrossOrgReferrals().catch(() => mockCrossOrgReferrals),
+          getFacilityEquipment().catch(() => []),
+          getBemsIncidents().catch(() => []),
+          getCrossOrgReferrals().catch(() => []),
         ]);
-        initUsers = mergeItems(mockUsers, u);
-        initCases = mergeItems(mockCases, c);
-        initPatients = mergeItems(mockPatients, p);
-        initClinics = mergeItems(mockClinics, cl);
+        initUsers = u?.length ? u : mockUsers;
+        initCases = c?.length ? c : mockCases;
+        initPatients = p?.length ? p : mockPatients;
+        initClinics = cl?.length ? cl : mockClinics;
         initReports = r?.length ? r : mockReports;
         initRequests = pr?.length ? pr : mockPatientRequests;
         initEquipment = eq?.length ? eq : mockMobilePacsVans;
@@ -682,7 +682,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   u.id !== 'dept-001' &&
                   (u.email || '').toLowerCase() !== 'nurul.aisyah@healthgrid.my'
               );
-            setUsers((prev) => mergeItems(prev.filter((u) => !trashUserIds.has(u.id) && !currentTombstones.has(u.id)), items).map((u) => sanitizeUserRole(u)));
+            setUsers(items.map((u) => sanitizeUserRole(u)));
           }
         },
         (error) => console.warn('Users listener warning:', error)
@@ -702,7 +702,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const items = snapshot.docs
               .map((d) => ({ id: d.id, ...d.data() } as Clinic))
               .filter((c) => !trashClinicIds.has(c.id) && !currentTombstones.has(c.id));
-            setClinics((prev) => mergeItems(prev.filter((c) => !trashClinicIds.has(c.id) && !currentTombstones.has(c.id)), items));
+            setClinics(items);
           }
         },
         (error) => console.warn('Clinics listener warning:', error)
@@ -722,7 +722,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const items = snapshot.docs
               .map((d) => ({ id: d.id, ...d.data() } as Patient))
               .filter((p) => !trashPatientIds.has(p.id) && !currentTombstones.has(p.id));
-            setPatients((prev) => mergeItems(prev.filter((p) => !trashPatientIds.has(p.id) && !currentTombstones.has(p.id)), items));
+            setPatients(items);
           }
         },
         (error) => console.warn('Patients listener warning:', error)
@@ -742,7 +742,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const items = snapshot.docs
               .map((d) => ({ id: d.id, ...d.data() } as Case))
               .filter((c) => !trashCaseIds.has(c.id) && !currentTombstones.has(c.id));
-            setCases((prev) => mergeItems(prev.filter((c) => !trashCaseIds.has(c.id) && !currentTombstones.has(c.id)), items));
+            setCases(items);
           }
         },
         (error) => console.warn('Cases listener warning:', error)
@@ -755,7 +755,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         (snapshot) => {
           if (!snapshot.empty) {
             const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Report));
-            setReports((prev) => mergeItems(prev, items));
+            setReports(items);
           }
         },
         (error) => console.warn('Reports listener warning:', error)
@@ -775,7 +775,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const items = snapshot.docs
               .map((d) => ({ id: d.id, ...d.data() } as PatientRequest))
               .filter((r) => !trashRequestIds.has(r.id) && !currentTombstones.has(r.id));
-            setPatientRequests((prev) => mergeItems(prev.filter((r) => !trashRequestIds.has(r.id) && !currentTombstones.has(r.id)), items));
+            setPatientRequests(items);
           }
         },
         (error) => console.warn('PatientRequests listener warning:', error)
