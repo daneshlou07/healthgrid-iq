@@ -2,11 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useNotifications } from '../../context/NotificationContext';
-import {
-  getRadioSchedulesByClinic,
-  getRadioScheduleProfiles,
-  buildLiveRadioSchedules,
-} from '../../services/dataService';
+import { buildLiveRadioSchedules } from '../../services/dataService';
 import { getRoute, findNearestClinic, geocodeAddress } from '../../services/routingService';
 import {
   extractModality,
@@ -17,8 +13,9 @@ import {
   timeToMinutes,
 } from '../../components/scheduling/RadiograperSelector';
 import RadiograperSelector from '../../components/scheduling/RadiograperSelector';
-import type { Case, Clinic, Patient, RadioScheduleProfile, RouteInfo } from '../../types';
+import type { Case, Clinic, Patient, RadioScheduleProfile, RouteInfo, SeverityLevel, User } from '../../types';
 import StatusBadge from '../../components/ui/StatusBadge';
+import SeverityBadge from '../../components/ui/SeverityBadge';
 import { getCaseIndication } from '../../utils/caseDisplay';
 import L from 'leaflet';
 import {
@@ -30,9 +27,20 @@ import {
   Calendar,
   Zap,
   Loader2,
+  Users,
+  Layers,
+  ArrowRight,
+  RotateCw,
+  Activity,
+  AlertTriangle,
+  FileText,
+  UserCheck,
+  TrendingUp,
 } from 'lucide-react';
 
 type Step = 'select-case' | 'map-routing' | 'assign-radiographer' | 'confirm';
+type SchedulerMode = 'itinerary' | 'intake';
+type SeverityFilter = 'All' | SeverityLevel;
 
 interface BulkAssignment {
   caseId: string;
@@ -48,14 +56,13 @@ interface BulkAssignment {
   excluded?: boolean;
 }
 
-// Coordinate cache shared across the lifetime of the page so repeated bulk runs
-// never re-geocode the same address.
+// Coordinate cache shared across the lifetime of the page
 const geocodeCache = new Map<string, { lat: number; lon: number }>();
 
-// Route cache to avoid refetching routes when user toggles checkboxes
+// Route cache to avoid refetching routes
 const routeCache = new Map<string, L.Polyline>();
 
-// Run up to `concurrency` promises at a time, returning all settled results.
+// Run up to `concurrency` promises at a time
 async function parallelLimit<T>(
   tasks: (() => Promise<T>)[],
   concurrency: number,
@@ -87,7 +94,7 @@ async function parallelLimit<T>(
   return results;
 }
 
-// Geocode with cache so the same address is only ever fetched once.
+// Geocode with cache
 async function cachedGeocode(address: string): Promise<{ lat: number; lon: number } | null> {
   if (geocodeCache.has(address)) return geocodeCache.get(address)!;
   const result = await geocodeAddress(address);
@@ -118,23 +125,42 @@ export default function AISchedulerMap() {
   const { cases: allCases, clinics: allClinics, patients: allPatients, users, trash, editCase, addAuditLog } = useData();
   const { addNotification } = useNotifications();
 
-  const cases = allCases.filter((c) => c.status === 'CREATED');
+  // Mode: 'itinerary' (Radiographer Workload & Route Map) or 'intake' (4-step intake dispatch)
+  const [schedulerMode, setSchedulerMode] = useState<SchedulerMode>('itinerary');
+
+  const pendingCases = useMemo(() => allCases.filter((c) => c.status === 'CREATED' || c.status === 'CASE_CREATED' || c.status === 'SCHEDULING'), [allCases]);
+  const scheduledCases = useMemo(() => allCases.filter((c) => c.status === 'SCHEDULED' || c.status === 'SCANNING' || c.status === 'COMPLETED'), [allCases]);
+  
   const clinics = useMemo(
     () => (allClinics.some((c) => c.status === 'active') ? allClinics.filter((c) => c.status === 'active') : allClinics),
     [allClinics]
   );
   const patients = allPatients;
 
-  // Build live schedule profiles synchronized with User Management
+  // Active radiographers list from live database
   const deletedUserIds = useMemo(
     () => new Set((trash || []).filter((t) => t.type === 'user' && t.data).map((t) => t.data.id)),
     [trash]
   );
 
+  const radiographers = useMemo(() => {
+    return (users || []).filter((u) => u.role === 'Radiographer' && !deletedUserIds.has(u.id));
+  }, [users, deletedUserIds]);
+
   const allScheduleProfiles = useMemo(() => {
     return buildLiveRadioSchedules(users, allClinics, deletedUserIds);
   }, [users, allClinics, deletedUserIds]);
 
+  // Selected Radiographer in Itinerary View
+  const [selectedRadioId, setSelectedRadioId] = useState<string>('');
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('All');
+  
+  // Reassign Modal State
+  const [reassignModalCase, setReassignModalCase] = useState<Case | null>(null);
+  const [reassignTargetRadioId, setReassignTargetRadioId] = useState<string>('');
+  const [reassigning, setReassigning] = useState(false);
+
+  // Stepper Intake State
   const [scheduleProfiles, setScheduleProfiles] = useState<RadioScheduleProfile[]>([]);
   const [step, setStep] = useState<Step>('select-case');
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
@@ -152,14 +178,21 @@ export default function AISchedulerMap() {
   const [appointmentTime, setAppointmentTime] = useState<string>('');
   const [confirming, setConfirming] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Bulk Dispatch State
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ total: number; success: number; failed: number } | null>(null);
   const [bulkPreview, setBulkPreview] = useState<BulkAssignment[]>([]);
   const [showBulkReview, setShowBulkReview] = useState(false);
-  // Progress state for the two heavy phases
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; phase: string } | null>(null);
 
-  // Keep scheduleProfiles synchronized when users/radiographers are created or deleted
+  // Set initial selected radiographer
+  useEffect(() => {
+    if (radiographers.length > 0 && !selectedRadioId) {
+      setSelectedRadioId(radiographers[0].id);
+    }
+  }, [radiographers, selectedRadioId]);
+
   useEffect(() => {
     setScheduleProfiles(allScheduleProfiles);
   }, [allScheduleProfiles]);
@@ -170,9 +203,10 @@ export default function AISchedulerMap() {
   const markersLayer = useRef<L.LayerGroup | null>(null);
   const routesLayer = useRef<L.LayerGroup | null>(null);
 
+  // Initialize Map
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
-    const map = L.map(mapRef.current, { zoomControl: true }).setView([3.1, 101.5], 10);
+    const map = L.map(mapRef.current, { zoomControl: true }).setView([3.14, 101.69], 10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
@@ -181,6 +215,173 @@ export default function AISchedulerMap() {
     return () => { map.remove(); mapInstance.current = null; };
   }, []);
 
+  // Selected Radiographer object
+  const activeRadiographer = useMemo(() => {
+    return radiographers.find((r) => r.id === selectedRadioId) || radiographers[0] || null;
+  }, [radiographers, selectedRadioId]);
+
+  // Cases assigned to active radiographer
+  const activeRadioCases = useMemo(() => {
+    if (!activeRadiographer) return [];
+    return allCases.filter(
+      (c) =>
+        c.radiographerId === activeRadiographer.id ||
+        (c.radiographerName && c.radiographerName.toLowerCase() === activeRadiographer.name.toLowerCase())
+    ).sort((a, b) => {
+      const timeA = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
+      const timeB = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+      return timeA - timeB;
+    });
+  }, [allCases, activeRadiographer]);
+
+  // Triage filter counts for active radiographer
+  const triageStats = useMemo(() => {
+    const mild = activeRadioCases.filter((c) => c.severity === 'Mild').length;
+    const moderate = activeRadioCases.filter((c) => c.severity === 'Moderate' || !c.severity).length;
+    const severe = activeRadioCases.filter((c) => c.severity === 'Severe').length;
+    const critical = activeRadioCases.filter((c) => c.severity === 'Critical').length;
+    return { mild, moderate, severe, critical, total: activeRadioCases.length };
+  }, [activeRadioCases]);
+
+  // Filtered cases by severity
+  const displayedRadioCases = useMemo(() => {
+    if (severityFilter === 'All') return activeRadioCases;
+    if (severityFilter === 'Moderate') {
+      return activeRadioCases.filter((c) => c.severity === 'Moderate' || !c.severity);
+    }
+    return activeRadioCases.filter((c) => c.severity === severityFilter);
+  }, [activeRadioCases, severityFilter]);
+
+  // 3-Day Workload Utilization (1,440 min total capacity = 3 days * 8h * 60m)
+  const MAX_3DAY_MINUTES = 1440;
+  const totalAssignedMinutes = useMemo(() => {
+    return activeRadioCases.length * 25; // 25 min standard scan duration per case
+  }, [activeRadioCases]);
+  const utilizationPct = Math.min(100, Math.round((totalAssignedMinutes / MAX_3DAY_MINUTES) * 100));
+
+  // Radiographer Route Itinerary on Map
+  const drawRadiographerItinerary = useCallback(async (radioCases: Case[]) => {
+    const map = mapInstance.current;
+    const markers = markersLayer.current;
+    if (!map || !markers) return;
+
+    markers.clearLayers();
+    if (routeLayer.current) { map.removeLayer(routeLayer.current); routeLayer.current = null; }
+    if (routesLayer.current) { map.removeLayer(routesLayer.current); routesLayer.current = null; }
+
+    const waypoints: [number, number][] = [];
+    const stopLabels: string[] = [];
+
+    // Map through cases in chronological sequence to find stops
+    const stopsMap = new Map<string, { clinic: Clinic; caseCount: number; firstCase: Case }>();
+
+    for (const c of radioCases) {
+      const clinic = clinics.find((cl) => cl.id === c.clinicId) || clinics.find((cl) => cl.name === c.clinicName);
+      if (clinic && clinic.latitude && clinic.longitude) {
+        if (!stopsMap.has(clinic.id)) {
+          stopsMap.set(clinic.id, { clinic, caseCount: 1, firstCase: c });
+        } else {
+          const existing = stopsMap.get(clinic.id)!;
+          existing.caseCount += 1;
+        }
+      }
+    }
+
+    const stops = Array.from(stopsMap.values());
+
+    stops.forEach((stop, index) => {
+      const { clinic, caseCount, firstCase } = stop;
+      waypoints.push([clinic.latitude, clinic.longitude]);
+      stopLabels.push(clinic.name);
+
+      const isFirst = index === 0;
+      const markerHtml = `
+        <div style="background:#0F4C42;color:#FFFFFF;width:26px;height:26px;border-radius:50%;border:2px solid #FFFFFF;box-shadow:0 2px 6px rgba(15,76,66,0.4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;font-family:sans-serif;">
+          ${index + 1}
+        </div>
+      `;
+
+      const marker = L.marker([clinic.latitude, clinic.longitude], {
+        icon: L.divIcon({
+          className: '',
+          html: markerHtml,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        }),
+      });
+
+      marker.bindPopup(`
+        <div style="font-family:sans-serif;min-width:180px;">
+          <div style="font-size:10px;font-weight:bold;color:#0F4C42;text-transform:uppercase;margin-bottom:2px;">Stop ${index + 1} ${isFirst ? '(Next Destination)' : ''}</div>
+          <strong style="font-size:13px;color:#112A28;">${clinic.name}</strong>
+          <div style="font-size:11px;color:#64748B;margin-top:2px;">${clinic.address}</div>
+          <div style="margin-top:6px;padding-top:4px;border-top:1px solid #E2E8F0;font-size:11px;color:#0F4C42;font-weight:600;">
+            ${caseCount} case${caseCount > 1 ? 's' : ''} assigned
+          </div>
+        </div>
+      `);
+
+      markers.addLayer(marker);
+    });
+
+    // Draw route connecting sequential stops
+    if (waypoints.length > 1) {
+      const polylines: [number, number][][] = [];
+      for (let i = 0; i < waypoints.length - 1; i++) {
+        const from = waypoints[i];
+        const to = waypoints[i + 1];
+        try {
+          const route = await getRoute(from[0], from[1], to[0], to[1]);
+          if (route && route.polylineCoords.length > 0) {
+            polylines.push(route.polylineCoords);
+          } else {
+            polylines.push([from, to]);
+          }
+        } catch {
+          polylines.push([from, to]);
+        }
+      }
+
+      const flatCoords = polylines.flat();
+      if (flatCoords.length > 0) {
+        routeLayer.current = L.polyline(flatCoords, {
+          color: '#0F4C42',
+          weight: 4,
+          opacity: 0.85,
+          dashArray: undefined,
+        }).addTo(map);
+      }
+
+      const bounds = L.latLngBounds(waypoints);
+      map.fitBounds(bounds, { padding: [40, 40] });
+    } else if (waypoints.length === 1) {
+      map.setView(waypoints[0], 13);
+    } else {
+      // If no assigned cases yet, show all active clinics
+      clinics.forEach((clinic) => {
+        const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
+          radius: 7,
+          fillColor: '#94A3B8',
+          color: '#FFFFFF',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.8,
+        });
+        marker.bindPopup(`<strong>${clinic.name}</strong><br/><small>${clinic.address}</small>`);
+        markers.addLayer(marker);
+      });
+      map.setView([3.14, 101.69], 10);
+    }
+  }, [clinics]);
+
+  // Update Itinerary map whenever radiographer or assigned cases change
+  useEffect(() => {
+    if (schedulerMode === 'itinerary' && activeRadioCases) {
+      drawRadiographerItinerary(activeRadioCases);
+    }
+  }, [schedulerMode, activeRadioCases, drawRadiographerItinerary]);
+
+  // Clear routes on map
   const clearMapRoutes = useCallback(() => {
     const map = mapInstance.current;
     const markers = markersLayer.current;
@@ -196,8 +397,7 @@ export default function AISchedulerMap() {
       routesLayer.current = null;
     }
 
-    // Show clean clinic center markers without connecting polylines
-    (clinics.length > 0 ? clinics : allClinics).forEach((clinic) => {
+    clinics.forEach((clinic) => {
       const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
         radius: 8,
         fillColor: '#0F4C42',
@@ -211,21 +411,7 @@ export default function AISchedulerMap() {
     });
 
     map.setView([3.14, 101.69], 10);
-  }, [clinics, allClinics]);
-
-  useEffect(() => {
-    if (cases.length === 0 && step === 'select-case') {
-      clearMapRoutes();
-    }
-  }, [cases.length, step, clearMapRoutes]);
-
-  // Redraw preview routes whenever bulkPreview changes (user checks/unchecks assignments)
-  useEffect(() => {
-    if (showBulkReview && bulkPreview.length > 0) {
-      drawBulkPreviewRoutes(bulkPreview);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bulkPreview, showBulkReview]);
+  }, [clinics]);
 
   const updateMap = useCallback(
     (patient: Patient | null, clinicId: string | null, route: RouteInfo | null) => {
@@ -235,7 +421,7 @@ export default function AISchedulerMap() {
       markers.clearLayers();
       if (routeLayer.current) { map.removeLayer(routeLayer.current); routeLayer.current = null; }
 
-      (clinics.length > 0 ? clinics : allClinics).forEach((clinic) => {
+      clinics.forEach((clinic) => {
         const isSelected = clinic.id === clinicId;
         const isRecommended = clinic.id === recommendedClinicId;
         const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
@@ -269,9 +455,10 @@ export default function AISchedulerMap() {
         map.setView([patient.latitude, patient.longitude], 13);
       }
     },
-    [clinics, allClinics, recommendedClinicId]
+    [clinics, recommendedClinicId]
   );
 
+  // Single Case Selection (Stepper Mode)
   const handleCaseSelect = async (caseItem: Case) => {
     setSelectedCase(caseItem);
     setSuccess(false);
@@ -304,20 +491,18 @@ export default function AISchedulerMap() {
       patient.longitude = patLon;
     }
 
-    const availableClinics = clinics.length > 0 ? clinics : allClinics;
-    const nearest = findNearestClinic(patLat, patLon, availableClinics);
-    const nearestId = nearest?.clinicId || (availableClinics[0]?.id || null);
+    const nearest = findNearestClinic(patLat, patLon, clinics);
+    const nearestId = nearest?.clinicId || (clinics[0]?.id || null);
     setRecommendedClinicId(nearestId);
 
-    // Respect user's explicit preference if designated, otherwise fallback to AI nearest recommendation
     const userPreferredId = caseItem.clinicId || patient.preferredClinicId;
-    const isValidUserChoice = userPreferredId && availableClinics.some((c) => c.id === userPreferredId);
+    const isValidUserChoice = userPreferredId && clinics.some((c) => c.id === userPreferredId);
     const activeClinicId = isValidUserChoice ? userPreferredId : nearestId;
 
     setSelectedClinicId(activeClinicId);
 
     if (activeClinicId) {
-      const clinic = availableClinics.find((c) => c.id === activeClinicId);
+      const clinic = clinics.find((c) => c.id === activeClinicId);
       if (clinic) {
         setRouteLoading(true);
         const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
@@ -373,8 +558,7 @@ export default function AISchedulerMap() {
       patLon = 101.6869;
     }
 
-    const availableClinics = clinics.length > 0 ? clinics : allClinics;
-    const clinic = availableClinics.find((c) => c.id === clinicId);
+    const clinic = clinics.find((c) => c.id === clinicId);
     if (clinic) {
       setRouteLoading(true);
       const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
@@ -390,15 +574,15 @@ export default function AISchedulerMap() {
     const modality = extractModality(selectedCase.scanType);
     const onSiteProfiles = allScheduleProfiles.filter((s) => s.deployedClinicId === selectedClinicId);
     const bestId =
-      recommendBestRadiographer(onSiteProfiles.length > 0 ? onSiteProfiles : allScheduleProfiles, modality, cases) ||
-      recommendBestRadiographer(allScheduleProfiles, modality, cases);
+      recommendBestRadiographer(onSiteProfiles.length > 0 ? onSiteProfiles : allScheduleProfiles, modality, pendingCases) ||
+      recommendBestRadiographer(allScheduleProfiles, modality, pendingCases);
 
     setSelectedRadiographerId(bestId);
     setRecommendedRadiographerId(bestId);
     if (bestId) {
       const bestProfile = allScheduleProfiles.find((p) => p.userId === bestId);
       if (bestProfile) {
-        const slot = getEarliestSlot(bestProfile.schedule, bestId, cases, undefined, selectedCase.id);
+        const slot = getEarliestSlot(bestProfile.schedule, bestId, pendingCases, undefined, selectedCase.id);
         if (slot) {
           const dateTimeValue = slotToDateTimeValue(slot.date, slot.startTime);
           setAppointmentTime(dateTimeValue || '');
@@ -414,7 +598,7 @@ export default function AISchedulerMap() {
     setSelectedRadiographerId(userId);
     const profile = scheduleProfiles.find((p) => p.userId === userId);
     if (profile) {
-      const slot = getEarliestSlot(profile.schedule, userId, cases, undefined, selectedCase?.id);
+      const slot = getEarliestSlot(profile.schedule, userId, pendingCases, undefined, selectedCase?.id);
       if (slot) {
         const dateTimeValue = slotToDateTimeValue(slot.date, slot.startTime);
         setAppointmentTime(dateTimeValue || '');
@@ -427,7 +611,6 @@ export default function AISchedulerMap() {
   const handleConfirm = async () => {
     if (!currentUser || !selectedCase || !selectedClinicId || !selectedRadiographerId || !appointmentTime) return;
 
-    // Final safety check: never allow a stale/past appointment to be committed.
     const appointmentDate = new Date(appointmentTime);
     if (Number.isNaN(appointmentDate.getTime()) || appointmentDate <= new Date()) {
       setAppointmentTime('');
@@ -438,36 +621,106 @@ export default function AISchedulerMap() {
     const clinic = clinics.find((c) => c.id === selectedClinicId);
     const profile = scheduleProfiles.find((p) => p.userId === selectedRadiographerId);
 
-    await editCase(selectedCase.id, { status: 'SCHEDULED', scheduledAt: new Date(appointmentTime).toISOString(), clinicId: selectedClinicId, clinicName: clinic?.name || '', radiographerId: selectedRadiographerId, radiographerName: profile?.userName || '' });
-    await addAuditLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'CASE_SCHEDULED', target: `cases/${selectedCase.id}`, details: `AI Scheduler: ${selectedCase.caseNumber} at ${clinic?.name} with ${profile?.userName} on ${appointmentTime}. Route: ${routeInfo?.distanceKm}km, ~${routeInfo?.durationMinutes}min.`, timestamp: new Date().toISOString() });
-    addNotification({ userId: selectedRadiographerId, title: 'New Case Assigned', message: `Case ${selectedCase.caseNumber} scheduled for ${appointmentTime}.`, type: 'info' });
+    await editCase(selectedCase.id, {
+      status: 'SCHEDULED',
+      scheduledAt: new Date(appointmentTime).toISOString(),
+      clinicId: selectedClinicId,
+      clinicName: clinic?.name || '',
+      radiographerId: selectedRadiographerId,
+      radiographerName: profile?.userName || '',
+    });
+    await addAuditLog({
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      action: 'CASE_SCHEDULED',
+      target: `cases/${selectedCase.id}`,
+      details: `AI Scheduler: ${selectedCase.caseNumber} at ${clinic?.name} with ${profile?.userName} on ${appointmentTime}.`,
+      timestamp: new Date().toISOString(),
+    });
+    addNotification({
+      userId: selectedRadiographerId,
+      title: 'New Case Assigned',
+      message: `Case ${selectedCase.caseNumber} scheduled for ${appointmentTime}.`,
+      type: 'info',
+    });
     if (selectedCase.registeredById) {
-      addNotification({ userId: selectedCase.registeredById, title: 'Case Scheduled', message: `Case ${selectedCase.caseNumber} scheduled at ${clinic?.name}.`, type: 'success' });
+      addNotification({
+        userId: selectedCase.registeredById,
+        title: 'Case Scheduled',
+        message: `Case ${selectedCase.caseNumber} scheduled at ${clinic?.name}.`,
+        type: 'success',
+      });
     }
 
-    setConfirming(false); setSuccess(true); setStep('confirm');
+    setConfirming(false);
+    setSuccess(true);
+    setStep('confirm');
   };
 
   const handleReset = () => {
-    setStep('select-case'); setSelectedCase(null); setSelectedPatient(null); setSelectedClinicId(null);
-    setRecommendedClinicId(null); setRouteInfo(null); setSelectedRadiographerId(null);
-    setRecommendedRadiographerId(null); setAppointmentTime(''); setSuccess(false);
-    updateMap(null, null, null);
+    setStep('select-case');
+    setSelectedCase(null);
+    setSelectedPatient(null);
+    setSelectedClinicId(null);
+    setRecommendedClinicId(null);
+    setRouteInfo(null);
+    setSelectedRadiographerId(null);
+    setRecommendedRadiographerId(null);
+    setAppointmentTime('');
+    setSuccess(false);
+    clearMapRoutes();
   };
 
-  // ─── BULK SCHEDULE (Phase 1: build preview) ──────────────────────────────────
+  // Reassign Case Handler
+  const handleExecuteReassign = async () => {
+    if (!reassignModalCase || !reassignTargetRadioId || !currentUser) return;
+    setReassigning(true);
+    try {
+      const targetRadio = radiographers.find((r) => r.id === reassignTargetRadioId);
+      if (!targetRadio) return;
+
+      await editCase(reassignModalCase.id, {
+        radiographerId: targetRadio.id,
+        radiographerName: targetRadio.name,
+      });
+
+      await addAuditLog({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'CASE_SCHEDULED',
+        target: `cases/${reassignModalCase.id}`,
+        details: `Reassigned ${reassignModalCase.caseNumber} to Radiographer ${targetRadio.name}`,
+        timestamp: new Date().toISOString(),
+      });
+
+      addNotification({
+        userId: targetRadio.id,
+        title: 'Case Reassigned To You',
+        message: `Case ${reassignModalCase.caseNumber} has been reassigned to you.`,
+        type: 'info',
+      });
+
+      setReassignModalCase(null);
+      setReassignTargetRadioId('');
+    } catch (err) {
+      console.error('Failed reassigning case:', err);
+    } finally {
+      setReassigning(false);
+    }
+  };
+
+  // Bulk Auto-Scheduler
   const handleBulkSchedule = async () => {
-    if (!currentUser) return;
+    if (!currentUser || pendingCases.length === 0) return;
 
-    // Clear route cache for fresh bulk schedule
     routeCache.clear();
-
     setBulkLoading(true);
     setBulkResult(null);
     setBulkPreview([]);
-    setBulkProgress({ done: 0, total: cases.length, phase: 'Geocoding patients' });
+    setBulkProgress({ done: 0, total: pendingCases.length, phase: 'Geocoding patients' });
 
-    // ── Step 1: fetch all radiographer profiles ONCE (not per case) ────────────
     const [allProfiles, clinicProfileMap] = (() => {
       const all = allScheduleProfiles;
       const byClinic = new Map<string, RadioScheduleProfile[]>();
@@ -479,8 +732,7 @@ export default function AISchedulerMap() {
       return [all, byClinic] as const;
     })();
 
-    // ── Step 2: geocode all patients in parallel ──
-    const geocodeTasks = cases.map((caseItem) => async () => {
+    const geocodeTasks = pendingCases.map((caseItem) => async () => {
       const patient: Patient =
         patients.find((p) => p.id === caseItem.patientId) ||
         patients.find((p) => p.name?.trim().toLowerCase() === caseItem.patientName?.trim().toLowerCase()) ||
@@ -506,13 +758,10 @@ export default function AISchedulerMap() {
       return { caseItem, patient, patLat, patLon };
     });
 
-    let geocodeDone = 0;
     const geocodeResults = await parallelLimit(geocodeTasks, 6, (done) => {
-      geocodeDone = done;
-      setBulkProgress({ done, total: cases.length, phase: 'Geocoding patients' });
+      setBulkProgress({ done, total: pendingCases.length, phase: 'Geocoding patient addresses' });
     });
 
-    // ── Step 3: assign clinic + radiographer (all sync after geocode) ──────────
     const assignments: BulkAssignment[] = [];
     const transientAssignedSlots = new Set<string>();
 
@@ -520,16 +769,13 @@ export default function AISchedulerMap() {
       if (result.status !== 'fulfilled' || !result.value) continue;
       const { caseItem, patient, patLat, patLon } = result.value;
 
-      const availableClinics = clinics.length > 0 ? clinics : allClinics;
-      const nearest = findNearestClinic(patLat, patLon, availableClinics);
-
+      const nearest = findNearestClinic(patLat, patLon, clinics);
       const userPreferredId = caseItem.clinicId || patient.preferredClinicId;
-      const isValidChoice = userPreferredId && availableClinics.some((c) => c.id === userPreferredId);
-      const targetClinicId = isValidChoice ? userPreferredId : (nearest?.clinicId || availableClinics[0]?.id || null);
+      const isValidChoice = userPreferredId && clinics.some((c) => c.id === userPreferredId);
+      const targetClinicId = isValidChoice ? userPreferredId : (nearest?.clinicId || clinics[0]?.id || null);
 
       if (!targetClinicId) continue;
-
-      const clinic = availableClinics.find((c) => c.id === targetClinicId);
+      const clinic = clinics.find((c) => c.id === targetClinicId);
       if (!clinic) continue;
 
       const profiles = (clinicProfileMap.get(targetClinicId) ?? []).length > 0
@@ -537,11 +783,11 @@ export default function AISchedulerMap() {
         : allProfiles;
 
       const modality = extractModality(caseItem.scanType);
-      const bestId = recommendBestRadiographer(profiles, modality, cases);
+      const bestId = recommendBestRadiographer(profiles, modality, pendingCases);
       if (!bestId) continue;
 
       const bestProfile = profiles.find((p) => p.userId === bestId);
-      const slot = bestProfile ? getEarliestSlot(bestProfile.schedule, bestId, cases, transientAssignedSlots) : null;
+      const slot = bestProfile ? getEarliestSlot(bestProfile.schedule, bestId, pendingCases, transientAssignedSlots) : null;
       if (!slot) continue;
 
       const slotMinutes = timeToMinutes(slot.startTime);
@@ -569,131 +815,10 @@ export default function AISchedulerMap() {
     setBulkProgress(null);
     setBulkLoading(false);
     setShowBulkReview(true);
-
-    // Draw the planned routes on the map immediately during review
-    // so users can see all assignments before confirming
-    drawBulkPreviewRoutes(assignments);
+    setSchedulerMode('intake');
+    setStep('select-case');
   };
 
-  // Draw routes for the bulk preview (before confirm) using patient coords from cache
-  // Only draws routes for assignments that are NOT excluded
-  // Uses route cache to avoid refetching when user toggles checkboxes
-  const drawBulkPreviewRoutes = useCallback((assignments: BulkAssignment[]) => {
-    const map = mapInstance.current;
-    const markers = markersLayer.current;
-    if (!map || !markers) return;
-
-    // Only clear if this is the first draw (cache is empty)
-    const isFirstDraw = routeCache.size === 0;
-
-    if (isFirstDraw) {
-      markers.clearLayers();
-      if (routeLayer.current) { map.removeLayer(routeLayer.current); routeLayer.current = null; }
-      if (routesLayer.current) { map.removeLayer(routesLayer.current); routesLayer.current = null; }
-
-      const routesGroup = L.layerGroup().addTo(map);
-      routesLayer.current = routesGroup;
-
-      // Place clinic markers
-      allClinics.filter((c) => c.status === 'active').forEach((clinic) => {
-        const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
-          radius: 8, fillColor: '#64748B', color: '#FFFFFF', weight: 2, opacity: 1, fillOpacity: 0.8,
-        });
-        marker.bindPopup(`<strong>${clinic.name}</strong>`);
-        markers.addLayer(marker);
-      });
-    }
-
-    const routesGroup = routesLayer.current!;
-    const colors = ['#0F4C42', '#2563EB', '#64748B', '#7C3AED', '#0F766E', '#475569'];
-
-    // Track which case IDs should be visible
-    const visibleCaseIds = new Set(assignments.filter((a) => !a.excluded).map((a) => a.caseId));
-
-    // Update visibility of existing routes or create new ones
-    assignments.forEach((a, i) => {
-      const cacheKey = a.caseId;
-      const isVisible = !a.excluded;
-
-      // Handle patient marker
-      if (isFirstDraw && isVisible) {
-        const caseItem = allCases.find((c) => c.id === a.caseId);
-        const patient = allPatients.find((p) => p.id === caseItem?.patientId);
-        const clinic = allClinics.find((c) => c.id === a.clinicId);
-        if (!patient || !clinic) return;
-
-        const patLat = patient.latitude;
-        const patLon = patient.longitude;
-        if (!patLat || !patLon) return;
-
-        const color = colors[i % colors.length];
-        const patientMarker = L.marker([patLat, patLon], {
-          icon: L.divIcon({
-            className: '',
-            html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(15,23,42,0.28)"></div>`,
-            iconSize: [12, 12], iconAnchor: [6, 6],
-          }),
-        });
-        patientMarker.bindPopup(`<strong>${a.caseNumber}</strong><br/><small>${a.patientName} → ${a.clinicName}</small><br/><small>${a.radiographerName}</small>`);
-        markers.addLayer(patientMarker);
-      }
-
-      // Handle route: check cache first
-      const cachedRoute = routeCache.get(cacheKey);
-      if (cachedRoute) {
-        // Route exists in cache, just toggle visibility
-        if (isVisible && !routesGroup.hasLayer(cachedRoute)) {
-          routesGroup.addLayer(cachedRoute);
-        } else if (!isVisible && routesGroup.hasLayer(cachedRoute)) {
-          routesGroup.removeLayer(cachedRoute);
-        }
-      } else if (isVisible) {
-        // Route not in cache and should be visible, fetch it
-        const caseItem = allCases.find((c) => c.id === a.caseId);
-        const patient = allPatients.find((p) => p.id === caseItem?.patientId);
-        const clinic = allClinics.find((c) => c.id === a.clinicId);
-        if (!patient || !clinic) return;
-
-        const patLat = patient.latitude;
-        const patLon = patient.longitude;
-        if (!patLat || !patLon) return;
-
-        const color = colors[i % colors.length];
-
-        // Fetch route asynchronously
-        getRoute(patLat, patLon, clinic.latitude, clinic.longitude)
-          .then((route: any) => {
-            if (route.polylineCoords.length > 0) {
-              const polyline = L.polyline(route.polylineCoords, { color, weight: 4, opacity: 0.82 });
-              routeCache.set(cacheKey, polyline);
-              // Only add if still visible (user might have unchecked while loading)
-              if (visibleCaseIds.has(a.caseId)) {
-                routesGroup.addLayer(polyline);
-              }
-            }
-          })
-          .catch(() => { });
-      }
-    });
-
-    // Fit bounds if first draw
-    if (isFirstDraw) {
-      setTimeout(() => {
-        const all = [...markers.getLayers(), ...routesGroup.getLayers()];
-        if (all.length > 0) {
-          const group = L.featureGroup(all);
-          map.fitBounds(group.getBounds(), { padding: [30, 30] });
-        }
-      }, 1000);
-    }
-  }, [allCases, allClinics, allPatients]);
-
-  // ─── BULK CONFIRM (Phase 2: commit to storage) ────────────────────────────────
-  // Key fixes:
-  //  1. All editCase calls run in parallel — no waiting for one before starting next.
-  //  2. All addAuditLog calls run in parallel independently.
-  //  3. Notifications are fired-and-forgotten (no await needed).
-  //  4. Progress counter keeps the UI alive.
   const handleBulkConfirm = async () => {
     if (!currentUser) return;
     setBulkLoading(true);
@@ -709,11 +834,13 @@ export default function AISchedulerMap() {
         radiographerId: assignment.radiographerId,
         radiographerName: assignment.radiographerName,
       });
-      // Fire-and-forget: audit log and notifications don't block the progress counter
       addAuditLog({
-        userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role,
-        action: 'CASE_SCHEDULED', target: `cases/${assignment.caseId}`,
-        details: `Bulk: ${assignment.caseNumber} at ${assignment.clinicName} with ${assignment.radiographerName}`,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'CASE_SCHEDULED',
+        target: `cases/${assignment.caseId}`,
+        details: `Auto Scheduler: ${assignment.caseNumber} at ${assignment.clinicName} with ${assignment.radiographerName}`,
         timestamp: new Date().toISOString(),
       }).catch(() => { });
       addNotification({
@@ -736,541 +863,713 @@ export default function AISchedulerMap() {
     setBulkResult({ total: toSchedule.length, success: successCount, failed: failedCount });
     setShowBulkReview(false);
     setBulkPreview([]);
-
-    // Clear route cache after bulk confirm
-    routeCache.clear();
-    clearMapRoutes();
-  };
-
-  // ─── DRAW BULK ROUTES ─────────────────────────────────────────────────────────
-  // Key fixes:
-  //  1. All getRoute calls run in parallel (max 6 at a time) instead of sequential.
-  //  2. Uses geocode cache — patients already geocoded during bulk schedule are free.
-  //  3. Cap raised to 30 but parallel so it completes in ~1 round-trip instead of 30.
-  //  4. Routes are stored in a layer group so they persist and are visible.
-  const drawBulkRoutes = async () => {
-    const map = mapInstance.current;
-    const markers = markersLayer.current;
-    if (!map || !markers) return;
-
-    // Clear existing markers and routes
-    markers.clearLayers();
-    if (routeLayer.current) {
-      map.removeLayer(routeLayer.current);
-      routeLayer.current = null;
-    }
-    if (routesLayer.current) {
-      map.removeLayer(routesLayer.current);
-      routesLayer.current = null;
-    }
-
-    const colors = ['#0F4C42', '#2563EB', '#64748B', '#7C3AED', '#0F766E', '#475569'];
-
-    // Place clinic markers immediately (sync, no delay)
-    allClinics.filter((c) => c.status === 'active').forEach((clinic) => {
-      const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
-        radius: 8, fillColor: '#64748B', color: '#FFFFFF', weight: 2, opacity: 1, fillOpacity: 0.8,
-      });
-      marker.bindPopup(`<strong>${clinic.name}</strong>`);
-      markers.addLayer(marker);
-    });
-
-    const scheduledCases = allCases
-      .filter((c) => c.status === 'SCHEDULED' && c.clinicId)
-      .slice(0, 30);
-
-    // Create a layer group for all routes so they persist
-    const routesGroup = L.layerGroup().addTo(map);
-    routesLayer.current = routesGroup;
-
-    // Build route-fetch tasks for all cases in parallel
-    const routeTasks = scheduledCases.map((c, i) => async () => {
-      const patient = allPatients.find((p) => p.id === c.patientId);
-      const clinic = allClinics.find((cl) => cl.id === c.clinicId);
-      if (!patient || !clinic) return null;
-
-      let patLat = patient.latitude;
-      let patLon = patient.longitude;
-      if (!patLat || !patLon) {
-        const geo = await cachedGeocode(patient.address);
-        if (geo) { patLat = geo.lat; patLon = geo.lon; }
-      }
-      if (!patLat || !patLon) return null;
-
-      const color = colors[i % colors.length];
-
-      // Patient marker
-      const patientMarker = L.marker([patLat, patLon], {
-        icon: L.divIcon({
-          className: '',
-          html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(15,23,42,0.28)"></div>`,
-          iconSize: [12, 12], iconAnchor: [6, 6],
-        }),
-      });
-      patientMarker.bindPopup(`<strong>${c.caseNumber}</strong><br/><small>${patient.name} → ${clinic.name}</small>`);
-      markers.addLayer(patientMarker);
-
-      // Fetch and draw route
-      try {
-        const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
-        if (route.polylineCoords.length > 0) {
-          const polyline = L.polyline(route.polylineCoords, {
-            color,
-            weight: 4,
-            opacity: 0.85
-          });
-          routesGroup.addLayer(polyline);
-          return polyline;
-        }
-      } catch (err) {
-        console.warn(`Failed to draw route for case ${c.caseNumber}:`, err);
-      }
-      return null;
-    });
-
-    await parallelLimit(routeTasks, 6);
-
-    // Fit bounds after all routes drawn
-    const allLayers = [...markers.getLayers(), ...routesGroup.getLayers()];
-    if (allLayers.length > 0) {
-      const group = L.featureGroup(allLayers);
-      map.fitBounds(group.getBounds(), { padding: [30, 30] });
-    }
+    setSchedulerMode('itinerary');
   };
 
   return (
     <div className="h-full flex flex-col -m-6 bg-[#F5F8F7]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-[#DCE6E3]">
-        <h1 className="text-base font-bold text-[#112A28]">AI Scheduling Dispatch</h1>
-        <div className="flex items-center gap-1 text-xs">
-          {(['select-case', 'map-routing', 'assign-radiographer', 'confirm'] as Step[]).map((s, i) => (
-            <React.Fragment key={s}>
-              {i > 0 && <ChevronRight className="w-3 h-3 text-surface-400" />}
-              <span className={`px-2.5 py-1 rounded-full transition-all ${step === s ? 'bg-[#0F4C42] text-white font-semibold shadow-sm' : 'text-surface-500'}`}>
-                {i + 1}. {s === 'select-case' ? 'Case' : s === 'map-routing' ? 'Route' : s === 'assign-radiographer' ? 'Assign' : 'Done'}
-              </span>
-            </React.Fragment>
-          ))}
+      
+      {/* Top Main Navigation & Mode Switcher */}
+      <div className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-[#DCE6E3] shrink-0">
+        <div>
+          <h1 className="text-base font-bold text-[#112A28]">National AI Multi-Equipment Scheduler</h1>
+          <p className="text-xs text-surface-500">Dynamic capacity monitoring, mobile deployment, and AI load balancing</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-[#EAF1EF] p-1 rounded-xl border border-[#DCE6E3] text-xs">
+            <button
+              onClick={() => setSchedulerMode('itinerary')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
+                schedulerMode === 'itinerary' ? 'bg-[#0F4C42] text-white shadow-sm' : 'text-surface-600 hover:text-surface-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Radiographer Workload &amp; Itinerary
+            </button>
+            <button
+              onClick={() => setSchedulerMode('intake')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
+                schedulerMode === 'intake' ? 'bg-[#0F4C42] text-white shadow-sm' : 'text-surface-600 hover:text-surface-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Intake Case Dispatch {pendingCases.length > 0 && `(${pendingCases.length})`}
+            </button>
+          </div>
+
+          {schedulerMode === 'intake' && (
+            <div className="hidden sm:flex items-center gap-1 text-xs">
+              {(['select-case', 'map-routing', 'assign-radiographer', 'confirm'] as Step[]).map((s, i) => (
+                <React.Fragment key={s}>
+                  {i > 0 && <ChevronRight className="w-3 h-3 text-surface-400" />}
+                  <span className={`px-2.5 py-1 rounded-full transition-all ${step === s ? 'bg-[#0F4C42] text-white font-semibold shadow-sm' : 'text-surface-500'}`}>
+                    {i + 1}. {s === 'select-case' ? 'Case' : s === 'map-routing' ? 'Route' : s === 'assign-radiographer' ? 'Assign' : 'Done'}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Map */}
-        <div className="hidden lg:block flex-1 relative bg-[#EAF1EF]">
+      {/* Main Map & Workspace Container */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        
+        {/* Left Interactive Leaflet Map */}
+        <div className="flex-1 relative bg-[#EAF1EF] min-h-[360px]">
           <div ref={mapRef} className="h-full w-full" />
-          {routeInfo && step !== 'select-case' && !routeLoading && (
-            <div className="absolute bottom-5 left-5 bg-white/95 backdrop-blur-sm border border-white rounded-xl p-4 shadow-lg z-[1000] w-[250px]">
-              <div className="flex items-center gap-2 mb-2">
-                <Navigation className="w-4 h-4 text-[#0F4C42]" />
-                <span className="text-[10px] font-bold tracking-wider text-surface-500 uppercase">Route overview</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><p className="text-[10px] text-surface-500">Distance</p><p className="text-lg font-bold text-[#112A28]">{routeInfo.distanceKm} <span className="text-xs font-normal">km</span></p></div>
-                <div><p className="text-[10px] text-surface-500">Time</p><p className="text-lg font-bold text-[#112A28]">{routeInfo.durationMinutes} <span className="text-xs font-normal">min</span></p></div>
-              </div>
-              {selectedClinic && <p className="text-xs text-surface-600 mt-2 pt-2 border-t border-surface-200">{selectedClinic.name}</p>}
-            </div>
-          )}
-          {routeLoading && (
-            <div className="absolute top-5 left-5 bg-white/95 backdrop-blur-sm border border-white rounded-xl px-4 py-3 shadow-lg z-[1000]">
-              <div className="flex items-center gap-2 text-surface-600 text-sm">
-                <div className="w-4 h-4 border-2 border-[#0F4C42] border-t-transparent rounded-full animate-spin" />
-                Calculating route...
+
+          {/* Floating Top Summary Chips on Map */}
+          <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2 flex-wrap pointer-events-auto">
+            <div className="bg-white/95 backdrop-blur-md border border-[#DCE6E3] rounded-xl px-3 py-2 shadow-md flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+              <div>
+                <p className="text-[10px] uppercase font-bold text-surface-500 leading-none">Pending</p>
+                <p className="text-sm font-bold text-surface-900 leading-tight">{pendingCases.length}</p>
               </div>
             </div>
-          )}
+
+            <div className="bg-white/95 backdrop-blur-md border border-[#DCE6E3] rounded-xl px-3 py-2 shadow-md flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <div>
+                <p className="text-[10px] uppercase font-bold text-surface-500 leading-none">Scheduled</p>
+                <p className="text-sm font-bold text-surface-900 leading-tight">{scheduledCases.length}</p>
+              </div>
+            </div>
+
+            <div className="bg-white/95 backdrop-blur-md border border-[#DCE6E3] rounded-xl px-3 py-2 shadow-md flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#0F4C42]" />
+              <div>
+                <p className="text-[10px] uppercase font-bold text-surface-500 leading-none">Locations</p>
+                <p className="text-sm font-bold text-surface-900 leading-tight">{clinics.length}</p>
+              </div>
+            </div>
+
+            <div className="bg-white/95 backdrop-blur-md border border-[#DCE6E3] rounded-xl px-3 py-2 shadow-md flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-cyan-600" />
+              <div>
+                <p className="text-[10px] uppercase font-bold text-surface-500 leading-none">Demand</p>
+                <p className="text-sm font-bold text-surface-900 leading-tight">
+                  {((pendingCases.length * 25) / 60).toFixed(1)}h
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Top-Right Run Auto-Scheduler Button */}
+          <div className="absolute top-4 right-4 z-[1000] pointer-events-auto">
+            <button
+              onClick={handleBulkSchedule}
+              disabled={bulkLoading || pendingCases.length === 0}
+              className="bg-[#0F4C42] hover:bg-[#0B3931] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {bulkLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-200" />
+                  Optimizing Allocations...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 text-amber-300" />
+                  Run AI Auto-Scheduler
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Bottom Radiographer Switcher Bar */}
+          <div className="absolute bottom-4 left-4 right-4 z-[1000] pointer-events-auto overflow-x-auto pb-1">
+            <div className="inline-flex items-center gap-2 bg-white/95 backdrop-blur-md border border-[#DCE6E3] p-1.5 rounded-2xl shadow-xl max-w-full">
+              <span className="text-[11px] font-bold text-surface-500 px-3 uppercase tracking-wider whitespace-nowrap">
+                Radiographers:
+              </span>
+              {radiographers.map((r) => {
+                const isSelected = selectedRadioId === r.id;
+                const caseCount = allCases.filter((c) => c.radiographerId === r.id || c.radiographerName?.toLowerCase() === r.name.toLowerCase()).length;
+                const initials = r.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      setSelectedRadioId(r.id);
+                      setSchedulerMode('itinerary');
+                    }}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-[#0F4C42] text-white shadow-md'
+                        : 'bg-surface-100 hover:bg-surface-200 text-surface-700'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                      isSelected ? 'bg-white text-[#0F4C42]' : 'bg-[#0F4C42] text-white'
+                    }`}>
+                      {initials}
+                    </div>
+                    <span>{r.name}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      isSelected ? 'bg-emerald-400 text-emerald-950' : 'bg-surface-300 text-surface-800'
+                    }`}>
+                      {caseCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Side Panel */}
-        <div className="w-full lg:w-[420px] bg-white border-l border-[#DCE6E3] overflow-y-auto">
-          <div className="p-5 lg:p-6 space-y-5">
-            {step === 'select-case' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-[#0F4C42]" />
-                    <h2 className="text-sm font-semibold text-[#112A28]">Select Case</h2>
-                  </div>
-                  {cases.length > 1 && (
-                    <button
-                      onClick={handleBulkSchedule}
-                      disabled={bulkLoading}
-                      className="text-xs text-[#0F4C42] hover:text-[#112A28] font-medium bg-[#F1F8F6] hover:bg-[#E4F2EE] px-2.5 py-1.5 rounded-lg border border-[#BFD8D1] transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      {bulkLoading
-                        ? <><Loader2 className="w-3 h-3 animate-spin" /> Processing...</>
-                        : <><Zap className="w-3 h-3" /> Schedule All ({cases.length})</>
-                      }
-                    </button>
-                  )}
-                </div>
-
-                {/* ── Bulk progress bar ── */}
-                {bulkProgress && (
-                  <div className="p-3 bg-[#F1F8F6] border border-[#BFD8D1] rounded-lg space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#16433B] font-medium flex items-center gap-1.5">
-                        <Loader2 className="w-3 h-3 animate-spin text-[#397267]" />
-                        {bulkProgress.phase}
-                      </span>
-                      <span className="text-[#397267] tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
+        {/* Right Details Sidebar */}
+        <div className="w-full lg:w-[460px] bg-white border-l border-[#DCE6E3] overflow-y-auto shrink-0 flex flex-col">
+          
+          {/* ========================================================================= */}
+          {/* MODE 1: RADIOGRAPHER WORKLOAD & ITINERARY (Shafiq Transformation Slide View) */}
+          {/* ========================================================================= */}
+          {schedulerMode === 'itinerary' && activeRadiographer && (
+            <div className="p-5 space-y-4 flex-1">
+              
+              {/* Radiographer Profile Header Card */}
+              <div className="bg-[#F5F8F7] border border-[#DCE6E3] p-4 rounded-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-[#0F4C42] text-white font-bold text-sm flex items-center justify-center border-2 border-white shadow-sm">
+                      {activeRadiographer.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}
                     </div>
-                    <div className="h-1.5 bg-[#D4E8E2] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#0F4C42] rounded-full transition-all duration-200"
-                        style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {bulkResult && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700">
-                    <p className="font-medium">Scheduling complete</p>
-                    <p className="mt-0.5">{bulkResult.success} of {bulkResult.total} cases scheduled.</p>
-                    {bulkResult.failed > 0 && <p className="text-amber-600 mt-0.5">{bulkResult.failed} could not be scheduled.</p>}
-                  </div>
-                )}
-
-                {/* Bulk Review Panel */}
-                {showBulkReview && bulkPreview.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="p-3 bg-[#F4F8FB] border border-[#D7E4EE] rounded-xl">
-                      <p className="text-xs font-medium text-[#31566D]">
-                        Review Assignments ({bulkPreview.filter((a) => !a.excluded).length} of {bulkPreview.length})
+                    <div>
+                      <h2 className="text-base font-bold text-[#112A28]">{activeRadiographer.name}</h2>
+                      <p className="text-xs text-surface-500 font-medium">
+                        {activeRadioCases.length} assigned · {activeRadioCases.filter((c) => c.status === 'COMPLETED').length} completed
                       </p>
-                      <p className="text-[10px] text-[#5B7C90] mt-0.5">Uncheck cases you don't want to schedule, then confirm.</p>
-                    </div>
-                    <div className="max-h-[300px] overflow-y-auto space-y-1.5">
-                      {bulkPreview.map((a) => (
-                        <div key={a.caseId} className={`p-2.5 rounded-lg border text-xs transition-all ${a.excluded ? 'bg-surface-50 border-surface-200 opacity-50' : 'bg-white border-surface-200 shadow-sm'}`}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-mono font-semibold text-[#0F4C42]">{a.caseNumber}</p>
-                              <p className="text-surface-700 font-medium truncate">{a.patientName}</p>
-                              <p className="text-surface-500">{a.scanType}</p>
-                              <p className="text-surface-500">→ {a.clinicName}</p>
-                              <p className="text-surface-500">⊕ {a.radiographerName}</p>
-                              <p className="text-emerald-600">{a.scheduledAt.replace('T', ' ')}</p>
-                              {a.distanceKm !== undefined && (
-                                <p className="text-surface-400">{a.distanceKm} km away</p>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => setBulkPreview((prev) =>
-                                prev.map((p) => p.caseId === a.caseId ? { ...p, excluded: !p.excluded } : p)
-                              )}
-                              className={`w-6 h-6 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${a.excluded ? 'border-surface-300 bg-white' : 'border-[#0F4C42] bg-[#0F4C42] text-white'}`}
-                            >
-                              {!a.excluded && <CheckCircle className="w-3.5 h-3.5" />}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Confirm-phase progress bar */}
-                    {bulkProgress && bulkLoading && (
-                      <div className="p-3 bg-[#F1F8F6] border border-[#BFD8D1] rounded-lg space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-[#16433B] font-medium flex items-center gap-1.5">
-                            <Loader2 className="w-3 h-3 animate-spin text-[#397267]" />
-                            {bulkProgress.phase}
-                          </span>
-                          <span className="text-[#397267] tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
-                        </div>
-                        <div className="h-1.5 bg-[#D4E8E2] rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-[#0F4C42] rounded-full transition-all duration-200"
-                            style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        onClick={() => {
-                          setShowBulkReview(false);
-                          setBulkPreview([]);
-                          routeCache.clear();
-                        }}
-                        disabled={bulkLoading}
-                        className="btn-secondary flex-1 text-xs disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleBulkConfirm}
-                        disabled={bulkLoading || bulkPreview.filter((a) => !a.excluded).length === 0}
-                        className="btn-primary flex-1 text-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
-                      >
-                        {bulkLoading
-                          ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving...</>
-                          : `Confirm (${bulkPreview.filter((a) => !a.excluded).length})`
-                        }
-                      </button>
                     </div>
                   </div>
-                )}
 
-                {cases.length === 0 ? (
-                  <div className="text-center py-8 space-y-3">
-                    <CheckCircle className="w-10 h-10 text-emerald-600 mx-auto opacity-70" />
-                    <p className="text-sm text-slate-800 font-bold">All Cases Scheduled</p>
-                    <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                      Intake queue is clear. There are currently no unscheduled clinical cases awaiting AI routing dispatch.
-                    </p>
-                  </div>
-                ) : (
-                  !showBulkReview && cases.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => handleCaseSelect(c)}
-                      disabled={bulkLoading}
-                      className="w-full text-left p-3.5 rounded-xl bg-white border border-surface-200 shadow-sm hover:border-[#9FC8BE] hover:shadow-md transition-all disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-mono text-[#0F4C42] font-medium">{c.caseNumber}</span>
-                        <StatusBadge status={c.status} />
-                      </div>
-                      <p className="text-sm font-medium text-surface-800">{c.patientName}</p>
-                      <p className="text-xs text-surface-500">{c.scanType} &middot; {getCaseIndication(c)}</p>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-
-            {step === 'map-routing' && selectedCase && (
-              <div className="space-y-4">
-                <div className="p-3.5 bg-white rounded-xl border border-surface-200 shadow-sm">
-                  <p className="text-xs text-surface-500 mb-1">Patient</p>
-                  <p className="text-sm font-medium text-[#112A28]">{selectedPatient?.name || selectedCase.patientName}</p>
-                  <p className="text-xs text-surface-500 flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> {selectedPatient?.address || (selectedCase as any).patientAddress || 'Kuala Lumpur, Malaysia'}</p>
-                  <p className="text-xs text-surface-500 mt-1">Scan: <span className="text-[#0F4C42] font-medium">{selectedCase.scanType}</span></p>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                    utilizationPct > 90
+                      ? 'bg-red-100 text-red-900 border border-red-200'
+                      : utilizationPct < 50
+                      ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                      : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                  }`}>
+                    {utilizationPct > 90 ? 'High Load' : utilizationPct < 50 ? 'Available' : 'Optimal'}
+                  </span>
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-surface-500 uppercase">Healthcare Centre</label>
-                    {selectedCase?.clinicId || selectedPatient?.preferredClinicId ? (
-                      <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                        Patient Preferred
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        AI Recommended
-                      </span>
-                    )}
+                {/* 3-Day Workload Utilization Card */}
+                <div className="space-y-1.5 pt-2 border-t border-[#DCE6E3]">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-surface-700">Utilization across 3 days:</span>
+                    <span className="font-mono font-bold text-[#0F4C42]">
+                      {totalAssignedMinutes} / {MAX_3DAY_MINUTES} min &middot; {utilizationPct}%
+                    </span>
                   </div>
-                  <select value={selectedClinicId || ''} onChange={(e) => handleClinicChange(e.target.value)} className="select-field text-sm">
-                    {Array.from(new Map((clinics.length > 0 ? clinics : allClinics).map((c) => [c.name.trim().toLowerCase(), c])).values()).map((c) => {
-                      const isUserChoice = c.id === (selectedCase?.clinicId || selectedPatient?.preferredClinicId);
-                      const isNearest = c.id === recommendedClinicId;
-                      let tag = '';
-                      if (isUserChoice && isNearest) tag = ' (Patient Choice & AI Nearest)';
-                      else if (isUserChoice) tag = ' (Patient Manual Override)';
-                      else if (isNearest) tag = ' (AI Workflow Nearest)';
-
-                      return (
-                        <option key={c.id} value={c.id}>
-                          {c.name}{tag}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  {selectedClinicId === (selectedCase?.clinicId || selectedPatient?.preferredClinicId) && (
-                    <p className="text-xs text-amber-800 mt-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-amber-600" /> Using patient's preferred healthcare centre
-                    </p>
-                  )}
-                  {selectedClinicId === recommendedClinicId && selectedClinicId !== (selectedCase?.clinicId || selectedPatient?.preferredClinicId) && (
-                    <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-emerald-600" /> Nearest suitable facility recommended by AI Scheduler
-                    </p>
-                  )}
-                </div>
-
-                {routeInfo && (
-                  <div className="p-3.5 bg-[#F5F8F7] rounded-xl border border-surface-200 grid grid-cols-2 gap-3">
-                    <div><p className="text-[10px] text-surface-500">Distance</p><p className="text-base font-bold text-[#112A28]">{routeInfo.distanceKm} km</p></div>
-                    <div><p className="text-[10px] text-surface-500">Travel Time</p><p className="text-base font-bold text-[#112A28]">{routeInfo.durationMinutes} min</p></div>
-                  </div>
-                )}
-
-                <button onClick={handleProceedToAssignment} disabled={!selectedClinicId || routeLoading} className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2">
-                  Proceed to Assignment <ChevronRight className="w-4 h-4" />
-                </button>
-                <button onClick={handleReset} className="btn-ghost w-full text-sm">&larr; Back</button>
-              </div>
-            )}
-
-            {step === 'assign-radiographer' && selectedCase && (
-              <div className="space-y-4">
-                <div className="p-3.5 bg-white rounded-xl border border-surface-200 shadow-sm flex items-center justify-between">
-                  <div><p className="text-xs text-surface-500">Case</p><p className="text-sm font-medium text-[#16433B]">{selectedCase.caseNumber}</p></div>
-                  <div className="text-right"><p className="text-xs text-surface-500">Clinic</p><p className="text-sm text-emerald-600 font-medium">{selectedClinic?.name}</p></div>
-                </div>
-
-                <RadiograperSelector
-                  profiles={scheduleProfiles}
-                  requiredModality={extractModality(selectedCase.scanType)}
-                  selectedId={selectedRadiographerId}
-                  recommendedId={recommendedRadiographerId}
-                  onSelect={handleRadiographerSelect}
-                  existingCases={cases}
-                  targetClinicId={selectedClinicId}
-                />
-
-                {selectedRadiographerId && appointmentTime && (
-                  <div className="space-y-3">
-                    <div className="p-4 bg-[#F1F8F6] border border-[#BFD8D1] rounded-xl">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Calendar className="w-4 h-4 text-emerald-600" />
-                        <span className="text-xs font-semibold text-emerald-700 uppercase">Recommended Appointment</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 mb-2">
-                        <div><p className="text-[10px] text-emerald-600">Date</p><p className="text-sm font-bold text-[#112A28]">{new Date(appointmentTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p></div>
-                        <div><p className="text-[10px] text-emerald-600">Time</p><p className="text-sm font-bold text-[#112A28]">{new Date(appointmentTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p></div>
-                        <div><p className="text-[10px] text-emerald-600">Est. Duration</p><p className="text-sm font-medium text-[#112A28]">30 min</p></div>
-                        <div><p className="text-[10px] text-emerald-600">Est. Travel</p><p className="text-sm font-medium text-[#112A28]">{routeInfo?.durationMinutes || '—'} min</p></div>
-                      </div>
-                    </div>
-                    <AppointmentOverride
-                      scheduleProfiles={scheduleProfiles}
-                      selectedRadiographerId={selectedRadiographerId}
-                      currentTime={appointmentTime}
-                      onChangeTime={(t) => setAppointmentTime(t)}
-                      existingCases={cases}
-                      selectedCaseId={selectedCase?.id}
+                  
+                  <div className="h-2.5 w-full bg-surface-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        utilizationPct > 90 ? 'bg-red-600' : utilizationPct > 70 ? 'bg-[#0F4C42]' : 'bg-[#2E7D32]'
+                      }`}
+                      style={{ width: `${utilizationPct}%` }}
                     />
                   </div>
-                )}
+                  
+                  <div className="flex items-center justify-between text-[10px] text-surface-500">
+                    <span>Target: max 480 min/day</span>
+                    <span>{MAX_3DAY_MINUTES - totalAssignedMinutes > 0 ? `${MAX_3DAY_MINUTES - totalAssignedMinutes} min capacity left` : 'Capacity exceeded'}</span>
+                  </div>
+                </div>
+              </div>
 
-                <div className="flex gap-2 pt-2">
-                  <button onClick={() => setStep('map-routing')} className="btn-secondary flex-1 text-sm">&larr; Back</button>
-                  <button onClick={handleConfirm} disabled={!selectedRadiographerId || !appointmentTime || confirming} className="btn-primary flex-1 disabled:opacity-50">
-                    {confirming ? 'Confirming...' : 'Confirm Assignment'}
+              {/* Triage Severity Filter Pills (All / Mild / Moderate / Severe / Critical) */}
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-bold text-surface-500 uppercase tracking-wider">Triage Urgency Filter</p>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  <button
+                    onClick={() => setSeverityFilter('All')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                      severityFilter === 'All'
+                        ? 'bg-[#112A28] text-white shadow-sm'
+                        : 'bg-surface-100 hover:bg-surface-200 text-surface-700'
+                    }`}
+                  >
+                    All ({triageStats.total})
+                  </button>
+
+                  <button
+                    onClick={() => setSeverityFilter('Mild')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                      severityFilter === 'Mild'
+                        ? 'bg-slate-700 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Mild ({triageStats.mild})
+                  </button>
+
+                  <button
+                    onClick={() => setSeverityFilter('Moderate')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                      severityFilter === 'Moderate'
+                        ? 'bg-amber-700 text-white shadow-sm'
+                        : 'bg-amber-100/80 text-amber-900 hover:bg-amber-200'
+                    }`}
+                  >
+                    Moderate ({triageStats.moderate})
+                  </button>
+
+                  <button
+                    onClick={() => setSeverityFilter('Severe')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                      severityFilter === 'Severe'
+                        ? 'bg-orange-700 text-white shadow-sm'
+                        : 'bg-orange-100/80 text-orange-900 hover:bg-orange-200'
+                    }`}
+                  >
+                    Severe ({triageStats.severe})
+                  </button>
+
+                  <button
+                    onClick={() => setSeverityFilter('Critical')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                      severityFilter === 'Critical'
+                        ? 'bg-red-700 text-white shadow-sm'
+                        : 'bg-red-100 text-red-900 hover:bg-red-200'
+                    }`}
+                  >
+                    Critical ({triageStats.critical})
                   </button>
                 </div>
               </div>
-            )}
 
-            {step === 'confirm' && success && (
-              <div className="text-center py-8 space-y-4">
-                <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
-                  <CheckCircle className="w-7 h-7 text-emerald-600" />
+              {/* Assigned Cases Itinerary List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-surface-700">
+                    Schedule Itinerary ({displayedRadioCases.length} case{displayedRadioCases.length !== 1 ? 's' : ''})
+                  </p>
+                  <span className="text-[11px] text-surface-500 font-medium">
+                    Total Time: ~{displayedRadioCases.length * 25} min
+                  </span>
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-[#112A28]">Appointment Confirmed</h2>
-                  <p className="text-sm text-surface-500 mt-1">{selectedCase?.caseNumber} scheduled.</p>
-                </div>
-                <div className="p-4 bg-white rounded-xl border border-surface-200 shadow-sm text-left text-sm space-y-2">
-                  <div className="flex justify-between"><span className="text-surface-500">Patient</span><span className="text-surface-800">{selectedCase?.patientName}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Scan</span><span className="text-surface-800">{selectedCase?.scanType}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Clinic</span><span className="text-emerald-600">{selectedClinic?.name}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Radiographer</span><span className="text-surface-800">{scheduleProfiles.find((p) => p.userId === selectedRadiographerId)?.userName}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Date/Time</span><span className="text-surface-800">{appointmentTime.replace('T', ' ')}</span></div>
-                  {routeInfo && <div className="flex justify-between"><span className="text-surface-500">Travel</span><span className="text-surface-800">{routeInfo.distanceKm}km / ~{routeInfo.durationMinutes}min</span></div>}
-                </div>
-                <button onClick={handleReset} className="btn-primary w-full">Schedule Another</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// ─── Appointment Override (sub-component) ─────────────────────────
-function AppointmentOverride({
-  scheduleProfiles,
-  selectedRadiographerId,
-  currentTime,
-  onChangeTime,
-  existingCases,
-  selectedCaseId,
-}: {
-  scheduleProfiles: import('../../types').RadioScheduleProfile[];
-  selectedRadiographerId: string;
-  currentTime: string;
-  onChangeTime: (time: string) => void;
-  existingCases?: import('../../types').Case[];
-  selectedCaseId?: string;
-}) {
-  const [showSlots, setShowSlots] = React.useState(false);
-  const profile = scheduleProfiles.find((p) => p.userId === selectedRadiographerId);
-  if (!profile) return null;
-
-  const slotItems = getAvailableSlots(
-    profile.schedule,
-    10,
-    selectedRadiographerId,
-    existingCases,
-    selectedCaseId
-  ).filter(
-    (item) => {
-      const slotTime = slotToDateTimeValue(item.slot.date, item.slot.startTime);
-      return slotTime !== currentTime;
-    }
-  );
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setShowSlots(!showSlots)}
-        className="text-xs text-[#0F4C42] hover:text-[#16433B] font-medium underline underline-offset-2"
-      >
-        {showSlots ? 'Hide alternative slots' : 'Change Appointment'}
-      </button>
-      {showSlots && (
-        <div className="mt-2 p-3 bg-surface-50 border border-surface-200 rounded-lg space-y-2">
-          <p className="text-[10px] text-surface-500 font-medium">
-            Alternative available slots:
-          </p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {slotItems.map(({ slot, isOccupied, occupiedByCase }) => {
-              const timeStr = slotToDateTimeValue(slot.date, slot.startTime) || `${slot.date}T${slot.startTime}`;
-              return (
-                <button
-                  key={timeStr}
-                  type="button"
-                  onClick={() => {
-                    onChangeTime(timeStr);
-                    setShowSlots(false);
-                  }}
-                  className={`p-2 text-xs font-medium rounded-lg border transition-colors text-left flex flex-col justify-between ${isOccupied
-                      ? 'border-amber-200 bg-amber-50/60 text-amber-900 hover:bg-amber-100'
-                      : 'border-surface-300 bg-white text-surface-700 hover:border-[#9FC8BE] hover:bg-[#F1F8F6]'
-                    }`}
-                >
-                  <div className="flex items-center justify-between gap-1 w-full">
-                    <span className="font-bold">{slot.startTime}</span>
-                    {isOccupied && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-200 text-amber-900">
-                        Occupied
-                      </span>
+                {displayedRadioCases.length === 0 ? (
+                  <div className="text-center py-10 bg-[#F5F8F7] rounded-2xl border border-dashed border-[#DCE6E3] space-y-3">
+                    <CheckCircle className="w-8 h-8 text-emerald-600 mx-auto" />
+                    <p className="text-sm font-bold text-surface-800">No matching cases</p>
+                    <p className="text-xs text-surface-500 max-w-xs mx-auto">
+                      There are currently no cases matching this triage category for {activeRadiographer.name}.
+                    </p>
+                    {pendingCases.length > 0 && (
+                      <button
+                        onClick={handleBulkSchedule}
+                        className="btn-primary text-xs mx-auto flex items-center gap-1.5"
+                      >
+                        <Zap className="w-3.5 h-3.5" /> Assign Pending Intake Cases ({pendingCases.length})
+                      </button>
                     )}
                   </div>
-                  <span className="block text-[9px] text-surface-500 font-normal mt-0.5">
-                    {slot.date}
-                  </span>
-                  {occupiedByCase && (
-                    <span className="block text-[9px] text-amber-700 font-semibold truncate mt-0.5">
-                      Case: {occupiedByCase.caseNumber}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {slotItems.length === 0 && (
-            <p className="text-[10px] text-surface-400 text-center py-2">No other slots available.</p>
+                ) : (
+                  displayedRadioCases.map((c, index) => {
+                    const isNextStop = index === 0 && c.status !== 'COMPLETED';
+                    const scheduledDate = c.scheduledAt ? new Date(c.scheduledAt) : null;
+                    const formattedTime = scheduledDate
+                      ? `${String(scheduledDate.getHours()).padStart(2, '0')}:${String(scheduledDate.getMinutes()).padStart(2, '0')}`
+                      : '09:00';
+
+                    return (
+                      <div
+                        key={c.id}
+                        className={`p-4 rounded-2xl border transition-all ${
+                          isNextStop
+                            ? 'bg-white border-[#0F4C42] shadow-md ring-1 ring-[#0F4C42]/20'
+                            : 'bg-white border-surface-200 shadow-sm hover:border-[#9FC8BE]'
+                        }`}
+                      >
+                        {/* Top Tag & Severity */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold text-[#0F4C42]">{c.caseNumber}</span>
+                            <span className="text-[11px] font-semibold bg-surface-100 text-surface-700 px-2 py-0.5 rounded-md">
+                              {c.scanType || 'X-Ray'}
+                            </span>
+                            <SeverityBadge severity={c.severity || 'Moderate'} />
+                          </div>
+
+                          {isNextStop && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-[#0F4C42] text-white px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                              <Navigation className="w-2.5 h-2.5" /> Next Stop
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Patient & Exam Description */}
+                        <div className="space-y-1 text-xs">
+                          <p className="text-sm font-bold text-[#112A28]">{c.patientName}</p>
+                          <p className="text-surface-500 font-mono">
+                            {((c as any).icNumber || (c as any).mrn || (c as any).patientId || 'IC: —')} &middot; <span className="text-surface-700 font-semibold">{getCaseIndication(c)}</span>
+                          </p>
+                        </div>
+
+                        {/* Location, Time & Quick Reassign Footer */}
+                        <div className="flex items-center justify-between pt-3 mt-3 border-t border-surface-100">
+                          <div className="flex items-center gap-1.5 text-xs text-surface-600">
+                            <MapPin className="w-3.5 h-3.5 text-[#0F4C42]" />
+                            <span className="font-semibold">{c.clinicName || 'Facility Center'}</span>
+                            <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">
+                              Gov
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-[#112A28] flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-surface-400" />
+                              {formattedTime} &middot; 25m
+                            </span>
+
+                            <button
+                              onClick={() => {
+                                setReassignModalCase(c);
+                                setReassignTargetRadioId(radiographers.find((r) => r.id !== activeRadiographer.id)?.id || '');
+                              }}
+                              className="text-[11px] font-bold text-[#0F4C42] hover:text-[#0B3931] bg-[#F1F8F6] hover:bg-[#E4F2EE] px-2.5 py-1 rounded-lg border border-[#BFD8D1] transition-colors"
+                            >
+                              Reassign
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           )}
+
+          {/* ========================================================================= */}
+          {/* MODE 2: INTAKE CASE DISPATCH STEPPER (Single or Bulk Intake Queue) */}
+          {/* ========================================================================= */}
+          {schedulerMode === 'intake' && (
+            <div className="p-5 lg:p-6 space-y-5 flex-1">
+              {step === 'select-case' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-[#0F4C42]" />
+                      <h2 className="text-sm font-bold text-[#112A28]">Select Intake Case</h2>
+                    </div>
+                    {pendingCases.length > 1 && (
+                      <button
+                        onClick={handleBulkSchedule}
+                        disabled={bulkLoading}
+                        className="text-xs text-[#0F4C42] hover:text-[#112A28] font-medium bg-[#F1F8F6] hover:bg-[#E4F2EE] px-2.5 py-1.5 rounded-lg border border-[#BFD8D1] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {bulkLoading ? (
+                          <><Loader2 className="w-3 h-3 animate-spin" /> Processing...</>
+                        ) : (
+                          <><Zap className="w-3 h-3" /> Schedule All ({pendingCases.length})</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Bulk progress indicator */}
+                  {bulkProgress && (
+                    <div className="p-3 bg-[#F1F8F6] border border-[#BFD8D1] rounded-lg space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[#16433B] font-medium flex items-center gap-1.5">
+                          <Loader2 className="w-3 h-3 animate-spin text-[#397267]" />
+                          {bulkProgress.phase}
+                        </span>
+                        <span className="text-[#397267] tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
+                      </div>
+                      <div className="h-1.5 bg-[#D4E8E2] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#0F4C42] rounded-full transition-all duration-200"
+                          style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {bulkResult && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700">
+                      <p className="font-medium">Scheduling complete</p>
+                      <p className="mt-0.5">{bulkResult.success} of {bulkResult.total} cases scheduled.</p>
+                      {bulkResult.failed > 0 && <p className="text-amber-600 mt-0.5">{bulkResult.failed} could not be scheduled.</p>}
+                    </div>
+                  )}
+
+                  {/* Bulk Review Panel */}
+                  {showBulkReview && bulkPreview.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="p-3 bg-[#F4F8FB] border border-[#D7E4EE] rounded-xl">
+                        <p className="text-xs font-bold text-[#31566D]">
+                          Review Allocations ({bulkPreview.filter((a) => !a.excluded).length} of {bulkPreview.length})
+                        </p>
+                        <p className="text-[10px] text-[#5B7C90] mt-0.5">Uncheck any case you wish to exclude before committing.</p>
+                      </div>
+
+                      <div className="max-h-[280px] overflow-y-auto space-y-1.5">
+                        {bulkPreview.map((a) => (
+                          <div
+                            key={a.caseId}
+                            className={`p-2.5 rounded-lg border text-xs transition-all ${
+                              a.excluded ? 'bg-surface-50 border-surface-200 opacity-50' : 'bg-white border-surface-200 shadow-sm'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-mono font-bold text-[#0F4C42]">{a.caseNumber}</p>
+                                <p className="text-surface-800 font-medium truncate">{a.patientName}</p>
+                                <p className="text-surface-500">{a.scanType} &rarr; {a.clinicName}</p>
+                                <p className="text-emerald-700 font-semibold">{a.radiographerName} &middot; {a.scheduledAt.replace('T', ' ')}</p>
+                              </div>
+                              <button
+                                onClick={() => setBulkPreview((prev) =>
+                                  prev.map((p) => p.caseId === a.caseId ? { ...p, excluded: !p.excluded } : p)
+                                )}
+                                className={`w-6 h-6 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                                  a.excluded ? 'border-surface-300 bg-white' : 'border-[#0F4C42] bg-[#0F4C42] text-white'
+                                }`}
+                              >
+                                {!a.excluded && <CheckCircle className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={() => {
+                            setShowBulkReview(false);
+                            setBulkPreview([]);
+                          }}
+                          disabled={bulkLoading}
+                          className="btn-secondary flex-1 text-xs disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleBulkConfirm}
+                          disabled={bulkLoading || bulkPreview.filter((a) => !a.excluded).length === 0}
+                          className="btn-primary flex-1 text-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          {bulkLoading ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Committing...</>
+                          ) : (
+                            `Confirm (${bulkPreview.filter((a) => !a.excluded).length})`
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {pendingCases.length === 0 ? (
+                    <div className="text-center py-8 space-y-3">
+                      <CheckCircle className="w-10 h-10 text-emerald-600 mx-auto opacity-70" />
+                      <p className="text-sm text-slate-800 font-bold">Intake Queue Clear</p>
+                      <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                        There are currently no unscheduled clinical cases awaiting AI routing dispatch.
+                      </p>
+                    </div>
+                  ) : (
+                    !showBulkReview && pendingCases.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleCaseSelect(c)}
+                        disabled={bulkLoading}
+                        className="w-full text-left p-3.5 rounded-xl bg-white border border-surface-200 shadow-sm hover:border-[#9FC8BE] hover:shadow-md transition-all disabled:opacity-40 disabled:pointer-events-none"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-mono text-[#0F4C42] font-bold">{c.caseNumber}</span>
+                          <SeverityBadge severity={c.severity || 'Moderate'} />
+                        </div>
+                        <p className="text-sm font-bold text-surface-800">{c.patientName}</p>
+                        <p className="text-xs text-surface-500">{c.scanType} &middot; {getCaseIndication(c)}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* Step 2: Route */}
+              {step === 'map-routing' && selectedCase && (
+                <div className="space-y-4">
+                  <div className="p-3.5 bg-white rounded-xl border border-surface-200 shadow-sm">
+                    <p className="text-xs text-surface-500 mb-1 font-semibold">Patient</p>
+                    <p className="text-sm font-bold text-[#112A28]">{selectedPatient?.name || selectedCase.patientName}</p>
+                    <p className="text-xs text-surface-500 flex items-center gap-1 mt-1 font-medium">
+                      <MapPin className="w-3 h-3 text-[#0F4C42]" /> {selectedPatient?.address || (selectedCase as any).patientAddress || 'Kuala Lumpur, Malaysia'}
+                    </p>
+                    <p className="text-xs text-surface-500 mt-1">Scan: <span className="text-[#0F4C42] font-bold">{selectedCase.scanType}</span></p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-surface-500 uppercase">Healthcare Centre</label>
+                      {selectedCase?.clinicId || selectedPatient?.preferredClinicId ? (
+                        <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          Patient Preferred
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          AI Recommended
+                        </span>
+                      )}
+                    </div>
+                    
+                    <select
+                      value={selectedClinicId || ''}
+                      onChange={(e) => handleClinicChange(e.target.value)}
+                      className="select-field text-sm"
+                    >
+                      {Array.from(new Map(clinics.map((c) => [c.name.trim().toLowerCase(), c])).values()).map((c) => {
+                        const isUserChoice = c.id === (selectedCase?.clinicId || selectedPatient?.preferredClinicId);
+                        const isNearest = c.id === recommendedClinicId;
+                        let tag = '';
+                        if (isUserChoice && isNearest) tag = ' (Patient Choice & AI Nearest)';
+                        else if (isUserChoice) tag = ' (Patient Manual Override)';
+                        else if (isNearest) tag = ' (AI Workflow Nearest)';
+
+                        return (
+                          <option key={c.id} value={c.id}>
+                            {c.name}{tag}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {routeInfo && (
+                    <div className="p-3.5 bg-[#F5F8F7] rounded-xl border border-surface-200 grid grid-cols-2 gap-3">
+                      <div><p className="text-[10px] text-surface-500 font-bold uppercase">Distance</p><p className="text-base font-bold text-[#112A28]">{routeInfo.distanceKm} km</p></div>
+                      <div><p className="text-[10px] text-surface-500 font-bold uppercase">Travel Time</p><p className="text-base font-bold text-[#112A28]">{routeInfo.durationMinutes} min</p></div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleProceedToAssignment}
+                    disabled={!selectedClinicId || routeLoading}
+                    className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2 text-xs font-bold"
+                  >
+                    Proceed to Radiographer Assignment <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button onClick={handleReset} className="btn-ghost w-full text-xs font-semibold">&larr; Back to Intake Queue</button>
+                </div>
+              )}
+
+              {/* Step 3: Assign Radiographer */}
+              {step === 'assign-radiographer' && selectedCase && (
+                <div className="space-y-4">
+                  <div className="p-3.5 bg-white rounded-xl border border-surface-200 shadow-sm flex items-center justify-between">
+                    <div><p className="text-xs text-surface-500">Case</p><p className="text-sm font-bold text-[#16433B]">{selectedCase.caseNumber}</p></div>
+                    <div className="text-right"><p className="text-xs text-surface-500">Clinic</p><p className="text-sm text-emerald-600 font-bold">{selectedClinic?.name}</p></div>
+                  </div>
+
+                  <RadiograperSelector
+                    profiles={scheduleProfiles}
+                    requiredModality={extractModality(selectedCase.scanType)}
+                    selectedId={selectedRadiographerId}
+                    recommendedId={recommendedRadiographerId}
+                    onSelect={handleRadiographerSelect}
+                    existingCases={pendingCases}
+                    targetClinicId={selectedClinicId}
+                  />
+
+                  {selectedRadiographerId && appointmentTime && (
+                    <div className="p-4 bg-[#F1F8F6] border border-[#BFD8D1] rounded-xl space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-bold text-emerald-700 uppercase">Recommended Slot</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div><p className="text-[10px] text-emerald-600">Date</p><p className="font-bold text-[#112A28]">{new Date(appointmentTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p></div>
+                        <div><p className="text-[10px] text-emerald-600">Time</p><p className="font-bold text-[#112A28]">{new Date(appointmentTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p></div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => setStep('map-routing')} className="btn-secondary flex-1 text-xs">&larr; Back</button>
+                    <button
+                      onClick={handleConfirm}
+                      disabled={!selectedRadiographerId || !appointmentTime || confirming}
+                      className="btn-primary flex-1 disabled:opacity-50 text-xs font-bold"
+                    >
+                      {confirming ? 'Confirming...' : 'Confirm Assignment'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Confirm */}
+              {step === 'confirm' && (
+                <div className="text-center py-8 space-y-4">
+                  <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
+                    <CheckCircle className="w-7 h-7 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-[#112A28]">Appointment Confirmed</h2>
+                    <p className="text-sm text-surface-500 mt-1">{selectedCase?.caseNumber} scheduled.</p>
+                  </div>
+                  <button onClick={handleReset} className="btn-primary w-full text-xs font-bold">Schedule Another</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Reassign Case Modal */}
+      {reassignModalCase && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white rounded-2xl border border-surface-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-[#112A28]">Reassign Clinical Case</h3>
+              <p className="text-xs text-surface-500">Transfer {reassignModalCase.caseNumber} to another available radiographer</p>
+            </div>
+
+            <div className="p-3 bg-[#F5F8F7] rounded-xl border border-[#DCE6E3] space-y-1 text-xs">
+              <p className="font-bold text-surface-800">{reassignModalCase.patientName}</p>
+              <p className="text-surface-500">{reassignModalCase.scanType} &middot; {reassignModalCase.clinicName || 'Facility'}</p>
+              <p className="text-surface-500">Current Radiographer: <span className="font-bold text-[#0F4C42]">{reassignModalCase.radiographerName || 'Assigned'}</span></p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-surface-700 uppercase mb-1">Target Radiographer</label>
+              <select
+                value={reassignTargetRadioId}
+                onChange={(e) => setReassignTargetRadioId(e.target.value)}
+                className="select-field text-sm"
+              >
+                <option value="">Select target radiographer...</option>
+                {radiographers.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setReassignModalCase(null)}
+                disabled={reassigning}
+                className="btn-secondary text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExecuteReassign}
+                disabled={!reassignTargetRadioId || reassigning}
+                className="btn-primary text-xs font-bold flex items-center gap-1.5"
+              >
+                {reassigning ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Transferring...</> : 'Confirm Transfer'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
