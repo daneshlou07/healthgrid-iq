@@ -15,7 +15,83 @@ import {
   ScanLine,
   FileCheck2,
 } from "lucide-react";
+import type { Case, Report } from "../../types";
 import { getCaseIndication } from "../../utils/caseDisplay";
+
+export type CaseStage = "pending" | "scheduled" | "scanned" | "finalized" | "other";
+
+export function getCaseStage(c: Case, report?: Report): CaseStage {
+  // Stage 4: Report Finalized
+  if (
+    c.status === "FINALIZED" ||
+    c.status === "COMPLETED" ||
+    c.status === "REPORT_SUBMITTED" ||
+    Boolean(c.finalizedAt) ||
+    (report && (report.status === "final" || report.status === "Verified / Signed Off"))
+  ) {
+    return "finalized";
+  }
+
+  // Stage 3: Imaging Uploaded
+  if (
+    c.status === "SCANNED" ||
+    c.status === "IMAGES_AVAILABLE" ||
+    c.status === "EXTERNAL_IMAGES_AVAILABLE" ||
+    c.status === "RADIOLOGIST_REVIEW" ||
+    c.status === "MO_REVIEW" ||
+    c.status === "REPORTED"
+  ) {
+    return "scanned";
+  }
+
+  // Stage 2: Scheduled
+  if (
+    c.status === "SCHEDULED" ||
+    c.status === "SCHEDULING" ||
+    c.status === "RADIOGRAPHER_ASSIGNED" ||
+    c.status === "READY_FOR_SCAN" ||
+    c.status === "SCANNING" ||
+    c.status === "EXTERNAL_SCANNING" ||
+    c.status === "MACHINE_UNAVAILABLE" ||
+    c.status === "EXTERNAL_REFERRAL_PENDING" ||
+    c.status === "BEMZ_REVIEW" ||
+    c.status === "FACILITY_SELECTED" ||
+    c.status === "EXTERNAL_RADIOGRAPHER_ASSIGNED" ||
+    c.status === "PRIVATE_HOSPITAL_ADMIN_REVIEW"
+  ) {
+    return "scheduled";
+  }
+
+  // Stage 1: Pending Triage
+  if (
+    c.status === "CREATED" ||
+    c.status === "CASE_CREATED" ||
+    !c.status
+  ) {
+    return "pending";
+  }
+
+  return "other";
+}
+
+export function getStageTimestamp(c: Case, stage: CaseStage, report?: Report): string {
+  if (stage === "finalized") {
+    return (
+      c.finalizedAt ||
+      report?.signedAt ||
+      report?.createdAt ||
+      c.reportedAt ||
+      c.createdAt
+    );
+  }
+  if (stage === "scanned") {
+    return c.scannedAt || c.createdAt;
+  }
+  if (stage === "scheduled") {
+    return c.scheduledAt || c.createdAt;
+  }
+  return c.createdAt;
+}
 
 function getInitials(name: string): string {
   if (!name) return "PT";
@@ -47,35 +123,163 @@ function getAvatarColor(name: string): string {
   return colors[charSum % colors.length];
 }
 
-function getSlaInfo(
-  createdAt: string,
-  status: string,
+function formatRelativeTime(isoString?: string): string {
+  if (!isoString) return "Recently";
+  const time = new Date(isoString).getTime();
+  if (isNaN(time)) return "Recently";
+
+  const diffMs = Date.now() - time;
+  if (diffMs < 0) {
+    const futureHours = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60));
+    if (futureHours < 24) return `in ${futureHours}h`;
+    const futureDays = Math.ceil(futureHours / 24);
+    return `in ${futureDays}d`;
+  }
+
+  const elapsedMins = Math.floor(diffMs / (1000 * 60));
+  if (elapsedMins < 1) return "Just now";
+  if (elapsedMins < 60) return `${elapsedMins}m ago`;
+
+  const elapsedHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+
+  const elapsedDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (elapsedDays === 1) return "1d ago";
+  if (elapsedDays < 7) return `${elapsedDays}d ago`;
+
+  try {
+    const d = new Date(isoString);
+    return d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return `${elapsedDays}d ago`;
+  }
+}
+
+export function getCardStatusInfo(
+  caseData: Case,
+  stage: CaseStage,
+  report?: Report,
 ): {
   isOverdue: boolean;
+  isCompleted: boolean;
   label: string;
 } {
-  const elapsedMs = new Date().getTime() - new Date(createdAt).getTime();
-
-  const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
-
-  if (status === "CREATED" && elapsedHours >= 24) {
+  if (stage === "finalized") {
+    const finalDate =
+      caseData.finalizedAt ||
+      report?.signedAt ||
+      report?.createdAt ||
+      caseData.reportedAt ||
+      caseData.createdAt;
     return {
-      isOverdue: true,
-      label: `Overdue (${elapsedHours}h)`,
+      isOverdue: false,
+      isCompleted: true,
+      label: `Finalized ${formatRelativeTime(finalDate)}`,
     };
   }
 
-  if (status === "SCANNED" && elapsedHours >= 12) {
+  if (stage === "scanned") {
+    const scanDate = caseData.scannedAt || caseData.createdAt;
+    const elapsedMs = Date.now() - new Date(scanDate).getTime();
+    const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
+    if (elapsedHours >= 12) {
+      return {
+        isOverdue: true,
+        isCompleted: false,
+        label: `Report Delayed (${elapsedHours}h)`,
+      };
+    }
+    return {
+      isOverdue: false,
+      isCompleted: false,
+      label: `Scanned ${formatRelativeTime(scanDate)}`,
+    };
+  }
+
+  if (stage === "scheduled") {
+    if (caseData.scheduledAt) {
+      try {
+        const d = new Date(caseData.scheduledAt);
+        const formatted = d.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        return {
+          isOverdue: false,
+          isCompleted: false,
+          label: `Scheduled: ${formatted}`,
+        };
+      } catch {
+        return {
+          isOverdue: false,
+          isCompleted: false,
+          label: `Scheduled ${formatRelativeTime(caseData.scheduledAt)}`,
+        };
+      }
+    }
+    return {
+      isOverdue: false,
+      isCompleted: false,
+      label: `Scheduled ${formatRelativeTime(caseData.createdAt)}`,
+    };
+  }
+
+  // Pending triage
+  const elapsedMs = Date.now() - new Date(caseData.createdAt).getTime();
+  const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
+
+  if (elapsedHours >= 24) {
     return {
       isOverdue: true,
-      label: `Report Delayed (${elapsedHours}h)`,
+      isCompleted: false,
+      label: `Overdue (${elapsedHours}h)`,
     };
   }
 
   return {
     isOverdue: false,
+    isCompleted: false,
     label: `${elapsedHours}h ago`,
   };
+}
+
+export function isCaseSlaBreached(caseData: Case): boolean {
+  if (
+    caseData.status === "FINALIZED" ||
+    caseData.status === "COMPLETED" ||
+    caseData.status === "REPORT_SUBMITTED" ||
+    Boolean(caseData.finalizedAt)
+  ) {
+    return false;
+  }
+  const now = Date.now();
+  if (
+    caseData.status === "CREATED" ||
+    caseData.status === "CASE_CREATED" ||
+    !caseData.status
+  ) {
+    const elapsedHours = Math.floor(
+      (now - new Date(caseData.createdAt).getTime()) / (1000 * 60 * 60),
+    );
+    return elapsedHours >= 24;
+  }
+  if (
+    caseData.status === "SCANNED" ||
+    caseData.status === "IMAGES_AVAILABLE"
+  ) {
+    const scanTime = new Date(
+      caseData.scannedAt || caseData.createdAt,
+    ).getTime();
+    const elapsedHours = Math.floor((now - scanTime) / (1000 * 60 * 60));
+    return elapsedHours >= 12;
+  }
+  return false;
 }
 
 type SortOrder = "newest" | "oldest" | "severity" | "slaBreach";
@@ -83,76 +287,115 @@ type SortOrder = "newest" | "oldest" | "severity" | "slaBreach";
 type DateFilter = "all" | "today" | "7days" | "30days";
 
 export default function TrackStatus() {
-  const { cases, getScopedCases } = useData();
+  const { cases, reports, getScopedCases } = useData();
   const scopedCases = getScopedCases ? getScopedCases() : cases;
 
   const [search, setSearch] = useState("");
-
   const [onlyOverdue, setOnlyOverdue] = useState(false);
-
   const [selectedModality, setSelectedModality] = useState<string>("All");
-
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
-
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
-  const filteredCases = useMemo(() => {
+  const reportMap = useMemo(() => {
+    return new Map(reports.map((r) => [r.caseId, r]));
+  }, [reports]);
+
+  const { pending, scheduled, scanned, finalized, overdueCount } = useMemo(() => {
     const now = new Date();
-
     const todayStr = now.toISOString().split("T")[0];
+    const nowMs = now.getTime();
 
-    return scopedCases
-      .filter((c) => {
-        const searchLower = search.toLowerCase().trim();
+    // 1. Filter cases
+    const filtered = scopedCases.filter((c) => {
+      const searchLower = search.toLowerCase().trim();
+      const indication = getCaseIndication(c);
 
-        const searchMatch =
-          !searchLower ||
-          c.caseNumber.toLowerCase().includes(searchLower) ||
-          c.patientName.toLowerCase().includes(searchLower) ||
-          getCaseIndication(c).toLowerCase().includes(searchLower);
+      const searchMatch =
+        !searchLower ||
+        c.caseNumber.toLowerCase().includes(searchLower) ||
+        c.patientName.toLowerCase().includes(searchLower) ||
+        indication.toLowerCase().includes(searchLower) ||
+        c.id.toLowerCase().includes(searchLower);
 
-        const modalityMatch =
-          selectedModality === "All" ||
-          c.scanType === selectedModality ||
-          c.modality === selectedModality;
+      const modalityMatch =
+        selectedModality === "All" ||
+        c.scanType === selectedModality ||
+        c.modality === selectedModality;
 
-        const slaInfo = getSlaInfo(c.createdAt, c.status);
+      const report = reportMap.get(c.id);
+      const stage = getCaseStage(c, report);
+      if (stage === "other" && (c.status === "CANCELLED" || c.status === "NO_SHOW")) {
+        return false;
+      }
 
-        const overdueMatch = !onlyOverdue || slaInfo.isOverdue;
+      const isBreached = isCaseSlaBreached(c);
+      const overdueMatch = !onlyOverdue || isBreached;
 
-        let dateMatch = true;
+      let dateMatch = true;
+      if (dateFilter !== "all") {
+        const stageTs = getStageTimestamp(c, stage, report);
+        const stageDate = new Date(stageTs);
+        const createDate = new Date(c.createdAt);
 
         if (dateFilter === "today") {
-          const caseDateStr = new Date(c.createdAt).toISOString().split("T")[0];
-
-          dateMatch = caseDateStr === todayStr;
+          const sDateStr = !isNaN(stageDate.getTime())
+            ? stageDate.toISOString().split("T")[0]
+            : "";
+          const cDateStr = !isNaN(createDate.getTime())
+            ? createDate.toISOString().split("T")[0]
+            : "";
+          dateMatch = sDateStr === todayStr || cDateStr === todayStr;
+        } else {
+          const maxDiffMs =
+            dateFilter === "7days"
+              ? 7 * 24 * 60 * 60 * 1000
+              : 30 * 24 * 60 * 60 * 1000;
+          const sDiff = !isNaN(stageDate.getTime())
+            ? nowMs - stageDate.getTime()
+            : Infinity;
+          const cDiff = !isNaN(createDate.getTime())
+            ? nowMs - createDate.getTime()
+            : Infinity;
+          dateMatch =
+            (sDiff >= 0 && sDiff <= maxDiffMs) ||
+            (cDiff >= 0 && cDiff <= maxDiffMs);
         }
+      }
 
-        if (dateFilter === "7days") {
-          const diffMs = now.getTime() - new Date(c.createdAt).getTime();
+      return searchMatch && modalityMatch && overdueMatch && dateMatch;
+    });
 
-          dateMatch = diffMs <= 7 * 24 * 60 * 60 * 1000;
-        }
+    // 2. Separate into 4 stages
+    const pendingCases: Case[] = [];
+    const scheduledCases: Case[] = [];
+    const scannedCases: Case[] = [];
+    const finalizedCases: Case[] = [];
 
-        if (dateFilter === "30days") {
-          const diffMs = now.getTime() - new Date(c.createdAt).getTime();
+    for (const c of filtered) {
+      const report = reportMap.get(c.id);
+      const stage = getCaseStage(c, report);
+      if (stage === "pending") pendingCases.push(c);
+      else if (stage === "scheduled") scheduledCases.push(c);
+      else if (stage === "scanned") scannedCases.push(c);
+      else if (stage === "finalized") finalizedCases.push(c);
+    }
 
-          dateMatch = diffMs <= 30 * 24 * 60 * 60 * 1000;
-        }
+    // 3. Stage-aware sorting
+    const sortList = (items: Case[], stage: CaseStage) => {
+      return [...items].sort((a, b) => {
+        const reportA = reportMap.get(a.id);
+        const reportB = reportMap.get(b.id);
+        const tsA =
+          new Date(getStageTimestamp(a, stage, reportA)).getTime() || 0;
+        const tsB =
+          new Date(getStageTimestamp(b, stage, reportB)).getTime() || 0;
 
-        return searchMatch && modalityMatch && overdueMatch && dateMatch;
-      })
-      .sort((a, b) => {
         if (sortOrder === "newest") {
-          return (
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
+          return tsB - tsA;
         }
 
         if (sortOrder === "oldest") {
-          return (
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
+          return tsA - tsB;
         }
 
         if (sortOrder === "severity") {
@@ -164,35 +407,34 @@ export default function TrackStatus() {
           };
 
           const rankA = severityRank[a.severity || "Moderate"] || 2;
-
           const rankB = severityRank[b.severity || "Moderate"] || 2;
 
-          return rankB - rankA;
+          if (rankB !== rankA) return rankB - rankA;
+          return tsB - tsA;
         }
 
         if (sortOrder === "slaBreach") {
-          const slaA = getSlaInfo(a.createdAt, a.status).isOverdue ? 1 : 0;
+          const slaA = isCaseSlaBreached(a) ? 1 : 0;
+          const slaB = isCaseSlaBreached(b) ? 1 : 0;
 
-          const slaB = getSlaInfo(b.createdAt, b.status).isOverdue ? 1 : 0;
-
-          return slaB - slaA;
+          if (slaB !== slaA) return slaB - slaA;
+          return tsB - tsA;
         }
 
         return 0;
       });
-  }, [cases, search, selectedModality, onlyOverdue, dateFilter, sortOrder]);
+    };
 
-  const pending = filteredCases.filter((c) => c.status === "CREATED");
+    const countOverdue = scopedCases.filter((c) => isCaseSlaBreached(c)).length;
 
-  const scheduled = filteredCases.filter((c) => c.status === "SCHEDULED");
-
-  const scanned = filteredCases.filter((c) => c.status === "SCANNED");
-
-  const finalized = filteredCases.filter((c) => c.status === "FINALIZED");
-
-  const overdueCount = cases.filter(
-    (c) => getSlaInfo(c.createdAt, c.status).isOverdue,
-  ).length;
+    return {
+      pending: sortList(pendingCases, "pending"),
+      scheduled: sortList(scheduledCases, "scheduled"),
+      scanned: sortList(scannedCases, "scanned"),
+      finalized: sortList(finalizedCases, "finalized"),
+      overdueCount: countOverdue,
+    };
+  }, [scopedCases, reports, reportMap, search, selectedModality, onlyOverdue, dateFilter, sortOrder]);
 
   return (
     <div className="space-y-2">
@@ -212,7 +454,7 @@ export default function TrackStatus() {
         </div>
 
         {overdueCount > 0 && (
-          <div className="inline-flex items-center gap-3 self-start lg:self-auto px-3 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg translate-y">
+          <div className="inline-flex items-center gap-3 self-start lg:self-auto px-3 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg">
             <AlertTriangle className="w-5 h-5 text-red-600" />
 
             <div>
@@ -434,7 +676,12 @@ export default function TrackStatus() {
           icon={<Circle className="w-3.5 h-3.5" />}
         >
           {pending.map((c) => (
-            <KanbanCard key={c.id} caseData={c} />
+            <KanbanCard
+              key={c.id}
+              caseData={c}
+              stage="pending"
+              report={reportMap.get(c.id)}
+            />
           ))}
         </KanbanColumn>
 
@@ -445,7 +692,12 @@ export default function TrackStatus() {
           icon={<CheckCircle2 className="w-3.5 h-3.5" />}
         >
           {scheduled.map((c) => (
-            <KanbanCard key={c.id} caseData={c} />
+            <KanbanCard
+              key={c.id}
+              caseData={c}
+              stage="scheduled"
+              report={reportMap.get(c.id)}
+            />
           ))}
         </KanbanColumn>
 
@@ -456,7 +708,12 @@ export default function TrackStatus() {
           icon={<Circle className="w-3.5 h-3.5" />}
         >
           {scanned.map((c) => (
-            <KanbanCard key={c.id} caseData={c} />
+            <KanbanCard
+              key={c.id}
+              caseData={c}
+              stage="scanned"
+              report={reportMap.get(c.id)}
+            />
           ))}
         </KanbanColumn>
 
@@ -467,7 +724,12 @@ export default function TrackStatus() {
           icon={<FileCheck2 className="w-3.5 h-3.5" />}
         >
           {finalized.map((c) => (
-            <KanbanCard key={c.id} caseData={c} />
+            <KanbanCard
+              key={c.id}
+              caseData={c}
+              stage="finalized"
+              report={reportMap.get(c.id)}
+            />
           ))}
         </KanbanColumn>
       </div>
@@ -650,13 +912,18 @@ function KanbanColumn({
    CASE CARD
 ========================================================= */
 
-function KanbanCard({ caseData }: { caseData: any }) {
+function KanbanCard({
+  caseData,
+  stage,
+  report,
+}: {
+  caseData: Case;
+  stage: CaseStage;
+  report?: Report;
+}) {
   const indication = getCaseIndication(caseData);
-
-  const sla = getSlaInfo(caseData.createdAt, caseData.status);
-
+  const statusInfo = getCardStatusInfo(caseData, stage, report);
   const avatarStyle = getAvatarColor(caseData.patientName);
-
   const initials = getInitials(caseData.patientName);
 
   return (
@@ -670,9 +937,11 @@ function KanbanCard({ caseData }: { caseData: any }) {
         transition-all
         duration-150
         ${
-          sla.isOverdue
+          statusInfo.isOverdue
             ? "border-red-200 bg-red-50/20 hover:border-red-300"
-            : "border-surface-200 hover:border-navy-300"
+            : statusInfo.isCompleted
+              ? "border-surface-200 hover:border-emerald-300"
+              : "border-surface-200 hover:border-navy-300"
         }
         hover:shadow-sm
       `}
@@ -739,7 +1008,13 @@ function KanbanCard({ caseData }: { caseData: any }) {
           justify-between
           pt-3
           border-t
-          ${sla.isOverdue ? "border-red-100" : "border-surface-100"}
+          ${
+            statusInfo.isOverdue
+              ? "border-red-100"
+              : statusInfo.isCompleted
+                ? "border-emerald-100/70"
+                : "border-surface-100"
+          }
         `}
       >
         <span
@@ -749,15 +1024,29 @@ function KanbanCard({ caseData }: { caseData: any }) {
             gap-1.5
             text-[11px]
             ${
-              sla.isOverdue
+              statusInfo.isOverdue
                 ? "text-red-700 font-bold"
-                : "text-surface-500 font-medium"
+                : statusInfo.isCompleted
+                  ? "text-emerald-700 font-medium"
+                  : "text-surface-500 font-medium"
             }
           `}
         >
-          <Clock className="w-3.5 h-3.5" />
+          {statusInfo.isCompleted ? (
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          ) : statusInfo.isOverdue ? (
+            <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+          ) : stage === "scanned" ? (
+            <ScanLine className="w-3.5 h-3.5 text-surface-400 shrink-0" />
+          ) : stage === "scheduled" ? (
+            <Calendar className="w-3.5 h-3.5 text-surface-400 shrink-0" />
+          ) : (
+            <Clock className="w-3.5 h-3.5 text-surface-400 shrink-0" />
+          )}
 
-          {sla.label}
+          <span className="truncate max-w-[170px]" title={statusInfo.label}>
+            {statusInfo.label}
+          </span>
         </span>
 
         <Link
@@ -771,6 +1060,7 @@ function KanbanCard({ caseData }: { caseData: any }) {
             text-navy-700
             hover:text-navy-900
             transition-colors
+            shrink-0
           "
         >
           View

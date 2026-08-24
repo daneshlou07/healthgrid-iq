@@ -163,7 +163,7 @@ function AppRoutes() {
         <Route path="/fleet" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><FleetManagement /></ProtectedRoute>} />
         <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><PatientRegistry /></ProtectedRoute>} />
         <Route path="/patient-requests" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><PatientRequestsReview /></ProtectedRoute>} />
-        <Route path="/ai-scheduler" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><AISchedulerMap /></ProtectedRoute>} />
+        <Route path="/ai-scheduler" element={<ProtectedRoute allowedRoles={['Super Admin']}><AISchedulerMap /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><Analytics /></ProtectedRoute>} />
         <Route path="/announcements" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><Announcements /></ProtectedRoute>} />
         <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']}><AuditLogs /></ProtectedRoute>} />

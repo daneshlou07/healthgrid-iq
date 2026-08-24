@@ -28,7 +28,7 @@ export default function Analytics() {
   }, {});
 
   // Calculate MO vs Radiologist finalization counts
-  const finalizedCases = cases.filter((c) => c.status === 'FINALIZED');
+  const finalizedCases = cases.filter((c) => c.status === 'FINALIZED' || c.status === 'COMPLETED' || c.status === 'REPORT_SUBMITTED' || Boolean(c.finalizedAt));
   const moFinalizedCount = finalizedCases.filter((c) => c.radiologistName?.toLowerCase().includes('ahmad') || c.radiologistId === 'mo-001').length;
   const radFinalizedCount = finalizedCases.length - moFinalizedCount;
 

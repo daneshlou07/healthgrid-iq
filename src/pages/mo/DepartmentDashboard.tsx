@@ -14,10 +14,10 @@ export default function DepartmentDashboard() {
   const scopedCases = getScopedCases ? getScopedCases() : cases;
   const [showEndShiftModal, setShowEndShiftModal] = useState(false);
 
-  const pending = scopedCases.filter((c) => c.status === 'CREATED');
-  const scheduled = scopedCases.filter((c) => c.status === 'SCHEDULED');
-  const scanned = scopedCases.filter((c) => c.status === 'SCANNED');
-  const finalized = scopedCases.filter((c) => c.status === 'FINALIZED');
+  const pending = scopedCases.filter((c) => c.status === 'CREATED' || c.status === 'CASE_CREATED' || !c.status);
+  const scheduled = scopedCases.filter((c) => c.status === 'SCHEDULED' || c.status === 'SCHEDULING' || c.status === 'RADIOGRAPHER_ASSIGNED' || c.status === 'READY_FOR_SCAN' || c.status === 'SCANNING' || c.status === 'EXTERNAL_SCANNING' || c.status === 'MACHINE_UNAVAILABLE' || c.status === 'EXTERNAL_REFERRAL_PENDING' || c.status === 'BEMZ_REVIEW' || c.status === 'FACILITY_SELECTED' || c.status === 'EXTERNAL_RADIOGRAPHER_ASSIGNED' || c.status === 'PRIVATE_HOSPITAL_ADMIN_REVIEW');
+  const scanned = scopedCases.filter((c) => (c.status === 'SCANNED' || c.status === 'IMAGES_AVAILABLE' || c.status === 'EXTERNAL_IMAGES_AVAILABLE' || c.status === 'RADIOLOGIST_REVIEW' || c.status === 'MO_REVIEW' || c.status === 'REPORTED') && !c.finalizedAt);
+  const finalized = scopedCases.filter((c) => c.status === 'FINALIZED' || c.status === 'COMPLETED' || c.status === 'REPORT_SUBMITTED' || Boolean(c.finalizedAt));
   const recentCases = [...scopedCases].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
 
   const centerId = currentUser?.healthcareCenterId || currentUser?.deploymentLocationId;
@@ -220,7 +220,7 @@ export default function DepartmentDashboard() {
               <div className="flex justify-between border-b border-surface-200/80 pb-1.5">
                 <span className="text-surface-500">Saringan Normal Disahkan (MO Cleared):</span>
                 <span className="font-bold text-emerald-800">
-                  {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && c.status === 'FINALIZED' && !c.isEscalated).length} Kes
+                  {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && (c.status === 'FINALIZED' || c.status === 'COMPLETED' || c.status === 'REPORT_SUBMITTED' || Boolean(c.finalizedAt)) && !c.isEscalated).length} Kes
                 </span>
               </div>
               <div className="flex justify-between border-b border-surface-200/80 pb-1.5">
@@ -332,7 +332,7 @@ export default function DepartmentDashboard() {
             <div className="bg-emerald-50/60 p-3 rounded-lg border border-emerald-200">
               <p className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider">Cleared Normal (MO)</p>
               <p className="text-xl font-bold text-emerald-900 mt-1">
-                {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && c.status === 'FINALIZED' && !c.isEscalated).length}
+                {cases.filter((c) => (c.clinicId === assignedClinic.id || c.clinicName === assignedClinic.name) && (c.status === 'FINALIZED' || c.status === 'COMPLETED' || c.status === 'REPORT_SUBMITTED' || Boolean(c.finalizedAt)) && !c.isEscalated).length}
               </p>
               <p className="text-[10px] text-emerald-700 mt-0.5">Routine screening signed off</p>
             </div>

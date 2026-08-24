@@ -285,7 +285,6 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
   'Administrator': [
     'dashboard',
     'clinics',
-    'ai_scheduler',
     'patients',
     'cases',
     'patient_requests',

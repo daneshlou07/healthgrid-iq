@@ -41,7 +41,11 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <Link to="/track-status" className="btn-secondary text-xs">Track Status</Link>
-            <Link to="/ai-scheduler" className="btn-primary text-xs">Open Scheduler</Link>
+            {currentUser?.role === 'Super Admin' ? (
+              <Link to="/ai-scheduler" className="btn-primary text-xs">Open AI Scheduler</Link>
+            ) : (
+              <Link to="/cases" className="btn-primary text-xs">View Cases Queue</Link>
+            )}
           </div>
         </div>
       )}

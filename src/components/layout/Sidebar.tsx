@@ -347,17 +347,6 @@ function getNavGroups(
                 <Building2 className="w-[18px] h-[18px]" />
               ),
             },
-
-            {
-              label: t(
-                'AI Scheduler',
-                'Penjadual AI'
-              ),
-              path: '/ai-scheduler',
-              icon: (
-                <Brain className="w-[18px] h-[18px]" />
-              ),
-            },
             {
               label: t(
                 'Patient Management',
