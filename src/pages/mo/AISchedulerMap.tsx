@@ -95,13 +95,34 @@ async function cachedGeocode(address: string): Promise<{ lat: number; lon: numbe
   return result;
 }
 
+function createSyntheticPatient(caseItem: Case): Patient {
+  return {
+    id: caseItem.patientId || `pat-${caseItem.id}`,
+    name: caseItem.patientName || 'Unknown Patient',
+    dob: '1995-01-01',
+    gender: ((caseItem as any).patientGender || 'Other') as any,
+    phone: (caseItem as any).patientPhone || '',
+    email: '',
+    address: (caseItem as any).patientAddress || 'Kuala Lumpur, Malaysia',
+    latitude: (caseItem as any).patientLatitude || 3.1390,
+    longitude: (caseItem as any).patientLongitude || 101.6869,
+    medicalHistory: [],
+    nric: (caseItem as any).icNumber || '',
+    mrn: `MRN-${caseItem.id}`,
+    preferredClinicId: caseItem.clinicId,
+  };
+}
+
 export default function AISchedulerMap() {
   const { currentUser } = useAuth();
   const { cases: allCases, clinics: allClinics, patients: allPatients, users, trash, editCase, addAuditLog } = useData();
   const { addNotification } = useNotifications();
 
   const cases = allCases.filter((c) => c.status === 'CREATED');
-  const clinics = allClinics.filter((c) => c.status === 'active');
+  const clinics = useMemo(
+    () => (allClinics.some((c) => c.status === 'active') ? allClinics.filter((c) => c.status === 'active') : allClinics),
+    [allClinics]
+  );
   const patients = allPatients;
 
   // Build live schedule profiles synchronized with User Management
@@ -119,6 +140,10 @@ export default function AISchedulerMap() {
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
+  const selectedClinic = useMemo(
+    () => clinics.find((c) => c.id === selectedClinicId) || allClinics.find((c) => c.id === selectedClinicId) || null,
+    [clinics, allClinics, selectedClinicId]
+  );
   const [recommendedClinicId, setRecommendedClinicId] = useState<string | null>(null);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -172,7 +197,7 @@ export default function AISchedulerMap() {
     }
 
     // Show clean clinic center markers without connecting polylines
-    allClinics.filter((c) => c.status === 'active').forEach((clinic) => {
+    (clinics.length > 0 ? clinics : allClinics).forEach((clinic) => {
       const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
         radius: 8,
         fillColor: '#0F4C42',
@@ -186,7 +211,7 @@ export default function AISchedulerMap() {
     });
 
     map.setView([3.14, 101.69], 10);
-  }, [allClinics]);
+  }, [clinics, allClinics]);
 
   useEffect(() => {
     if (cases.length === 0 && step === 'select-case') {
@@ -210,7 +235,7 @@ export default function AISchedulerMap() {
       markers.clearLayers();
       if (routeLayer.current) { map.removeLayer(routeLayer.current); routeLayer.current = null; }
 
-      clinics.forEach((clinic) => {
+      (clinics.length > 0 ? clinics : allClinics).forEach((clinic) => {
         const isSelected = clinic.id === clinicId;
         const isRecommended = clinic.id === recommendedClinicId;
         const marker = L.circleMarker([clinic.latitude, clinic.longitude], {
@@ -244,48 +269,69 @@ export default function AISchedulerMap() {
         map.setView([patient.latitude, patient.longitude], 13);
       }
     },
-    [clinics, recommendedClinicId]
+    [clinics, allClinics, recommendedClinicId]
   );
 
   const handleCaseSelect = async (caseItem: Case) => {
-    setSelectedCase(caseItem); setSuccess(false);
-    const patient = patients.find((p) => p.id === caseItem.patientId) || null;
+    setSelectedCase(caseItem);
+    setSuccess(false);
+
+    const patient: Patient =
+      patients.find((p) => p.id === caseItem.patientId) ||
+      patients.find((p) => p.name?.trim().toLowerCase() === caseItem.patientName?.trim().toLowerCase()) ||
+      createSyntheticPatient(caseItem);
+
     setSelectedPatient(patient);
 
-    if (patient) {
-      let patLat = patient.latitude;
-      let patLon = patient.longitude;
-      if (!patLat || !patLon) {
-        setRouteLoading(true);
-        const geo = await cachedGeocode(patient.address);
-        if (geo) { patLat = geo.lat; patLon = geo.lon; patient.latitude = geo.lat; patient.longitude = geo.lon; }
-        setRouteLoading(false);
+    let patLat = patient.latitude;
+    let patLon = patient.longitude;
+    if (!patLat || !patLon) {
+      setRouteLoading(true);
+      const geo = await cachedGeocode(patient.address);
+      if (geo) {
+        patLat = geo.lat;
+        patLon = geo.lon;
+        patient.latitude = geo.lat;
+        patient.longitude = geo.lon;
       }
+      setRouteLoading(false);
+    }
 
-      if (patLat && patLon) {
-        const nearest = findNearestClinic(patLat, patLon, clinics.filter((c) => c.status === 'active'));
-        const nearestId = nearest?.clinicId || null;
-        setRecommendedClinicId(nearestId);
+    if (!patLat || !patLon) {
+      patLat = 3.1390;
+      patLon = 101.6869;
+      patient.latitude = patLat;
+      patient.longitude = patLon;
+    }
 
-        // Respect user's explicit preference if designated, otherwise fallback to AI nearest recommendation
-        const userPreferredId = caseItem.clinicId || patient.preferredClinicId;
-        const isValidUserChoice = userPreferredId && clinics.some((c) => c.id === userPreferredId && c.status === 'active');
-        const activeClinicId = isValidUserChoice ? userPreferredId : nearestId;
+    const availableClinics = clinics.length > 0 ? clinics : allClinics;
+    const nearest = findNearestClinic(patLat, patLon, availableClinics);
+    const nearestId = nearest?.clinicId || (availableClinics[0]?.id || null);
+    setRecommendedClinicId(nearestId);
 
-        setSelectedClinicId(activeClinicId);
+    // Respect user's explicit preference if designated, otherwise fallback to AI nearest recommendation
+    const userPreferredId = caseItem.clinicId || patient.preferredClinicId;
+    const isValidUserChoice = userPreferredId && availableClinics.some((c) => c.id === userPreferredId);
+    const activeClinicId = isValidUserChoice ? userPreferredId : nearestId;
 
-        if (activeClinicId) {
-          const clinic = clinics.find((c) => c.id === activeClinicId);
-          if (clinic) {
-            setRouteLoading(true);
-            const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
-            setRouteInfo(route); setRouteLoading(false);
-            updateMap(patient, activeClinicId, route);
-          }
-        }
-        setStep('map-routing');
-      } else { setStep('map-routing'); updateMap(patient, null, null); }
-    } else { setStep('map-routing'); updateMap(null, null, null); }
+    setSelectedClinicId(activeClinicId);
+
+    if (activeClinicId) {
+      const clinic = availableClinics.find((c) => c.id === activeClinicId);
+      if (clinic) {
+        setRouteLoading(true);
+        const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
+        setRouteInfo(route);
+        setRouteLoading(false);
+        updateMap(patient, activeClinicId, route);
+      } else {
+        updateMap(patient, activeClinicId, null);
+      }
+    } else {
+      updateMap(patient, null, null);
+    }
+
+    setStep('map-routing');
   };
 
   const handleClinicChange = async (clinicId: string) => {
@@ -294,22 +340,47 @@ export default function AISchedulerMap() {
     setRecommendedRadiographerId(null);
     setAppointmentTime('');
     setScheduleProfiles(allScheduleProfiles);
-    if (selectedPatient) {
-      let patLat = selectedPatient.latitude;
-      let patLon = selectedPatient.longitude;
-      if (!patLat || !patLon) {
-        const geo = await cachedGeocode(selectedPatient.address);
-        if (geo) { patLat = geo.lat; patLon = geo.lon; selectedPatient.latitude = geo.lat; selectedPatient.longitude = geo.lon; }
+
+    const pat: Patient = selectedPatient || (selectedCase ? createSyntheticPatient(selectedCase) : {
+      id: '',
+      name: 'Unknown Patient',
+      dob: '1995-01-01',
+      gender: 'Other' as any,
+      phone: '',
+      email: '',
+      address: 'Kuala Lumpur, Malaysia',
+      latitude: 3.1390,
+      longitude: 101.6869,
+      medicalHistory: [],
+      nric: '',
+      mrn: '',
+      preferredClinicId: clinicId,
+    });
+
+    let patLat = pat.latitude;
+    let patLon = pat.longitude;
+    if (!patLat || !patLon) {
+      const geo = await cachedGeocode(pat.address);
+      if (geo) {
+        patLat = geo.lat;
+        patLon = geo.lon;
+        pat.latitude = geo.lat;
+        pat.longitude = geo.lon;
       }
-      if (patLat && patLon) {
-        const clinic = clinics.find((c) => c.id === clinicId);
-        if (clinic) {
-          setRouteLoading(true);
-          const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
-          setRouteInfo(route); setRouteLoading(false);
-          updateMap(selectedPatient, clinicId, route);
-        }
-      }
+    }
+    if (!patLat || !patLon) {
+      patLat = 3.1390;
+      patLon = 101.6869;
+    }
+
+    const availableClinics = clinics.length > 0 ? clinics : allClinics;
+    const clinic = availableClinics.find((c) => c.id === clinicId);
+    if (clinic) {
+      setRouteLoading(true);
+      const route = await getRoute(patLat, patLon, clinic.latitude, clinic.longitude);
+      setRouteInfo(route);
+      setRouteLoading(false);
+      updateMap(pat, clinicId, route);
     }
   };
 
@@ -410,8 +481,10 @@ export default function AISchedulerMap() {
 
     // ── Step 2: geocode all patients in parallel ──
     const geocodeTasks = cases.map((caseItem) => async () => {
-      const patient = patients.find((p) => p.id === caseItem.patientId);
-      if (!patient) return null;
+      const patient: Patient =
+        patients.find((p) => p.id === caseItem.patientId) ||
+        patients.find((p) => p.name?.trim().toLowerCase() === caseItem.patientName?.trim().toLowerCase()) ||
+        createSyntheticPatient(caseItem);
 
       let patLat = patient.latitude;
       let patLon = patient.longitude;
@@ -424,7 +497,12 @@ export default function AISchedulerMap() {
           patient.longitude = geo.lon;
         }
       }
-      if (!patLat || !patLon) return null;
+      if (!patLat || !patLon) {
+        patLat = 3.1390;
+        patLon = 101.6869;
+        patient.latitude = patLat;
+        patient.longitude = patLon;
+      }
       return { caseItem, patient, patLat, patLon };
     });
 
@@ -442,15 +520,16 @@ export default function AISchedulerMap() {
       if (result.status !== 'fulfilled' || !result.value) continue;
       const { caseItem, patient, patLat, patLon } = result.value;
 
-      const nearest = findNearestClinic(patLat, patLon, clinics);
+      const availableClinics = clinics.length > 0 ? clinics : allClinics;
+      const nearest = findNearestClinic(patLat, patLon, availableClinics);
 
       const userPreferredId = caseItem.clinicId || patient.preferredClinicId;
-      const isValidChoice = userPreferredId && clinics.some((c) => c.id === userPreferredId && c.status === 'active');
-      const targetClinicId = isValidChoice ? userPreferredId : (nearest?.clinicId || null);
+      const isValidChoice = userPreferredId && availableClinics.some((c) => c.id === userPreferredId);
+      const targetClinicId = isValidChoice ? userPreferredId : (nearest?.clinicId || availableClinics[0]?.id || null);
 
       if (!targetClinicId) continue;
 
-      const clinic = clinics.find((c) => c.id === targetClinicId);
+      const clinic = availableClinics.find((c) => c.id === targetClinicId);
       if (!clinic) continue;
 
       const profiles = (clinicProfileMap.get(targetClinicId) ?? []).length > 0
@@ -759,8 +838,6 @@ export default function AISchedulerMap() {
     }
   };
 
-  const selectedClinic = clinics.find((c) => c.id === selectedClinicId);
-
   return (
     <div className="h-full flex flex-col -m-6 bg-[#F5F8F7]">
       {/* Header */}
@@ -966,12 +1043,12 @@ export default function AISchedulerMap() {
               </div>
             )}
 
-            {step === 'map-routing' && selectedCase && selectedPatient && (
+            {step === 'map-routing' && selectedCase && (
               <div className="space-y-4">
                 <div className="p-3.5 bg-white rounded-xl border border-surface-200 shadow-sm">
                   <p className="text-xs text-surface-500 mb-1">Patient</p>
-                  <p className="text-sm font-medium text-[#112A28]">{selectedPatient.name}</p>
-                  <p className="text-xs text-surface-500 flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> {selectedPatient.address}</p>
+                  <p className="text-sm font-medium text-[#112A28]">{selectedPatient?.name || selectedCase.patientName}</p>
+                  <p className="text-xs text-surface-500 flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> {selectedPatient?.address || (selectedCase as any).patientAddress || 'Kuala Lumpur, Malaysia'}</p>
                   <p className="text-xs text-surface-500 mt-1">Scan: <span className="text-[#0F4C42] font-medium">{selectedCase.scanType}</span></p>
                 </div>
 
@@ -989,7 +1066,7 @@ export default function AISchedulerMap() {
                     )}
                   </div>
                   <select value={selectedClinicId || ''} onChange={(e) => handleClinicChange(e.target.value)} className="select-field text-sm">
-                    {Array.from(new Map(clinics.filter((c) => c.status === 'active' || !c.status).map((c) => [c.name.trim().toLowerCase(), c])).values()).map((c) => {
+                    {Array.from(new Map((clinics.length > 0 ? clinics : allClinics).map((c) => [c.name.trim().toLowerCase(), c])).values()).map((c) => {
                       const isUserChoice = c.id === (selectedCase?.clinicId || selectedPatient?.preferredClinicId);
                       const isNearest = c.id === recommendedClinicId;
                       let tag = '';
