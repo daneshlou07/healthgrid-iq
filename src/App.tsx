@@ -95,6 +95,14 @@ function RoleRouter({
   return currentUser?.role === 'Medical Officer' ? <Mo /> : <Default />;
 }
 
+function BemsRouteRouter() {
+  const { currentUser } = useAuth();
+  if (currentUser?.role === 'BEMS Officer' || currentUser?.role === 'BEMS' || currentUser?.role === 'BEMZ') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <BemsDashboard />;
+}
+
 function OnboardingRouter() {
   const { currentUser } = useAuth();
   if (currentUser?.role === 'Radiographer') return <RadiogrOnboarding />;
@@ -152,7 +160,7 @@ function AppRoutes() {
         <Route path="/track-status" element={<ProtectedRoute allowedRoles={['Medical Officer', 'Administrator', 'BEMS Officer', 'BEMS', 'BEMZ', 'Super Admin', 'Public Hospital Admin', 'Private Hospital Admin']}><MoTrackStatus /></ProtectedRoute>} />
 
         {/* BEMS & External Hospital Routes */}
-        <Route path="/bems" element={<ProtectedRoute allowedRoles={['BEMS Officer', 'BEMS', 'BEMZ', 'Administrator', 'Super Admin']}><BemsDashboard /></ProtectedRoute>} />
+        <Route path="/bems" element={<ProtectedRoute allowedRoles={['BEMS Officer', 'BEMS', 'BEMZ', 'Administrator', 'Super Admin']}><BemsRouteRouter /></ProtectedRoute>} />
         <Route path="/public-admin" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'Public Hospital Admin']}><PublicHospitalAdminDashboard /></ProtectedRoute>} />
         <Route path="/private-admin" element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'Private Hospital Admin']}><PrivateHospitalAdminDashboard /></ProtectedRoute>} />
         <Route path="/external-radiographer" element={<ProtectedRoute allowedRoles={['Radiographer', 'Administrator', 'Super Admin', 'Public Hospital Radiographer', 'Private Hospital Radiographer', 'Public Hospital Admin', 'Private Hospital Admin']}><ExternalRadiographerWorkspace /></ProtectedRoute>} />

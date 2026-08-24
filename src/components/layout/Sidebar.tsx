@@ -794,9 +794,13 @@ function getLocalizedModuleLabel(id: string, defaultLabel: string, t: (en: strin
 function getCategoryTitle(category: string, role: UserRole, t: (en: string, ms: string) => string): string {
   switch (category) {
     case 'Clinical Core':
-      return role === 'Administrator' || role === 'Super Admin'
-        ? t('MANAGEMENT', 'PENGURUSAN')
-        : t('CLINICAL CARE', 'PENJAGAAN KLINIKAL');
+      if (role === 'Administrator' || role === 'Super Admin') {
+        return t('MANAGEMENT', 'PENGURUSAN');
+      }
+      if (role === 'BEMS Officer' || role === 'BEMS' || role === 'BEMZ') {
+        return t('BEMS OPERATIONS', 'OPERASI BEMS');
+      }
+      return t('CLINICAL CARE', 'PENJAGAAN KLINIKAL');
     case 'Imaging & Technical':
       return role.includes('Radiographer')
         ? t('CLINICAL RADIOGRAPHY', 'RADIOGRAFI KLINIKAL')
@@ -862,7 +866,10 @@ export default function Sidebar({
     t
   );
 
-  const activeKeys = roleNavigationConfig?.[effectiveRole] || DEFAULT_ROLE_NAV_CONFIG[effectiveRole] || [];
+  let activeKeys = roleNavigationConfig?.[effectiveRole] || DEFAULT_ROLE_NAV_CONFIG[effectiveRole] || [];
+  if (effectiveRole === 'BEMS Officer' || effectiveRole === 'BEMS' || effectiveRole === 'BEMZ') {
+    activeKeys = activeKeys.filter((k) => k !== 'bems');
+  }
 
   // Dynamically build and group navigation items according to configured role permissions & sequence
   const groups = React.useMemo(() => {
