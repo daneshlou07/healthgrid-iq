@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { User, UserRole } from '../types';
-import { mockUsers } from '../services/mockData';
 import {
   getFirebaseAuth,
   isDemoMode,
@@ -218,39 +217,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const usersRef = collection(db, 'users');
         const snapshot = await getDocs(usersRef);
-
         const firestoreUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
         matched = firestoreUsers.find(matchUser) || null;
-
-        // If not in Firestore yet, find in base pool and write directly to Firestore database
-        if (!matched) {
-          const fallbackMatch = mockUsers.find(matchUser);
-          if (fallbackMatch) {
-            matched = fallbackMatch;
-            await setDoc(doc(db, 'users', matched.id), matched, { merge: true });
-          }
-        }
       } catch (err) {
-        console.warn('Firestore user fetch during login failed, checking fallback pool:', err);
+        console.warn('Firestore user fetch during login failed:', err);
       }
     }
 
     // 2. Local Persistent Cache Fallback
     if (!matched) {
-      let localPool = [...mockUsers];
       try {
         const custom = localStorage.getItem('healthgrid_custom_users');
         if (custom) {
           const parsed = JSON.parse(custom);
           if (Array.isArray(parsed)) {
-            localPool = [...parsed, ...mockUsers];
+            matched = parsed.find(matchUser) || null;
           }
         }
       } catch (e) {
         console.warn('Failed to parse local pool users:', e);
       }
-
-      matched = localPool.find(matchUser) || null;
     }
 
     if (!matched) {
@@ -300,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Super-Admin User Impersonation Feature
   // -----------------------------------------------------------------------
   const impersonateUser = (targetUserId: string, targetUserObj?: User) => {
-    let target = targetUserObj || mockUsers.find((u) => u.id === targetUserId);
+    let target = targetUserObj;
     if (!target) {
       try {
         const custom = localStorage.getItem('healthgrid_custom_users');
@@ -313,7 +299,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!target) return;
 
     if (!originalAdminUser && (currentUser?.email === 'daneshlou05@gmail.com' || isMasterAdmin)) {
-      setOriginalAdminUser(currentUser || mockUsers.find(u => u.email === 'daneshlou05@gmail.com') || null);
+      setOriginalAdminUser(currentUser);
     }
     saveUserSession(target);
   };
@@ -327,25 +313,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Demo Login Helpers (Kept internal for programmatic tests)
   const loginAsRole = (role: UserRole) => {
-    const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
-    saveUserSession(user);
-    recordLoginAudit(user);
+    let target: User | null = null;
+    try {
+      const custom = localStorage.getItem('healthgrid_custom_users');
+      if (custom) {
+        const list: User[] = JSON.parse(custom);
+        target = list.find((u) => u.role === role) || null;
+      }
+    } catch {}
+    if (target) {
+      saveUserSession(target);
+      recordLoginAudit(target);
+    }
   };
 
   const loginAsUser = (userId: string) => {
-    let user = mockUsers.find((u) => u.id === userId);
-    if (!user) {
-      try {
-        const custom = localStorage.getItem('healthgrid_custom_users');
-        if (custom) {
-          const list: User[] = JSON.parse(custom);
-          user = list.find((u) => u.id === userId);
-        }
-      } catch {}
+    let target: User | null = null;
+    try {
+      const custom = localStorage.getItem('healthgrid_custom_users');
+      if (custom) {
+        const list: User[] = JSON.parse(custom);
+        target = list.find((u) => u.id === userId) || null;
+      }
+    } catch {}
+    if (target) {
+      saveUserSession(target);
+      recordLoginAudit(target);
     }
-    const target = user || mockUsers[0];
-    saveUserSession(target);
-    recordLoginAudit(target);
   };
 
   // -----------------------------------------------------------------------

@@ -17,3 +17,7 @@ Whenever code changes or fixes are completed:
 2. **NO GRADIENTS**: Use solid colors, flat background tones, and clean borders. Do not use background gradients (`bg-gradient-to-...`).
 3. **HUMAN CLINICAL DESIGNS ONLY**: Keep designs clean, practical, and hospital-grade. Avoid dark AI-style widgets or flashy neon components.
 4. **CONSISTENT FONTS & FONT SIZES**: Use 1-2 clean typography families max with consistent hierarchy across all pages and views.
+
+## Data & Backend Rules
+1. **NO MOCK DATA EVER**: All current and future features, forms, lists, schedules, and analytics must interact directly with the live database (Firestore / backend API). Never introduce hardcoded mock arrays, fake data seeds in components, or artificial mock fallbacks.
+

@@ -4,31 +4,13 @@ import {
   getDocs,
   getDoc,
   setDoc,
-  addDoc,
   updateDoc,
   deleteDoc,
   query,
   where,
   orderBy,
-  Timestamp,
 } from 'firebase/firestore';
 import { getFirestoreDb, isFirebaseConfigured } from './firebase';
-import {
-  mockUsers,
-  mockClinics,
-  mockOrganizations,
-  mockPatients,
-  mockCases,
-  mockReports,
-  mockPatientRequests,
-  mockAuditLogs,
-  mockMobilePacsVans,
-  mockRadioSchedules,
-  mockFacilityEquipment,
-  mockBemsIncidents,
-  mockCrossOrgReferrals,
-  generateScheduleSlots,
-} from './mockData';
 import type {
   User,
   Clinic,
@@ -40,6 +22,7 @@ import type {
   AuditLog,
   MobilePacsVan,
   RadioScheduleProfile,
+  RadioScheduleSlot,
   FacilityEquipment,
   BemsIncident,
   CrossOrganizationReferral,
@@ -49,6 +32,31 @@ import type {
   HealthcareOrganizationType,
   UserRole,
 } from '../types';
+
+// Generates dynamic schedule time-slots for radiographer appointment booking
+export function generateScheduleSlots(bookedSlots: { date: string; time: string; caseId: string }[] = []): RadioScheduleSlot[] {
+  const slots: RadioScheduleSlot[] = [];
+  const today = new Date();
+  for (let d = 0; d < 14; d++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + d);
+    const dateStr = date.toISOString().slice(0, 10);
+    // Slots from 08:00 to 17:00, each 1 hour
+    for (let h = 8; h < 17; h++) {
+      const startTime = `${String(h).padStart(2, '0')}:00`;
+      const endTime = `${String(h + 1).padStart(2, '0')}:00`;
+      const booked = bookedSlots.find((s) => s.date === dateStr && s.time === startTime);
+      slots.push({
+        date: dateStr,
+        startTime,
+        endTime,
+        booked: !!booked,
+        caseId: booked?.caseId,
+      });
+    }
+  }
+  return slots;
+}
 
 /**
  * Resolves full multi-tenant healthcare center and organization type context
@@ -111,11 +119,6 @@ export function resolveUserFacilityContext(user: User | null, clinics: Clinic[] 
   };
 }
 
-// Helper to determine if we use live Firestore or mock data
-function useMock(): boolean {
-  return !isFirebaseConfigured();
-}
-
 // Generate unique ID
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -123,10 +126,16 @@ function generateId(prefix: string): string {
 
 // ==================== ORGANIZATIONS ====================
 export async function getOrganizations(): Promise<HealthcareOrganization[]> {
-  if (useMock()) return [...mockOrganizations];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'organizations'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as HealthcareOrganization));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(collection(db, 'organizations'));
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as HealthcareOrganization));
+    } catch (e) {
+      console.warn('Firestore getOrganizations warning:', e);
+    }
+  }
+  return [];
 }
 
 // ==================== USERS ====================
@@ -143,32 +152,18 @@ export async function getUsers(): Promise<User[]> {
       const snapshot = await getDocs(collection(db, 'users'));
       const existingUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
       
-      if (existingUsers.length > 0) {
-        const map = new Map<string, User>();
-        existingUsers.forEach((u) => map.set(u.id, u));
-        customUsers.forEach((u) => {
-          if (!map.has(u.id)) map.set(u.id, u);
-        });
-        return Array.from(map.values());
-      }
-
-      // Initial seeding only when Firestore collection is completely empty
-      for (const u of mockUsers) {
-        await setDoc(doc(db, 'users', u.id), u, { merge: true });
-      }
-      for (const u of customUsers) {
-        await setDoc(doc(db, 'users', u.id), u, { merge: true });
-      }
-      return [...mockUsers, ...customUsers];
+      const map = new Map<string, User>();
+      existingUsers.forEach((u) => map.set(u.id, u));
+      customUsers.forEach((u) => {
+        if (!map.has(u.id)) map.set(u.id, u);
+      });
+      return Array.from(map.values());
     } catch (e) {
-      console.warn('Firestore getUsers fallback to mock:', e);
+      console.warn('Firestore getUsers warning:', e);
     }
   }
 
-  const map = new Map<string, User>();
-  mockUsers.forEach((u) => map.set(u.id, u));
-  customUsers.forEach((u) => map.set(u.id, u));
-  return Array.from(map.values());
+  return customUsers;
 }
 
 export async function getUsersByRole(role: string): Promise<User[]> {
@@ -177,14 +172,13 @@ export async function getUsersByRole(role: string): Promise<User[]> {
     try {
       const q = query(collection(db, 'users'), where('role', '==', role));
       const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
-      }
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as User));
     } catch (e) {
-      console.warn('Firestore getUsersByRole fallback to mock:', e);
+      console.warn('Firestore getUsersByRole warning:', e);
     }
   }
-  return mockUsers.filter((u) => u.role === role);
+  const all = await getUsers();
+  return all.filter((u) => u.role === role);
 }
 
 export async function saveUser(user: User): Promise<User> {
@@ -274,10 +268,16 @@ export function sanitizeUserRole(u: User): User {
 
 // ==================== CLINICS ====================
 export async function getClinics(): Promise<Clinic[]> {
-  if (useMock()) return [...mockClinics];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'clinics'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Clinic));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(collection(db, 'clinics'));
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Clinic));
+    } catch (e) {
+      console.warn('Firestore getClinics warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function saveClinic(clinic: Clinic): Promise<Clinic> {
@@ -309,84 +309,125 @@ export async function deleteClinicDoc(id: string): Promise<void> {
 
 // ==================== PATIENTS ====================
 export async function getPatients(): Promise<Patient[]> {
-  if (useMock()) return [...mockPatients];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'patients'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(collection(db, 'patients'));
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
+    } catch (e) {
+      console.warn('Firestore getPatients warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function getPatient(id: string): Promise<Patient | null> {
-  if (useMock()) return mockPatients.find((p) => p.id === id) || null;
-  const db = getFirestoreDb()!;
-  const snap = await getDoc(doc(db, 'patients', id));
-  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Patient) : null;
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snap = await getDoc(doc(db, 'patients', id));
+      return snap.exists() ? ({ id: snap.id, ...snap.data() } as Patient) : null;
+    } catch (e) {
+      console.warn('Firestore getPatient warning:', e);
+    }
+  }
+  return null;
 }
 
 export async function getPatientsByClinic(clinicId: string): Promise<Patient[]> {
-  if (useMock()) return mockPatients.filter((p) => p.clinicId === clinicId);
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'patients'), where('clinicId', '==', clinicId));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const q = query(collection(db, 'patients'), where('clinicId', '==', clinicId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
+    } catch (e) {
+      console.warn('Firestore getPatientsByClinic warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function createPatient(patient: Omit<Patient, 'id'>): Promise<Patient> {
   const id = generateId('patient');
   const newPatient: Patient = { ...patient, id };
 
-  if (useMock()) {
-    mockPatients.push(newPatient);
-    return newPatient;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await setDoc(doc(db, 'patients', id), newPatient);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'patients', id), newPatient, { merge: true });
+    } catch (e) {
+      console.warn('Firestore createPatient warning:', e);
+    }
+  }
   return newPatient;
 }
 
 export async function updatePatient(id: string, updates: Partial<Patient>): Promise<void> {
-  if (useMock()) {
-    const idx = mockPatients.findIndex((p) => p.id === id);
-    if (idx !== -1) Object.assign(mockPatients[idx], updates);
-    return;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await updateDoc(doc(db, 'patients', id), updates as any);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'patients', id), updates as any, { merge: true });
+    } catch (e) {
+      console.warn('Firestore updatePatient warning:', e);
+    }
+  }
 }
 
 // ==================== CASES ====================
 export async function getCases(): Promise<Case[]> {
-  if (useMock()) return [...mockCases];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'cases'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(query(collection(db, 'cases'), orderBy('createdAt', 'desc')));
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+    } catch (e) {
+      console.warn('Firestore getCases warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function getCasesByRegistrar(registeredById: string): Promise<Case[]> {
-  if (useMock()) return mockCases.filter((c) => c.registeredById === registeredById);
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'cases'), where('registeredById', '==', registeredById));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const q = query(collection(db, 'cases'), where('registeredById', '==', registeredById));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+    } catch (e) {
+      console.warn('Firestore getCasesByRegistrar warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function getCasesByStatus(status: CaseStatus): Promise<Case[]> {
-  if (useMock()) return mockCases.filter((c) => c.status === status);
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'cases'), where('status', '==', status));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const q = query(collection(db, 'cases'), where('status', '==', status));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+    } catch (e) {
+      console.warn('Firestore getCasesByStatus warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function getCasesByRadiographer(radiographerId: string): Promise<Case[]> {
-  if (useMock()) return mockCases.filter((c) => c.radiographerId === radiographerId);
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'cases'), where('radiographerId', '==', radiographerId));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const q = query(collection(db, 'cases'), where('radiographerId', '==', radiographerId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Case));
+    } catch (e) {
+      console.warn('Firestore getCasesByRadiographer warning:', e);
+    }
+  }
+  return [];
 }
 
 // Data Validation Safeguards
@@ -407,29 +448,28 @@ export async function createCase(c: Omit<Case, 'id'>): Promise<Case> {
   const id = generateId('case');
   const newCase: Case = { ...c, id };
 
-  if (useMock()) {
-    mockCases.push(newCase);
-    return newCase;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await setDoc(doc(db, 'cases', id), newCase);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'cases', id), newCase, { merge: true });
+    } catch (e) {
+      console.warn('Firestore createCase warning:', e);
+    }
+  }
   return newCase;
 }
 
 export async function updateCase(id: string, updates: Partial<Case>): Promise<void> {
   if (!id) throw new Error('Update case failed: Missing document ID');
 
-  if (useMock()) {
-    const idx = mockCases.findIndex((c) => c.id === id);
-    if (idx !== -1) Object.assign(mockCases[idx], updates);
-    return;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await updateDoc(doc(db, 'cases', id), updates as any);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'cases', id), updates as any, { merge: true });
+    } catch (e) {
+      console.warn('Firestore updateCase warning:', e);
+    }
+  }
 }
 
 export async function updateCaseWorksheet(
@@ -449,20 +489,32 @@ export async function updateCaseWorksheet(
 
 // ==================== REPORTS ====================
 export async function getReports(): Promise<Report[]> {
-  if (useMock()) return [...mockReports];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'reports'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Report));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(collection(db, 'reports'));
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Report));
+    } catch (e) {
+      console.warn('Firestore getReports warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function getReportByCase(caseId: string): Promise<Report | null> {
-  if (useMock()) return mockReports.find((r) => r.caseId === caseId) || null;
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'reports'), where('caseId', '==', caseId));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const d = snapshot.docs[0];
-  return { id: d.id, ...d.data() } as Report;
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const q = query(collection(db, 'reports'), where('caseId', '==', caseId));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return null;
+      const d = snapshot.docs[0];
+      return { id: d.id, ...d.data() } as Report;
+    } catch (e) {
+      console.warn('Firestore getReportByCase warning:', e);
+    }
+  }
+  return null;
 }
 
 export async function createReport(report: Omit<Report, 'id'>): Promise<Report> {
@@ -470,107 +522,122 @@ export async function createReport(report: Omit<Report, 'id'>): Promise<Report> 
   const id = generateId('report');
   const newReport: Report = { ...report, id };
 
-  if (useMock()) {
-    mockReports.push(newReport);
-    return newReport;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await setDoc(doc(db, 'reports', id), newReport);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'reports', id), newReport, { merge: true });
+    } catch (e) {
+      console.warn('Firestore createReport warning:', e);
+    }
+  }
   return newReport;
 }
 
 export async function updateReport(id: string, updates: Partial<Report>): Promise<void> {
   if (!id) throw new Error('Update report failed: Missing document ID');
 
-  if (useMock()) {
-    const idx = mockReports.findIndex((r) => r.id === id);
-    if (idx !== -1) Object.assign(mockReports[idx], updates);
-    return;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await updateDoc(doc(db, 'reports', id), updates as any);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'reports', id), updates as any, { merge: true });
+    } catch (e) {
+      console.warn('Firestore updateReport warning:', e);
+    }
+  }
 }
 
 // ==================== PATIENT REQUESTS ====================
 export async function getPatientRequests(): Promise<PatientRequest[]> {
-  if (useMock()) return [...mockPatientRequests];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'patient_requests'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as PatientRequest));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(collection(db, 'patient_requests'));
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as PatientRequest));
+    } catch (e) {
+      console.warn('Firestore getPatientRequests warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function createPatientRequest(req: Omit<PatientRequest, 'id'>): Promise<PatientRequest> {
   const id = generateId('req');
   const newReq: PatientRequest = { ...req, id };
 
-  if (useMock()) {
-    mockPatientRequests.push(newReq);
-    return newReq;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await setDoc(doc(db, 'patient_requests', id), newReq);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'patient_requests', id), newReq, { merge: true });
+    } catch (e) {
+      console.warn('Firestore createPatientRequest warning:', e);
+    }
+  }
   return newReq;
 }
 
 export async function updatePatientRequest(id: string, updates: Partial<PatientRequest>): Promise<void> {
-  if (useMock()) {
-    const idx = mockPatientRequests.findIndex((r) => r.id === id);
-    if (idx !== -1) Object.assign(mockPatientRequests[idx], updates);
-    return;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await updateDoc(doc(db, 'patient_requests', id), updates as any);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'patient_requests', id), updates as any, { merge: true });
+    } catch (e) {
+      console.warn('Firestore updatePatientRequest warning:', e);
+    }
+  }
 }
 
 // ==================== AUDIT LOGS ====================
 export async function getAuditLogs(): Promise<AuditLog[]> {
-  if (useMock()) return [...mockAuditLogs].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  const db = getFirestoreDb()!;
-  const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AuditLog));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AuditLog));
+    } catch (e) {
+      console.warn('Firestore getAuditLogs warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function createAuditLog(log: Omit<AuditLog, 'id'>): Promise<void> {
   const id = generateId('audit');
   const newLog: AuditLog = { ...log, id };
 
-  if (useMock()) {
-    mockAuditLogs.push(newLog);
-    return;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await setDoc(doc(db, 'audit_logs', id), newLog);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'audit_logs', id), newLog, { merge: true });
+    } catch (e) {
+      console.warn('Firestore createAuditLog warning:', e);
+    }
+  }
 }
 
 // ==================== MOBILE PACS VANS ====================
 export async function getMobilePacsVans(): Promise<MobilePacsVan[]> {
-  if (useMock()) return [...mockMobilePacsVans];
-  const db = getFirestoreDb()!;
-  const snapshot = await getDocs(collection(db, 'mobile_pacs_vans'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as MobilePacsVan));
+  const db = getFirestoreDb();
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(collection(db, 'mobile_pacs_vans'));
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as MobilePacsVan));
+    } catch (e) {
+      console.warn('Firestore getMobilePacsVans warning:', e);
+    }
+  }
+  return [];
 }
 
 export async function updateMobilePacsVan(id: string, updates: Partial<MobilePacsVan>): Promise<void> {
-  if (useMock()) {
-    const idx = mockMobilePacsVans.findIndex((v) => v.id === id);
-    if (idx !== -1) Object.assign(mockMobilePacsVans[idx], updates);
-    return;
-  }
-
   const db = getFirestoreDb();
-  if (!db) throw new Error('Firestore is not initialised');
-  await updateDoc(doc(db, 'mobile_pacs_vans', id), updates as any);
+  if (db && isFirebaseConfigured()) {
+    try {
+      await setDoc(doc(db, 'mobile_pacs_vans', id), updates as any, { merge: true });
+    } catch (e) {
+      console.warn('Firestore updateMobilePacsVan warning:', e);
+    }
+  }
 }
 
 // ==================== RADIOGRAPHER SCHEDULES ====================
@@ -587,23 +654,9 @@ export function buildLiveRadioSchedules(
   );
 
   return activeRadiographers.map((rad) => {
-    const existing = mockRadioSchedules.find((p) => p.userId === rad.id);
     const assignedClinic = clinicsList.find(
       (c) => c.id === rad.deploymentLocationId
     ) || clinicsList[0];
-
-    if (existing) {
-      return {
-        ...existing,
-        userName: rad.name,
-        deployedClinicId: rad.deploymentLocationId || existing.deployedClinicId,
-        deployedClinicName: assignedClinic?.name || existing.deployedClinicName,
-        supportedModalities: rad.supportedModalities && rad.supportedModalities.length > 0
-          ? rad.supportedModalities
-          : existing.supportedModalities,
-        shift: rad.shift ? `${rad.shift} (08:00–17:00)` : existing.shift,
-      };
-    }
 
     return {
       userId: rad.id,
@@ -630,17 +683,16 @@ export async function getRadioSchedules(
   if (customUsers && customClinics) {
     return buildLiveRadioSchedules(customUsers, customClinics, deletedIds);
   }
-  if (useMock()) return [...mockRadioSchedules];
   const db = getFirestoreDb();
-  if (!db) return [...mockRadioSchedules];
-  try {
-    const snapshot = await getDocs(collection(db, 'radio_schedules'));
-    if (snapshot.empty) return [...mockRadioSchedules];
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as RadioScheduleProfile));
-  } catch (err) {
-    console.warn('Firestore getRadioSchedules failed, falling back to mock:', err);
-    return [...mockRadioSchedules];
+  if (db && isFirebaseConfigured()) {
+    try {
+      const snapshot = await getDocs(collection(db, 'radio_schedules'));
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as RadioScheduleProfile));
+    } catch (err) {
+      console.warn('Firestore getRadioSchedules warning:', err);
+    }
   }
+  return [];
 }
 
 export async function getRadioSchedulesByClinic(
@@ -670,7 +722,7 @@ export async function getExternalReferrals(): Promise<ExternalImagingRequest[]> 
       const snapshot = await getDocs(q);
       return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as ExternalImagingRequest));
     } catch (e) {
-      console.warn('Firestore getExternalReferrals fallback:', e);
+      console.warn('Firestore getExternalReferrals warning:', e);
     }
   }
   const raw = localStorage.getItem('healthgrid_external_referrals');
@@ -686,7 +738,7 @@ export async function getExternalReferralById(id: string): Promise<ExternalImagi
         return { id: docSnap.id, ...docSnap.data() } as ExternalImagingRequest;
       }
     } catch (e) {
-      console.warn('Firestore getExternalReferralById fallback:', e);
+      console.warn('Firestore getExternalReferralById warning:', e);
     }
   }
   const all = await getExternalReferrals();
@@ -700,7 +752,7 @@ export async function createExternalReferral(req: Omit<ExternalImagingRequest, '
   const db = getFirestoreDb();
   if (db && isFirebaseConfigured()) {
     try {
-      await setDoc(doc(db, 'external_referrals', id), newReq);
+      await setDoc(doc(db, 'external_referrals', id), newReq, { merge: true });
     } catch (e) {
       console.warn('Firestore createExternalReferral failed:', e);
     }
@@ -721,7 +773,7 @@ export async function updateExternalReferral(id: string, updates: Partial<Extern
   const db = getFirestoreDb();
   if (db && isFirebaseConfigured()) {
     try {
-      await updateDoc(doc(db, 'external_referrals', id), updates as any);
+      await setDoc(doc(db, 'external_referrals', id), updates as any, { merge: true });
     } catch (e) {
       console.warn('Firestore updateExternalReferral fallback:', e);
     }
@@ -741,14 +793,12 @@ export async function getFacilityEquipment(): Promise<FacilityEquipment[]> {
   if (db && isFirebaseConfigured()) {
     try {
       const snap = await getDocs(collection(db, 'facility_equipment'));
-      if (!snap.empty) {
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FacilityEquipment));
-      }
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FacilityEquipment));
     } catch (e) {
-      console.warn('Firestore getFacilityEquipment fallback:', e);
+      console.warn('Firestore getFacilityEquipment warning:', e);
     }
   }
-  return mockFacilityEquipment;
+  return [];
 }
 
 export async function getBemsIncidents(): Promise<BemsIncident[]> {
@@ -756,14 +806,12 @@ export async function getBemsIncidents(): Promise<BemsIncident[]> {
   if (db && isFirebaseConfigured()) {
     try {
       const snap = await getDocs(collection(db, 'bems_incidents'));
-      if (!snap.empty) {
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BemsIncident));
-      }
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BemsIncident));
     } catch (e) {
-      console.warn('Firestore getBemsIncidents fallback:', e);
+      console.warn('Firestore getBemsIncidents warning:', e);
     }
   }
-  return mockBemsIncidents;
+  return [];
 }
 
 export async function getCrossOrgReferrals(): Promise<CrossOrganizationReferral[]> {
@@ -771,13 +819,10 @@ export async function getCrossOrgReferrals(): Promise<CrossOrganizationReferral[
   if (db && isFirebaseConfigured()) {
     try {
       const snap = await getDocs(collection(db, 'cross_org_referrals'));
-      if (!snap.empty) {
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as CrossOrganizationReferral));
-      }
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() } as CrossOrganizationReferral));
     } catch (e) {
-      console.warn('Firestore getCrossOrgReferrals fallback:', e);
+      console.warn('Firestore getCrossOrgReferrals warning:', e);
     }
   }
-  return mockCrossOrgReferrals;
+  return [];
 }
-

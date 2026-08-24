@@ -20,11 +20,6 @@ import {
   getFacilityEquipment, getBemsIncidents, getCrossOrgReferrals,
   sanitizeUserRole,
 } from '../services/dataService';
-import {
-  mockUsers, mockClinics, mockOrganizations, mockPatients, mockCases, mockReports,
-  mockPatientRequests, mockMobilePacsVans,
-  mockFacilityEquipment, mockBemsIncidents, mockCrossOrgReferrals,
-} from '../services/mockData';
 import { mockEquipmentCatalog, mockInitialQuotations } from '../services/mockMarketplaceData';
 import { useAuth } from './AuthContext';
 import { calculateFacilityRoutingRecommendations } from '../services/routingService';
@@ -417,7 +412,7 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [organizations, setOrganizations] = useState<HealthcareOrganization[]>(() => mockOrganizations);
+  const [organizations, setOrganizations] = useState<HealthcareOrganization[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -531,18 +526,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const isConfigured = isFirebaseConfigured();
     const persisted = !isConfigured ? loadFromStorage() : null;
 
-    let initUsers: User[] = mockUsers;
-    let initCases: Case[] = mockCases;
-    let initPatients: Patient[] = mockPatients;
-    let initClinics: Clinic[] = mockClinics;
-    let initReports: Report[] = mockReports;
-    let initRequests: PatientRequest[] = mockPatientRequests;
+    let initUsers: User[] = [];
+    let initCases: Case[] = [];
+    let initPatients: Patient[] = [];
+    let initClinics: Clinic[] = [];
+    let initReports: Report[] = [];
+    let initRequests: PatientRequest[] = [];
     let initLogs: AuditLog[] = [];
-    let initEquipment: MobilePacsVan[] = mockMobilePacsVans;
+    let initEquipment: MobilePacsVan[] = [];
     let initReferrals: ExternalImagingRequest[] = [];
-    let initFacilityEquipment: FacilityEquipment[] = mockFacilityEquipment;
-    let initBemsIncidents: BemsIncident[] = mockBemsIncidents;
-    let initCrossOrgReferrals: CrossOrganizationReferral[] = mockCrossOrgReferrals;
+    let initFacilityEquipment: FacilityEquipment[] = [];
+    let initBemsIncidents: BemsIncident[] = [];
+    let initCrossOrgReferrals: CrossOrganizationReferral[] = [];
 
     if (isConfigured) {
       try {
@@ -560,13 +555,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
           getBemsIncidents().catch(() => []),
           getCrossOrgReferrals().catch(() => []),
         ]);
-        initUsers = u?.length ? u : mockUsers;
-        initCases = c?.length ? c : mockCases;
-        initPatients = p?.length ? p : mockPatients;
-        initClinics = cl?.length ? cl : mockClinics;
-        initReports = r?.length ? r : mockReports;
-        initRequests = pr?.length ? pr : mockPatientRequests;
-        initEquipment = eq?.length ? eq : mockMobilePacsVans;
+        initUsers = u || [];
+        initCases = c || [];
+        initPatients = p || [];
+        initClinics = cl || [];
+        initReports = r || [];
+        initRequests = pr || [];
+        initEquipment = eq || [];
         initLogs = al || [];
         initReferrals = ref || [];
         if (fe?.length) initFacilityEquipment = fe;
@@ -1762,17 +1757,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
       }
 
-      const batch = writeBatch(db);
-      mockUsers.forEach((u) => batch.set(doc(db, 'users', u.id), clean(u)));
-      mockClinics.forEach((c) => batch.set(doc(db, 'clinics', c.id), clean(c)));
-      mockPatients.forEach((p) => batch.set(doc(db, 'patients', p.id), clean(p)));
-      mockCases.forEach((c) => batch.set(doc(db, 'cases', c.id), clean(c)));
-      mockReports.forEach((r) => batch.set(doc(db, 'reports', r.id), clean(r)));
-      mockPatientRequests.forEach((pr) => batch.set(doc(db, 'patient_requests', pr.id), clean(pr)));
-      mockMobilePacsVans.forEach((v) => batch.set(doc(db, 'mobile_pacs_vans', v.id), clean(v)));
-
-      await batch.commit();
-
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(COMMENTS_KEY);
       localStorage.removeItem(RECENT_KEY);
@@ -1792,27 +1776,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
     let data: any = null;
     switch (type) {
       case 'user':
-        data = users.find((u) => u.id === id) || mockUsers.find((u) => u.id === id);
+        data = users.find((u) => u.id === id);
         setUsers((prev) => prev.filter((u) => u.id !== id));
         break;
       case 'clinic':
-        data = clinics.find((c) => c.id === id) || mockClinics.find((c) => c.id === id);
+        data = clinics.find((c) => c.id === id);
         setClinics((prev) => prev.filter((c) => c.id !== id));
         break;
       case 'equipment':
-        data = equipment.find((e) => e.id === id) || mockMobilePacsVans.find((e) => e.id === id);
+        data = equipment.find((e) => e.id === id);
         setEquipment((prev) => prev.filter((e) => e.id !== id));
         break;
       case 'patient':
-        data = patients.find((p) => p.id === id) || mockPatients.find((p) => p.id === id);
+        data = patients.find((p) => p.id === id);
         setPatients((prev) => prev.filter((p) => p.id !== id));
         break;
       case 'case':
-        data = cases.find((c) => c.id === id) || mockCases.find((c) => c.id === id);
+        data = cases.find((c) => c.id === id);
         setCases((prev) => prev.filter((c) => c.id !== id));
         break;
       case 'patientRequest':
-        data = patientRequests.find((r) => r.id === id) || mockPatientRequests.find((r) => r.id === id);
+        data = patientRequests.find((r) => r.id === id);
         setPatientRequests((prev) => prev.filter((r) => r.id !== id));
         break;
     }

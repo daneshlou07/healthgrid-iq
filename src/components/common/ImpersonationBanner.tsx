@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
-import { mockUsers } from '../../services/mockData';
 import type { User } from '../../types';
 import { Shield, ArrowLeft, UserCheck } from 'lucide-react';
 
