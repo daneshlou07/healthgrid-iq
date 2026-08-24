@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Case, RadioScheduleProfile, RadioScheduleSlot } from '../../types';
-import { User, CheckCircle, AlertTriangle, Sparkles } from 'lucide-react';
+import { User, CheckCircle, AlertTriangle, Sparkles, Building2 } from 'lucide-react';
 
 interface Props {
   profiles: RadioScheduleProfile[];
@@ -9,6 +9,7 @@ interface Props {
   recommendedId: string | null;
   onSelect: (userId: string) => void;
   existingCases?: Case[];
+  targetClinicId?: string | null;
 }
 
 /**
@@ -324,7 +325,6 @@ export function getRecommendationReasons(
   if (workloadRatio <= 0.5) reasons.push('Low workload');
   else if (workloadRatio <= 0.75) reasons.push('Acceptable workload');
 
-  reasons.push('Closest to assigned healthcare centre');
   reasons.push('Meets scheduling constraints');
 
   return reasons;
@@ -361,6 +361,7 @@ export default function RadiograperSelector({
   recommendedId,
   onSelect,
   existingCases,
+  targetClinicId,
 }: Props) {
   let eligible = profiles.filter(
     (p) =>
@@ -376,22 +377,40 @@ export default function RadiograperSelector({
     (p) => !eligible.some((e) => e.userId === p.userId)
   );
 
+  // Sort eligible profiles:
+  // 1. Recommended (Best Match)
+  // 2. On-Site at target clinic
+  // 3. Alphabetical
+  const sortedEligible = [...eligible].sort((a, b) => {
+    if (a.userId === recommendedId) return -1;
+    if (b.userId === recommendedId) return 1;
+
+    const aOnSite = targetClinicId && a.deployedClinicId === targetClinicId ? 1 : 0;
+    const bOnSite = targetClinicId && b.deployedClinicId === targetClinicId ? 1 : 0;
+    if (bOnSite !== aOnSite) return bOnSite - aOnSite;
+
+    return a.userName.localeCompare(b.userName);
+  });
+
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-surface-500">
-        Radiographer Assignment
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-surface-500">
+          Radiographer Assignment ({sortedEligible.length} Available)
+        </h3>
+      </div>
 
       {eligible.length === 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-700">
           <AlertTriangle className="h-4 w-4" />
-          No eligible radiographers at this clinic for {requiredModality}.
+          No eligible radiographers available for {requiredModality}.
         </div>
       )}
 
-      {eligible.map((profile) => {
+      {sortedEligible.map((profile) => {
         const isRecommended = profile.userId === recommendedId;
         const isSelected = profile.userId === selectedId;
+        const isOnSite = Boolean(targetClinicId && profile.deployedClinicId === targetClinicId);
 
         const liveCaseload = existingCases
           ? existingCases.filter(
@@ -422,22 +441,30 @@ export default function RadiograperSelector({
             type="button"
             onClick={() => onSelect(profile.userId)}
             className={`w-full rounded-xl border p-3.5 text-left shadow-sm transition-all duration-150 ${isSelected
-                ? 'border-[#9FC8BE] bg-[#F1F8F6] ring-1 ring-[#CFE3DD]'
+                ? 'border-[#0F4C42] bg-[#F1F8F6] ring-1 ring-[#0F4C42]'
                 : 'border-surface-200 bg-white hover:border-[#9FC8BE] hover:shadow-md'
               }`}
           >
             <div className="mb-2 flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E4F2EE]">
-                  <User className="h-3.5 w-3.5 text-surface-600" />
+                  <User className="h-3.5 w-3.5 text-[#0F4C42]" />
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-surface-800">
-                    {profile.userName}
-                  </p>
-                  <p className="text-[10px] text-surface-500">
-                    {profile.shift}
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-bold text-surface-900">
+                      {profile.userName}
+                    </p>
+                    {isOnSite && (
+                      <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800 border border-emerald-200">
+                        On-Site
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-surface-500 flex items-center gap-1">
+                    <Building2 className="w-3 h-3 text-surface-400" />
+                    {profile.deployedClinicName || 'Healthcare Facility'} &middot; {profile.shift}
                   </p>
                 </div>
               </div>

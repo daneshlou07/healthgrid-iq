@@ -132,13 +132,8 @@ export default function AISchedulerMap() {
 
   // Keep scheduleProfiles synchronized when users/radiographers are created or deleted
   useEffect(() => {
-    if (selectedClinicId) {
-      const filtered = allScheduleProfiles.filter((s) => s.deployedClinicId === selectedClinicId);
-      setScheduleProfiles(filtered.length > 0 ? filtered : allScheduleProfiles);
-    } else {
-      setScheduleProfiles(allScheduleProfiles);
-    }
-  }, [allScheduleProfiles, selectedClinicId]);
+    setScheduleProfiles(allScheduleProfiles);
+  }, [allScheduleProfiles]);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -290,10 +285,11 @@ export default function AISchedulerMap() {
   };
 
   const handleClinicChange = async (clinicId: string) => {
-    setSelectedClinicId(clinicId); setSelectedRadiographerId(null); setRecommendedRadiographerId(null); setAppointmentTime('');
-    let profiles = allScheduleProfiles.filter((s) => s.deployedClinicId === clinicId);
-    if (profiles.length === 0) profiles = allScheduleProfiles;
-    setScheduleProfiles(profiles);
+    setSelectedClinicId(clinicId);
+    setSelectedRadiographerId(null);
+    setRecommendedRadiographerId(null);
+    setAppointmentTime('');
+    setScheduleProfiles(allScheduleProfiles);
     if (selectedPatient) {
       let patLat = selectedPatient.latitude;
       let patLon = selectedPatient.longitude;
@@ -315,15 +311,17 @@ export default function AISchedulerMap() {
 
   const handleProceedToAssignment = async () => {
     if (!selectedClinicId || !selectedCase) return;
-    let profiles = allScheduleProfiles.filter((s) => s.deployedClinicId === selectedClinicId);
-    if (profiles.length === 0) profiles = allScheduleProfiles;
-    setScheduleProfiles(profiles);
+    setScheduleProfiles(allScheduleProfiles);
     const modality = extractModality(selectedCase.scanType);
-    const bestId = recommendBestRadiographer(profiles, modality, cases);
+    const onSiteProfiles = allScheduleProfiles.filter((s) => s.deployedClinicId === selectedClinicId);
+    const bestId =
+      recommendBestRadiographer(onSiteProfiles.length > 0 ? onSiteProfiles : allScheduleProfiles, modality, cases) ||
+      recommendBestRadiographer(allScheduleProfiles, modality, cases);
+
     setSelectedRadiographerId(bestId);
     setRecommendedRadiographerId(bestId);
     if (bestId) {
-      const bestProfile = profiles.find((p) => p.userId === bestId);
+      const bestProfile = allScheduleProfiles.find((p) => p.userId === bestId);
       if (bestProfile) {
         const slot = getEarliestSlot(bestProfile.schedule, bestId, cases, undefined, selectedCase.id);
         if (slot) {
@@ -1042,6 +1040,7 @@ export default function AISchedulerMap() {
                   recommendedId={recommendedRadiographerId}
                   onSelect={handleRadiographerSelect}
                   existingCases={cases}
+                  targetClinicId={selectedClinicId}
                 />
 
                 {selectedRadiographerId && appointmentTime && (
