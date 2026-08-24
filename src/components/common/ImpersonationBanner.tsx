@@ -5,20 +5,21 @@ import type { User } from '../../types';
 import { Shield, ArrowLeft, UserCheck } from 'lucide-react';
 
 const ROLE_HIERARCHY_RANK: Record<string, number> = {
-  'Super Admin': 1,
   'Master Admin': 1,
-  'BEMS Officer': 2,
-  'BEMZ': 2,
-  'BEMS': 2,
+  'Super Admin': 2,
   'Administrator': 3,
+  'Admin': 3,
   'Medical Officer': 4,
-  'Radiologist': 5,
-  'Radiographer': 6,
-  'Public Hospital Admin': 7,
-  'Public Hospital Radiographer': 8,
-  'Private Hospital Admin': 9,
-  'Private Hospital Radiographer': 10,
-  'Equipment Marketplace': 11,
+  'Radiographer': 5,
+  'Radiologist': 6,
+  'BEMS Officer': 7,
+  'BEMZ': 7,
+  'BEMS': 7,
+  'Public Hospital Admin': 8,
+  'Public Hospital Radiographer': 9,
+  'Private Hospital Admin': 10,
+  'Private Hospital Radiographer': 11,
+  'Equipment Marketplace': 12,
 };
 
 export default function ImpersonationBanner() {
@@ -117,7 +118,7 @@ export default function ImpersonationBanner() {
               const facilitySuffix = facility ? ` — ${facility.name}` : '';
               return (
                 <option key={user.id} value={user.id}>
-                  [{user.email === 'daneshlou05@gmail.com' ? 'Master Admin' : user.role}] {user.name}{facilitySuffix} ({user.email})
+                  [{user.email === 'daneshlou05@gmail.com' ? 'Master Admin' : user.role === 'Administrator' ? 'Admin' : user.role}] {user.email === 'daneshlou05@gmail.com' ? 'Danesh' : user.name}{facilitySuffix} ({user.email})
                 </option>
               );
             })}

@@ -197,7 +197,7 @@ export default function LoginPage() {
                   <p className="font-semibold text-[#0F172A]">Please contact system administration to issue your reset password:</p>
                   <ul className="list-disc pl-4 space-y-1 font-medium">
                     <li><strong>System Admin</strong>: Tan Wei Ming (<code>weiming.tan@healthgrid.my</code>)</li>
-                    <li><strong>Master Admin</strong>: Master Administrator (<code>daneshlou05@gmail.com</code>)</li>
+                    <li><strong>Master Admin</strong>: Danesh (<code>daneshlou05@gmail.com</code>)</li>
                   </ul>
                 </div>
 
