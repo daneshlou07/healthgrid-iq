@@ -273,6 +273,18 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
     'upload_scans',
     'credentials',
   ],
+  'Public Hospital Radiographer': [
+    'dashboard',
+    'scan_queue',
+    'upload_scans',
+    'credentials',
+  ],
+  'Private Hospital Radiographer': [
+    'dashboard',
+    'scan_queue',
+    'upload_scans',
+    'credentials',
+  ],
   'Radiologist': [
     'dashboard',
     'reporting',
@@ -281,6 +293,24 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
   'BEMS Officer': [
     'dashboard',
     'bems',
+  ],
+  'BEMS': [
+    'dashboard',
+    'bems',
+  ],
+  'BEMZ': [
+    'dashboard',
+    'bems',
+  ],
+  'Public Hospital Admin': [
+    'dashboard',
+    'public_admin',
+    'track_status',
+  ],
+  'Private Hospital Admin': [
+    'dashboard',
+    'private_admin',
+    'track_status',
   ],
   'Administrator': [
     'dashboard',
@@ -353,7 +383,13 @@ export function loadRoleNavConfig(): RoleNavigationConfig {
           }
         }
         if (role === 'BEMS Officer' || role === 'BEMZ' || role === 'BEMS') {
-          merged[role as UserRole] = ['dashboard'];
+          if (!filtered.includes('dashboard')) {
+            filtered.unshift('dashboard');
+          }
+          if (!filtered.includes('bems')) {
+            filtered.push('bems');
+          }
+          merged[role as UserRole] = filtered;
           continue;
         }
         merged[role as UserRole] = filtered;
