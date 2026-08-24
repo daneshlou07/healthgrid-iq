@@ -97,6 +97,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     const safeUser = { ...user };
+    if (safeUser.email === 'daneshlou05@gmail.com') {
+      safeUser.name = 'Danesh';
+      delete safeUser.healthcareCenterId;
+      delete safeUser.deploymentLocationId;
+    } else if (safeUser.role === 'Super Admin') {
+      delete safeUser.healthcareCenterId;
+      delete safeUser.deploymentLocationId;
+    }
     delete safeUser.password;
     setCurrentUser(safeUser);
     localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(safeUser));
@@ -111,6 +119,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const userObj = JSON.parse(saved);
         if (userObj?.password) delete userObj.password;
+        if (userObj?.email === 'daneshlou05@gmail.com') {
+          userObj.name = 'Danesh';
+          delete userObj.healthcareCenterId;
+          delete userObj.deploymentLocationId;
+        } else if (userObj?.role === 'Super Admin') {
+          delete userObj.healthcareCenterId;
+          delete userObj.deploymentLocationId;
+        }
         setCurrentUser(userObj);
       } catch {
         localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
@@ -258,6 +274,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isMasterValid) {
         throw new Error('Invalid master password.');
       }
+      matched.name = 'Danesh';
+      delete (matched as any).healthcareCenterId;
+      delete (matched as any).deploymentLocationId;
+      delete (matched as any).healthcareCenterName;
       setOriginalAdminUser(null);
       saveUserSession(matched);
       recordLoginAudit(matched);

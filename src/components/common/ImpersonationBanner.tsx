@@ -47,7 +47,16 @@ export default function ImpersonationBanner() {
       }
       const emailKey = (u.email || u.id).toLowerCase();
       if (!deletedUserIds.has(u.id) && !deletedEmails.has(emailKey)) {
-        map.set(emailKey, u);
+        const item = { ...u };
+        if (item.email === 'daneshlou05@gmail.com') {
+          item.name = 'Danesh';
+          item.healthcareCenterId = undefined;
+          item.deploymentLocationId = undefined;
+        } else if (item.role === 'Super Admin') {
+          item.healthcareCenterId = undefined;
+          item.deploymentLocationId = undefined;
+        }
+        map.set(emailKey, item);
       }
     });
 
@@ -113,12 +122,17 @@ export default function ImpersonationBanner() {
           >
             <option value="" disabled>-- Select User to Impersonate --</option>
             {allAvailableUsers.map((user) => {
-              const centerId = user.healthcareCenterId || user.deploymentLocationId;
+              const isMaster = user.email === 'daneshlou05@gmail.com';
+              const isSuper = user.role === 'Super Admin';
+              const isUntied = isMaster || isSuper;
+              const centerId = isUntied ? null : (user.healthcareCenterId || user.deploymentLocationId);
               const facility = centerId ? clinics.find((c) => c.id === centerId) : null;
               const facilitySuffix = facility ? ` — ${facility.name}` : '';
+              const displayName = isMaster ? 'Danesh' : user.name;
+              const displayRole = isMaster ? 'Master Admin' : user.role === 'Administrator' ? 'Admin' : user.role;
               return (
                 <option key={user.id} value={user.id}>
-                  [{user.email === 'daneshlou05@gmail.com' ? 'Master Admin' : user.role === 'Administrator' ? 'Admin' : user.role}] {user.email === 'daneshlou05@gmail.com' ? 'Danesh' : user.name}{facilitySuffix} ({user.email})
+                  [{displayRole}] {displayName}{facilitySuffix} ({user.email})
                 </option>
               );
             })}
