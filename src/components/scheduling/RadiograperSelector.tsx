@@ -1,9 +1,11 @@
 import React from 'react';
 import type { Case, RadioScheduleProfile, RadioScheduleSlot, SeverityLevel } from '../../types';
-import { User, CheckCircle, AlertTriangle, Sparkles, Building2 } from 'lucide-react';
+import { User, CheckCircle, AlertTriangle, Sparkles, Building2, ChevronDown, ChevronUp, Clock, MapPin } from 'lucide-react';
+import SeverityBadge from '../ui/SeverityBadge';
 
 interface Props {
   profiles: RadioScheduleProfile[];
+  allProfiles?: RadioScheduleProfile[];
   requiredModality: string;
   selectedId: string | null;
   recommendedId: string | null;
@@ -12,6 +14,7 @@ interface Props {
   targetClinicId?: string | null;
   targetClinicName?: string | null;
   caseSeverity?: SeverityLevel;
+  onReassignCase?: (caseId: string, newRadiographerId: string) => void | Promise<void>;
 }
 
 /**
@@ -447,6 +450,7 @@ export function recommendBestRadiographer(
 
 export default function RadiograperSelector({
   profiles,
+  allProfiles,
   requiredModality,
   selectedId,
   recommendedId,
@@ -455,7 +459,14 @@ export default function RadiograperSelector({
   targetClinicId,
   targetClinicName,
   caseSeverity,
+  onReassignCase,
 }: Props) {
+  // State for expanded 3-day schedule and filters
+  const [expandedScheduleId, setExpandedScheduleId] = React.useState<string | null>(null);
+  const [severityFilter, setSeverityFilter] = React.useState<string>('all');
+  const [reassigningCaseId, setReassigningCaseId] = React.useState<string | null>(null);
+  const [targetReassignRadId, setTargetReassignRadId] = React.useState<string>('');
+
   // Strictly filter to radiographers stationed at the selected healthcare centre
   const facilityProfiles = (targetClinicId || targetClinicName)
     ? profiles.filter((p) => isRadiographerAtClinic(p, targetClinicId, targetClinicName))
@@ -501,32 +512,34 @@ export default function RadiograperSelector({
       {sortedProfiles.map((profile) => {
         const isRecommended = profile.userId === recommendedId;
         const isSelected = profile.userId === selectedId;
+        const isExpanded = expandedScheduleId === profile.userId;
         const isOnSite = Boolean(targetClinicId && profile.deployedClinicId === targetClinicId);
 
         const assignedCases = existingCases
           ? existingCases.filter(
             (c) =>
               c.radiographerId === profile.userId &&
-              (c.status === 'SCHEDULED' || c.status === 'SCANNED')
+              (c.status === 'SCHEDULED' || c.status === 'SCANNED' || c.status === 'READY_FOR_SCAN')
           )
           : [];
 
         const liveCaseload = assignedCases.length > 0 ? assignedCases.length : profile.currentCaseload;
         const activeCriticalCount = assignedCases.filter((c) => c.severity === 'Critical').length;
         const activeSevereCount = assignedCases.filter((c) => c.severity === 'Severe').length;
+        const activeModerateCount = assignedCases.filter((c) => c.severity === 'Moderate').length;
 
-        // Calculate assigned minutes: X-Ray 20m, CT 35m, MRI 45m, Ultrasound 25m
+        // Calculate assigned minutes across scheduled cases: X-Ray 20m, CT 35m, MRI 45m, Ultrasound 25m
         const assignedMinutes = assignedCases.reduce((total, c) => {
           const mod = extractModality(c.scanType || '');
           const duration = mod === 'MRI' ? 45 : mod === 'CT' ? 35 : mod === 'Ultrasound' ? 25 : 20;
           return total + duration;
         }, 0);
 
-        const workloadPct = Math.min(
+        // 3-Day Workload Utilization (3 days @ 8h/day = 1440 minutes max standard capacity)
+        const total3DayCapacityMinutes = 1440;
+        const utilizationPct = Math.min(
           100,
-          Math.round(
-            (liveCaseload / Math.max(1, profile.maxDailyCaseload)) * 100
-          )
+          Math.round((assignedMinutes / total3DayCapacityMinutes) * 100)
         );
 
         const reasons = isRecommended
@@ -540,11 +553,10 @@ export default function RadiograperSelector({
           : [];
 
         return (
-          <button
+          <div
             key={profile.userId}
-            type="button"
             onClick={() => onSelect(profile.userId)}
-            className={`w-full rounded-xl border p-3 text-left shadow-xs transition-all duration-150 ${isSelected
+            className={`w-full rounded-xl border p-3 text-left shadow-xs transition-all duration-150 cursor-pointer ${isSelected
                 ? 'border-[#0F4C42] bg-[#F1F8F6] ring-1 ring-[#0F4C42]'
                 : 'border-surface-200 bg-white hover:border-[#9FC8BE] hover:shadow-sm'
               }`}
@@ -587,24 +599,24 @@ export default function RadiograperSelector({
               </div>
             </div>
 
-            {/* Workload and Severity in hand */}
-            <div className="space-y-1.5 bg-surface-50/70 p-2 rounded-lg border border-surface-100 text-[11px]">
+            {/* 3-Day Workload Utilization & Severity in hand */}
+            <div className="space-y-1.5 bg-surface-50/80 p-2.5 rounded-lg border border-surface-200/80 text-[11px]">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-medium text-surface-500">Live Workload:</span>
-                <span className="font-semibold text-surface-700 text-[10px]">
-                  {liveCaseload}/{profile.maxDailyCaseload} cases · {assignedMinutes} min assigned
+                <span className="text-[10px] font-semibold text-surface-600">3-Day Workload Utilization:</span>
+                <span className="font-bold text-surface-900 text-[10px] tabular-nums">
+                  {assignedMinutes} / 1440 min &middot; {utilizationPct}% ({liveCaseload} {liveCaseload === 1 ? 'case' : 'cases'})
                 </span>
               </div>
 
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-200">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-surface-200">
                 <div
-                  className={`h-full rounded-full transition-all duration-300 ${workloadPct > 80
+                  className={`h-full rounded-full transition-all duration-300 ${utilizationPct > 80
                       ? 'bg-red-500'
-                      : workloadPct > 50
+                      : utilizationPct > 50
                         ? 'bg-amber-500'
-                        : 'bg-emerald-500'
+                        : 'bg-[#0F4C42]'
                     }`}
-                  style={{ width: `${Math.max(5, workloadPct)}%` }}
+                  style={{ width: `${Math.max(4, utilizationPct)}%` }}
                 />
               </div>
 
@@ -623,6 +635,11 @@ export default function RadiograperSelector({
                   {activeSevereCount > 0 && (
                     <span className="bg-orange-50 text-orange-800 border border-orange-200 px-1.5 py-0.2 rounded font-semibold">
                       {activeSevereCount} Severe
+                    </span>
+                  )}
+                  {activeModerateCount > 0 && (
+                    <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded font-medium">
+                      {activeModerateCount} Mod
                     </span>
                   )}
                 </div>
@@ -648,6 +665,175 @@ export default function RadiograperSelector({
               <span className="text-emerald-700 font-semibold">Ready for Dispatch</span>
             </div>
 
+            {/* Expandable 3-Day Schedule & Itinerary Toggle */}
+            <div className="mt-2.5 pt-2 border-t border-surface-200/70 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedScheduleId(isExpanded ? null : profile.userId);
+                }}
+                className="text-[11px] font-semibold text-[#0F4C42] hover:text-[#0b3831] flex items-center gap-1 cursor-pointer"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>Hide 3-Day Schedule</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>View 3-Day Schedule &amp; Cases ({assignedCases.length})</span>
+                  </>
+                )}
+              </button>
+              <span className="text-[10px] text-surface-400">
+                {profile.shift || 'Day (08:00–17:00)'}
+              </span>
+            </div>
+
+            {/* Expanded 3-Day Schedule Inspector & Reassignment Panel */}
+            {isExpanded && (
+              <div
+                className="mt-2.5 p-2.5 bg-surface-50 rounded-xl border border-surface-200 space-y-2.5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Severity Filter Pills */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-surface-600 uppercase tracking-wider">
+                    Filter Cases by Severity:
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {(['all', 'Mild', 'Moderate', 'Severe', 'Critical'] as const).map((sev) => {
+                      const count = sev === 'all'
+                        ? assignedCases.length
+                        : assignedCases.filter((c) => (c.severity || 'Moderate') === sev).length;
+                      const isActive = severityFilter === sev;
+
+                      return (
+                        <button
+                          key={sev}
+                          type="button"
+                          onClick={() => setSeverityFilter(sev)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${isActive
+                              ? 'bg-[#0F4C42] text-white'
+                              : 'bg-white text-surface-600 border border-surface-200 hover:bg-surface-100'
+                            }`}
+                        >
+                          {sev === 'all' ? 'All' : sev} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Cases List */}
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+                  {assignedCases.length === 0 ? (
+                    <p className="text-[11px] text-surface-400 italic py-2 text-center">
+                      No cases currently scheduled for this 3-day window.
+                    </p>
+                  ) : (
+                    assignedCases
+                      .filter((c) => severityFilter === 'all' || (c.severity || 'Moderate') === severityFilter)
+                      .map((c, idx) => {
+                        const mod = extractModality(c.scanType || '');
+                        const duration = mod === 'MRI' ? 45 : mod === 'CT' ? 35 : mod === 'Ultrasound' ? 25 : 20;
+                        const timeDisplay = c.scheduledAt ? c.scheduledAt.replace('T', ' ').slice(5, 16) : `Slot ${idx + 1}`;
+                        const isReassigning = reassigningCaseId === c.id;
+
+                        return (
+                          <div
+                            key={c.id}
+                            className="p-2 bg-white rounded-lg border border-surface-200 shadow-2xs space-y-1 text-[11px]"
+                          >
+                            <div className="flex items-start justify-between gap-1.5">
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono font-bold text-[#0F4C42] text-[11px]">
+                                    {c.caseNumber}
+                                  </span>
+                                  <SeverityBadge severity={c.severity || 'Moderate'} />
+                                </div>
+                                <p className="font-medium text-surface-800 text-[11px] mt-0.5">
+                                  {c.patientName} &middot; {c.scanType}
+                                </p>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                <span className="text-[10px] text-surface-500 font-semibold flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-surface-400" />
+                                  {timeDisplay} ({duration}m)
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1 border-t border-surface-100 text-[10px]">
+                              <span className="text-surface-500 flex items-center gap-1 truncate max-w-[200px]">
+                                <MapPin className="w-3 h-3 text-surface-400 shrink-0" />
+                                {c.clinicName || profile.deployedClinicName || 'Healthcare Center'}
+                              </span>
+
+                              {onReassignCase && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReassigningCaseId(isReassigning ? null : c.id);
+                                    setTargetReassignRadId('');
+                                  }}
+                                  className="text-[10px] font-bold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                >
+                                  {isReassigning ? 'Cancel' : 'Reassign'}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Inline Reassignment Dropdown */}
+                            {isReassigning && onReassignCase && (
+                              <div className="pt-1.5 border-t border-amber-200 bg-amber-50/60 -mx-2 -mb-2 p-2 rounded-b-lg space-y-1.5">
+                                <p className="text-[10px] font-bold text-amber-900">
+                                  Reallocate Case to Another Radiographer:
+                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <select
+                                    value={targetReassignRadId}
+                                    onChange={(e) => setTargetReassignRadId(e.target.value)}
+                                    className="select-field text-[11px] py-1 bg-white flex-1"
+                                  >
+                                    <option value="">-- Select Radiographer --</option>
+                                    {(allProfiles || profiles)
+                                      .filter((p) => p.userId !== profile.userId && p.leaveStatus !== 'On Leave')
+                                      .map((p) => (
+                                        <option key={p.userId} value={p.userId}>
+                                          {p.userName} ({p.deployedClinicName || 'Facility'})
+                                        </option>
+                                      ))}
+                                  </select>
+
+                                  <button
+                                    type="button"
+                                    disabled={!targetReassignRadId}
+                                    onClick={async () => {
+                                      if (!targetReassignRadId) return;
+                                      await onReassignCase(c.id, targetReassignRadId);
+                                      setReassigningCaseId(null);
+                                      setTargetReassignRadId('');
+                                    }}
+                                    className="btn-primary text-[10px] px-2.5 py-1 bg-[#0F4C42] hover:bg-[#0c3c34] font-bold disabled:opacity-40"
+                                  >
+                                    Confirm
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
+            )}
+
             {isRecommended && reasons.length > 0 && (
               <div className="mt-2.5 border-t border-emerald-100 bg-emerald-50/40 -mx-3 -mb-3 p-2.5 rounded-b-xl">
                 <p className="mb-1 text-[9px] font-bold text-emerald-900 uppercase tracking-wider">
@@ -667,7 +853,7 @@ export default function RadiograperSelector({
                 </div>
               </div>
             )}
-          </button>
+          </div>
         );
       })}
 

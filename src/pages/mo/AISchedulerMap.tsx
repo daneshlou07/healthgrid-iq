@@ -460,6 +460,47 @@ export default function AISchedulerMap() {
     updateMap(null, null, null);
   };
 
+  const handleReassignCase = async (caseId: string, newRadiographerId: string) => {
+    const targetRad = allScheduleProfiles.find((p) => p.userId === newRadiographerId);
+    const targetUser = users.find((u) => u.id === newRadiographerId);
+    const radName = targetRad?.userName || targetUser?.name || 'Assigned Radiographer';
+
+    try {
+      await editCase(caseId, {
+        radiographerId: newRadiographerId,
+        radiographerName: radName,
+        status: 'SCHEDULED',
+      });
+
+      if (addAuditLog) {
+        addAuditLog({
+          action: 'REASSIGN_RADIOGRAPHER',
+          target: `Case ${caseId}`,
+          userId: currentUser?.id || 'system',
+          userName: currentUser?.name || 'System Dispatcher',
+          userRole: currentUser?.role || 'mo',
+          details: `Reallocated case ${caseId} to radiographer ${radName} (${newRadiographerId})`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      addNotification({
+        userId: currentUser?.id || 'all',
+        type: 'info',
+        title: 'Radiographer Reassigned',
+        message: `Case successfully reallocated to ${radName}.`,
+      });
+    } catch (err) {
+      console.error('Error reassigning radiographer:', err);
+      addNotification({
+        userId: currentUser?.id || 'all',
+        type: 'error',
+        title: 'Reassignment Failed',
+        message: 'Failed to update radiographer assignment in live database.',
+      });
+    }
+  };
+
   // ─── BULK SCHEDULE (Phase 1: build preview) ──────────────────────────────────
   const handleBulkSchedule = async () => {
     if (!currentUser) return;
@@ -1143,6 +1184,7 @@ export default function AISchedulerMap() {
 
                 <RadiograperSelector
                   profiles={scheduleProfiles}
+                  allProfiles={allScheduleProfiles}
                   requiredModality={extractModality(selectedCase.scanType)}
                   selectedId={selectedRadiographerId}
                   recommendedId={recommendedRadiographerId}
@@ -1151,6 +1193,7 @@ export default function AISchedulerMap() {
                   targetClinicId={selectedClinicId}
                   targetClinicName={selectedClinic?.name}
                   caseSeverity={selectedCase.severity || 'Moderate'}
+                  onReassignCase={handleReassignCase}
                 />
 
                 {selectedRadiographerId && appointmentTime && (
