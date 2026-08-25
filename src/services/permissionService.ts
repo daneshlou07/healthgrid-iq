@@ -379,10 +379,6 @@ export function loadRoleNavConfig(): RoleNavigationConfig {
             filtered.splice(dIdx + 1, 0, 'reporting');
           }
         }
-        if (role === 'BEMS Officer' || role === 'BEMZ' || role === 'BEMS') {
-          merged[role as UserRole] = ['dashboard'];
-          continue;
-        }
         merged[role as UserRole] = filtered;
       }
     }
