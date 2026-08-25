@@ -10,6 +10,7 @@ interface Props {
   onSelect: (userId: string) => void;
   existingCases?: Case[];
   targetClinicId?: string | null;
+  targetClinicName?: string | null;
   caseSeverity?: SeverityLevel;
 }
 
@@ -239,11 +240,48 @@ export function getAvailableSlots(
     });
 }
 
+export function isRadiographerAtClinic(
+  profile: RadioScheduleProfile,
+  targetClinicId?: string | null,
+  targetClinicName?: string | null
+): boolean {
+  if (!targetClinicId && !targetClinicName) return true;
+
+  // 1. Direct ID match
+  if (targetClinicId && profile.deployedClinicId) {
+    if (profile.deployedClinicId === targetClinicId) return true;
+    const pClean = profile.deployedClinicId.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const tClean = targetClinicId.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (pClean && tClean && (pClean === tClean || pClean.includes(tClean) || tClean.includes(pClean))) {
+      return true;
+    }
+  }
+
+  // 2. Clean Name match
+  if (targetClinicName && profile.deployedClinicName) {
+    const pName = profile.deployedClinicName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const tName = targetClinicName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (pName && tName && (pName === tName || pName.includes(tName) || tName.includes(pName))) {
+      return true;
+    }
+  }
+
+  // 3. Fallback name check if targetClinicId contains recognizable name tokens (e.g. 'bestari', 'cherakah', etc.)
+  if (targetClinicId && profile.deployedClinicName) {
+    const pName = profile.deployedClinicName.toLowerCase();
+    const tId = targetClinicId.toLowerCase();
+    if (pName.includes(tId) || tId.includes(pName)) return true;
+  }
+
+  return false;
+}
+
 export function scoreRadiographer(
   profile: RadioScheduleProfile,
   requiredModality: string,
   existingCases?: Case[],
   targetClinicId?: string | null,
+  targetClinicName?: string | null,
   caseSeverity?: SeverityLevel
 ): number {
   if (profile.leaveStatus === 'On Leave') return Infinity;
@@ -288,8 +326,8 @@ export function scoreRadiographer(
 
   // Location / On-site bonus/penalty: heavily prioritize radiographers stationed at the clinic
   let locationScore = 0;
-  if (targetClinicId) {
-    if (profile.deployedClinicId === targetClinicId) {
+  if (targetClinicId || targetClinicName) {
+    if (isRadiographerAtClinic(profile, targetClinicId, targetClinicName)) {
       locationScore = -1000; // Strong preference for on-site radiographer
     } else {
       locationScore = 600; // Deprioritize radiographers stationed at other clinics
@@ -327,11 +365,12 @@ export function getRecommendationReasons(
   requiredModality: string,
   existingCases?: Case[],
   targetClinicId?: string | null,
+  targetClinicName?: string | null,
   caseSeverity?: SeverityLevel
 ): string[] {
   const reasons: string[] = [];
 
-  if (targetClinicId && profile.deployedClinicId === targetClinicId) {
+  if ((targetClinicId || targetClinicName) && isRadiographerAtClinic(profile, targetClinicId, targetClinicName)) {
     reasons.push(`Stationed on-site at ${profile.deployedClinicName || 'this healthcare centre'}`);
   }
 
@@ -376,14 +415,15 @@ export function recommendBestRadiographer(
   requiredModality: string,
   existingCases?: Case[],
   targetClinicId?: string | null,
+  targetClinicName?: string | null,
   caseSeverity?: SeverityLevel
 ): string | null {
   let bestId: string | null = null;
   let bestScore = Infinity;
 
   // Strictly filter to radiographers stationed at the selected healthcare centre
-  const candidateProfiles = targetClinicId
-    ? profiles.filter((p) => p.deployedClinicId === targetClinicId)
+  const candidateProfiles = (targetClinicId || targetClinicName)
+    ? profiles.filter((p) => isRadiographerAtClinic(p, targetClinicId, targetClinicName))
     : profiles;
 
   for (const profile of candidateProfiles) {
@@ -392,6 +432,7 @@ export function recommendBestRadiographer(
       requiredModality,
       existingCases,
       targetClinicId,
+      targetClinicName,
       caseSeverity
     );
 
@@ -412,11 +453,12 @@ export default function RadiograperSelector({
   onSelect,
   existingCases,
   targetClinicId,
+  targetClinicName,
   caseSeverity,
 }: Props) {
   // Strictly filter to radiographers stationed at the selected healthcare centre
-  const facilityProfiles = targetClinicId
-    ? profiles.filter((p) => p.deployedClinicId === targetClinicId)
+  const facilityProfiles = (targetClinicId || targetClinicName)
+    ? profiles.filter((p) => isRadiographerAtClinic(p, targetClinicId, targetClinicName))
     : profiles;
 
   const eligible = facilityProfiles.filter(

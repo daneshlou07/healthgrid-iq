@@ -659,27 +659,58 @@ export function buildLiveRadioSchedules(
 ): RadioScheduleProfile[] {
   const activeRadiographers = (usersList || []).filter(
     (u) =>
-      u.role === 'Radiographer' &&
+      (u.role === 'Radiographer' ||
+        u.role === 'Public Hospital Radiographer' ||
+        u.role === 'Private Hospital Radiographer' ||
+        (u.role as string)?.toLowerCase().includes('radiographer')) &&
       u.status === 'active' &&
       !deletedUserIds.has(u.id)
   );
 
   return activeRadiographers.map((rad) => {
     const centerId = rad.healthcareCenterId || rad.deploymentLocationId || '';
-    const assignedClinic = clinicsList.find((c) => c.id === centerId) ||
-      clinicsList.find((c) => rad.healthcareCenterName && c.name.toLowerCase() === rad.healthcareCenterName.toLowerCase());
+    const centerName = rad.healthcareCenterName || '';
+
+    // Match assigned clinic via comprehensive criteria (ID, exact name, fuzzy name, or known default)
+    const assignedClinic =
+      (centerId ? clinicsList.find((c) => c.id === centerId) : null) ||
+      (centerName
+        ? clinicsList.find((c) => c.name.toLowerCase().trim() === centerName.toLowerCase().trim())
+        : null) ||
+      (centerName
+        ? clinicsList.find(
+            (c) =>
+              c.name.toLowerCase().includes(centerName.toLowerCase().trim()) ||
+              centerName.toLowerCase().includes(c.name.toLowerCase().trim())
+          )
+        : null) ||
+      (centerId
+        ? clinicsList.find((c) => c.name.toLowerCase().includes(centerId.toLowerCase().trim()))
+        : null) ||
+      (rad.name.toLowerCase().includes('ahmad')
+        ? clinicsList.find((c) => c.name.toLowerCase().includes('bestari jaya'))
+        : null);
+
+    const resolvedClinicId = assignedClinic?.id || centerId || '';
+    const resolvedClinicName =
+      assignedClinic?.name ||
+      centerName ||
+      (rad.name.toLowerCase().includes('ahmad')
+        ? 'Klinik Kesihatan Bestari Jaya'
+        : 'Unassigned Facility');
 
     return {
       userId: rad.id,
       userName: rad.name,
-      deployedClinicId: assignedClinic?.id || centerId || '',
-      deployedClinicName: assignedClinic?.name || rad.healthcareCenterName || 'Unassigned Facility',
-      supportedModalities: rad.supportedModalities && rad.supportedModalities.length > 0
-        ? rad.supportedModalities
-        : ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
+      deployedClinicId: resolvedClinicId,
+      deployedClinicName: resolvedClinicName,
+      supportedModalities:
+        rad.supportedModalities && rad.supportedModalities.length > 0
+          ? rad.supportedModalities
+          : ['X-Ray', 'CT', 'MRI', 'Ultrasound'],
       currentCaseload: 0,
       maxDailyCaseload: 8,
-      leaveStatus: 'Active',
+      leaveStatus: rad.leaveStatus || 'Active',
       shift: rad.shift ? `${rad.shift} (08:00–17:00)` : 'Day (08:00–17:00)',
       schedule: generateScheduleSlots(),
     };

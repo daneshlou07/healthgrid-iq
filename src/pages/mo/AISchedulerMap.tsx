@@ -394,6 +394,7 @@ export default function AISchedulerMap() {
       modality,
       cases,
       selectedClinicId,
+      selectedClinic?.name,
       selectedCase.severity
     );
 
@@ -546,6 +547,7 @@ export default function AISchedulerMap() {
         modality,
         cases,
         targetClinicId,
+        clinic?.name,
         caseItem.severity
       );
       if (!bestId) continue;
@@ -1147,6 +1149,7 @@ export default function AISchedulerMap() {
                   onSelect={handleRadiographerSelect}
                   existingCases={allCases}
                   targetClinicId={selectedClinicId}
+                  targetClinicName={selectedClinic?.name}
                   caseSeverity={selectedCase.severity || 'Moderate'}
                 />
 
